@@ -1,11 +1,15 @@
 'use client';
+import useAuthRedirect from '@/hooks/useAuthRedirect';
 import { useEffect, useState } from 'react';
 import { auth, db } from '../../lib/firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
+import { signOut } from 'firebase/auth';
 
 
-
+export default function Home() {
+  useAuthRedirect(true); // Protects & redirects if no profile
+}
 export default function Home() {
   const router = useRouter();
   const [userData, setUserData] = useState(null);
@@ -17,6 +21,11 @@ export default function Home() {
         router.push('/');
         return;
       }
+    const handleLogout = async () => {
+      await signOut(auth);
+      router.push('/');
+      };
+      
 
       const docRef = doc(db, 'users', uid);
       const docSnap = await getDoc(docRef);
@@ -119,10 +128,17 @@ export default function Home() {
             </span>
             <span>›</span>
           </button>
+          
         ))}
       </div>
 
       <p className="text-sm text-gray-700 mt-8">📍 We Are Happy You Are Home</p>
+      <button
+  onClick={handleLogout}
+  className="w-full mt-6 text-red-600 border border-red-600 py-2 rounded-md font-semibold hover:bg-red-100 max-w-sm"
+>
+  Logout
+</button>
     </main>
   );
 }

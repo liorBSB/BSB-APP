@@ -1,10 +1,14 @@
 'use client';
+import useAuthRedirect from '@/hooks/useAuthRedirect';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { auth, db } from '../../lib/firebase';
 import { doc, setDoc } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 
+export default function ProfileSetup() {
+    useAuthRedirect(); // Only checks login (not profile)
+}
 export default function ProfileSetup() {
   const router = useRouter();
 
