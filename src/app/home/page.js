@@ -18,12 +18,7 @@ export default function Home() {
         router.push('/');
         return;
       }
-    const handleLogout = async () => {
-      await signOut(auth);
-      router.push('/');
-      };
-      
-
+    
       const docRef = doc(db, 'users', uid);
       const docSnap = await getDoc(docRef);
 
@@ -34,6 +29,12 @@ export default function Home() {
 
     fetchUserData();
   }, []);
+
+  const handleLogout = async () => {
+    await signOut(auth);
+    router.push('/');
+    };
+
 
   const toggleStatus = async () => {
     if (!auth.currentUser) return;
