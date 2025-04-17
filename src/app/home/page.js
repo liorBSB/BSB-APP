@@ -130,12 +130,16 @@ export default function Home() {
       </div>
 
       <p className="text-sm text-gray-700 mt-8">📍 We Are Happy You Are Home</p>
-      <button
-  onClick={handleLogout}
-  className="w-full mt-6 text-red-600 border border-red-600 py-2 rounded-md font-semibold hover:bg-red-100 max-w-sm"
->
-  Logout
-</button>
+
+<div className="w-full max-w-sm">
+  <button
+    onClick={handleLogout}
+    className="mt-4 w-full text-red-600 border border-red-600 py-2 rounded-md font-semibold hover:bg-red-100"
+  >
+    Logout
+  </button>
+</div>
+
     </main>
   );
 }
