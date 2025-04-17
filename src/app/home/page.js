@@ -8,9 +8,6 @@ import { signOut } from 'firebase/auth';
 
 
 export default function Home() {
-  useAuthRedirect(true); // Protects & redirects if no profile
-}
-export default function Home() {
   const router = useRouter();
   const [userData, setUserData] = useState(null);
 

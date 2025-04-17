@@ -7,9 +7,6 @@ import { doc, setDoc } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 
 export default function ProfileSetup() {
-    useAuthRedirect(); // Only checks login (not profile)
-}
-export default function ProfileSetup() {
   const router = useRouter();
 
   const [firstName, setFirstName] = useState('');
