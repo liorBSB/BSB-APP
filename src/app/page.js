@@ -5,6 +5,8 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../lib/firebase';
+import GoogleSignInButton from '@/components/GoogleSignInButton';
+
 
 export default function LoginPage() {
   const router = useRouter();
@@ -55,6 +57,8 @@ export default function LoginPage() {
             required
           />
         </div>
+
+        <GoogleSignInButton />
 
         <div className="flex justify-between items-center text-sm">
           <label className="flex items-center gap-1">
