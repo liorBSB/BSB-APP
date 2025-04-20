@@ -33,7 +33,7 @@ export default function Home() {
   const handleLogout = async () => {
     await signOut(auth);
     router.push('/');
-    };components/GoogleSignInButton.jsx
+    }
 
 
 
