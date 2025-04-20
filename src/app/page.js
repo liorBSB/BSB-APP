@@ -58,13 +58,7 @@ export default function LoginPage() {
           />
         </div>
 
-        <button
-          type="button" // ← This prevents form submission
-          onClick={handleGoogleSignIn}
-          className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded"
-        >
-          Sign in with Google
-        </button>
+        <GoogleSignInButton />
 
 
         <div className="flex justify-between items-center text-sm">
