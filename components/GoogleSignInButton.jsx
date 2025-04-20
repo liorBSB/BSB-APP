@@ -29,7 +29,6 @@ export default function GoogleSignInButton() {
       } else {
         router.push('/home');
       }
-
     } catch (error) {
       console.error('Google Sign-In Error:', error.message);
     }
@@ -37,10 +36,15 @@ export default function GoogleSignInButton() {
 
   return (
     <button
-    type="button" // Important to prevent form submit
+      type="button"
       onClick={handleGoogleSignIn}
-      className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded"
+      className="flex items-center gap-3 px-6 py-2 border border-gray-300 rounded-full shadow-sm hover:shadow-md transition-all bg-white text-sm font-medium text-gray-700"
     >
+      <img
+        src="https://developers.google.com/identity/images/g-logo.png"
+        alt="Google logo"
+        className="w-5 h-5"
+      />
       Sign in with Google
     </button>
   );
