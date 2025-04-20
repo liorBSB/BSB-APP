@@ -6,12 +6,12 @@ import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
 const firebaseConfig = {
-    apiKey: "AIzaSyBJ-CnEzD3S_VxFqLYBdiIOBKAekPKFP9E",
-    authDomain: "house-efficiency.firebaseapp.com",
-    projectId: "house-efficiency",
-    storageBucket: "house-efficiency.firebasestorage.app",
-    messagingSenderId: "77988263985",
-    appId: "1:77988263985:web:d208499280c4d70625fd10"
+    apiKey: "AIzaSyDtHVwDCa48LuYRTLiRsWRCLDxEIPg3vDw",
+    authDomain: "house-efficiency-app.firebaseapp.com",
+    projectId: "house-efficiency-app",
+    storageBucket: "house-efficiency-app.firebasestorage.app",
+    messagingSenderId: "29634399630",
+    appId: "1:29634399630:web:072e9ce5e029f5d3e768df"
 };
 
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
