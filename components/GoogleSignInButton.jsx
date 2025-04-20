@@ -43,7 +43,7 @@ export default function GoogleSignInButton() {
       <img
         src="https://developers.google.com/identity/images/g-logo.png"
         alt="Google logo"
-        className="w-5 h-5"
+        className="w-3 h-3"
       />
       Sign in with Google
     </button>
