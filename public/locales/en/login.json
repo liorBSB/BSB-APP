@@ -1,0 +1,15 @@
+{
+    "title": "HABAYIT SHEL BENJI",
+    "subtitle": "Welcome to your home away from home!",
+    "email": "Email Address",
+    "password": "Password",
+    "password_placeholder": "Enter your password",
+    "remember": "Remember me",
+    "forgot": "Forgot password?",
+    "login": "Login",
+    "no_account": "Don’t have an account?",
+    "register": "Register here",
+    "crew_login": "Crew / Admin Login",
+    "error": "Incorrect email or password"
+  }
+  
