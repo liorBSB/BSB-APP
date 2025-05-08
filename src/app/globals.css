@@ -6,4 +6,24 @@ html, body {
   height: 100%;
   margin: 0;
   padding: 0;
+  background: url('/blurred-bg.png') center center / cover no-repeat fixed;
+  /* Optional: add a dark overlay for contrast */
+  position: relative;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0,0,0,0.18); /* adjust opacity as needed */
+  z-index: 0;
+  pointer-events: none;
+}
+
+#root, main, .app {
+  position: relative;
+  z-index: 1;
 }

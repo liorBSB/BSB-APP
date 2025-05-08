@@ -1,0 +1,11 @@
+{
+  "settings": "Settings",
+  "name": "Name",
+  "bank_details": "Bank Details",
+  "save": "Save",
+  "logout": "Log Out",
+  "saved_successfully": "Saved successfully!",
+  "save_error": "Error saving. Please try again.",
+  "saving": "Saving...",
+  "edit": "Edit"
+} 

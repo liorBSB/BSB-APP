@@ -1,0 +1,11 @@
+{
+  "settings": "הגדרות",
+  "name": "שם",
+  "bank_details": "פרטי בנק",
+  "save": "שמור",
+  "logout": "התנתק",
+  "saved_successfully": "נשמר בהצלחה!",
+  "save_error": "שגיאה בשמירה. נסה שוב.",
+  "saving": "שומר...",
+  "edit": "ערוך"
+} 

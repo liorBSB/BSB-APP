@@ -1,0 +1,13 @@
+{
+    "completeProfile": "Complete Your Profile",
+    "fillDetails": "Please fill in your details to continue",
+    "firstName": "First Name",
+    "enterFirstName": "Enter your first name",
+    "lastName": "Last Name",
+    "enterLastName": "Enter your last name",
+    "roomNumber": "Room Number",
+    "number": "Number",
+    "letter": "Letter",
+    "continue": "Continue",
+    "logout": "Logout"
+  }
