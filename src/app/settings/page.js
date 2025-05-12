@@ -7,6 +7,7 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import BottomNavBar from '@/components/BottomNavBar';
 import EditFieldModal from '@/components/EditFieldModal';
+import colors from '../colors';
 
 export default function SettingsPage() {
   const { t, i18n } = useTranslation('settings');

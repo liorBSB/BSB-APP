@@ -1,6 +1,7 @@
 import { useState } from 'react';
+import colors from '../../app/colors';
 
-export default function CollapsibleSection({ title, children, defaultOpen = false, headerBg = 'rgba(0,0,0,0.28)', headerText = '#EDC381', contentBg = 'rgba(0,0,0,0.18)' }) {
+export default function CollapsibleSection({ title, children, defaultOpen = false, headerBg = `rgba(0,0,0,0.28)`, headerText = colors.gold, contentBg = `rgba(0,0,0,0.18)` }) {
   const [open, setOpen] = useState(defaultOpen);
   const childrenArray = Array.isArray(children) ? children : [children];
 

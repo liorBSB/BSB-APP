@@ -12,6 +12,7 @@ import ListItem from '@/components/home/ListItem';
 import { onAuthStateChanged } from 'firebase/auth';
 import EventResponseModal from '@/components/home/EventResponseModal';
 import BottomNavBar from '@/components/BottomNavBar';
+import colors from '../colors';
 
 export default function HomePage() {
   const { t } = useTranslation('home');
@@ -27,6 +28,10 @@ export default function HomePage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [leftForBaseModalOpen, setLeftForBaseModalOpen] = useState(false);
+  const [cleanRoom, setCleanRoom] = useState(null);
+  const [changeSheets, setChangeSheets] = useState(null);
+  const [surveyModalOpen, setSurveyModalOpen] = useState(false);
+  const [selectedSurvey, setSelectedSurvey] = useState(null);
   const isRTL = i18n.language === 'he';
 
   useEffect(() => {
@@ -116,17 +121,17 @@ export default function HomePage() {
         )}
 
         {/* Home/Away Switcher */}
-        <div className="rounded-2xl p-4 flex flex-col items-center mb-6 shadow-sm" style={{ background: 'rgba(0,0,0,0.28)' }}>
+        <div className="rounded-2xl p-4 flex flex-col items-center mb-6 shadow-sm" style={{ background: colors.sectionBg, color: colors.primaryGreen }}>
           <div className="flex w-full justify-evenly mb-4">
             <button
               className={`flex flex-col items-center focus:outline-none`}
               onClick={() => handleStatusToggle('home')}
             >
-              <div className={`w-12 h-12 flex items-center justify-center rounded-full transition-all duration-200 ${status === 'home' ? 'bg-[#076332]' : 'bg-white'}`}
-                style={{ boxShadow: status === 'home' ? '0 2px 8px rgba(7,99,50,0.15)' : 'none' }}>
+              <div className={`w-12 h-12 flex items-center justify-center rounded-full transition-all duration-200`}
+                style={{ background: status === 'home' ? colors.primaryGreen : colors.white, boxShadow: status === 'home' ? '0 2px 8px rgba(7,99,50,0.15)' : 'none' }}>
                 <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M3 10.5L12 4L21 10.5" stroke={status === 'home' ? '#fff' : '#076332'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  <path d="M5 10V19C5 19.5523 5.44772 20 6 20H18C18.5523 20 19 19.5523 19 19V10" stroke={status === 'home' ? '#fff' : '#076332'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M3 10.5L12 4L21 10.5" stroke={status === 'home' ? colors.white : colors.primaryGreen} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M5 10V19C5 19.5523 5.44772 20 6 20H18C18.5523 20 19 19.5523 19 19V10" stroke={status === 'home' ? colors.white : colors.primaryGreen} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
               </div>
               <span className={`mt-2 text-sm font-semibold ${status === 'home' ? 'text-white' : 'text-[#076332] opacity-70'}`}>{t('home')}</span>
@@ -135,17 +140,17 @@ export default function HomePage() {
               className={`flex flex-col items-center focus:outline-none`}
               onClick={() => handleStatusToggle('away')}
             >
-              <div className={`w-12 h-12 flex items-center justify-center rounded-full transition-all duration-200 ${status === 'away' ? 'bg-[#076332]' : 'bg-white'}`}
-                style={{ boxShadow: status === 'away' ? '0 2px 8px rgba(7,99,50,0.15)' : 'none' }}>
+              <div className={`w-12 h-12 flex items-center justify-center rounded-full transition-all duration-200`}
+                style={{ background: status === 'away' ? colors.primaryGreen : colors.white, boxShadow: status === 'away' ? '0 2px 8px rgba(7,99,50,0.15)' : 'none' }}>
                 <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <circle cx="12" cy="6" r="2.2" fill={status === 'away' ? '#fff' : '#076332'} />
-                  <path d="M12 8.5V13.5" stroke={status === 'away' ? '#fff' : '#076332'} strokeWidth="2" strokeLinecap="round" />
-                  <path d="M12 13.5L9.5 19" stroke={status === 'away' ? '#fff' : '#076332'} strokeWidth="2" strokeLinecap="round" />
-                  <path d="M12 13.5L14.5 19" stroke={status === 'away' ? '#fff' : '#076332'} strokeWidth="2" strokeLinecap="round" />
-                  <path d="M12 10.5L15 12.5" stroke={status === 'away' ? '#fff' : '#076332'} strokeWidth="2" strokeLinecap="round" />
-                  <path d="M12 10.5L10 12.5" stroke={status === 'away' ? '#fff' : '#076332'} strokeWidth="2" strokeLinecap="round" />
-                  <path d="M14.5 19C14.5 19 15 20 16 20" stroke={status === 'away' ? '#fff' : '#076332'} strokeWidth="2" strokeLinecap="round" />
-                  <path d="M9.5 19C9.5 19 9 20 8 20" stroke={status === 'away' ? '#fff' : '#076332'} strokeWidth="2" strokeLinecap="round" />
+                  <circle cx="12" cy="6" r="2.2" fill={status === 'away' ? colors.white : colors.primaryGreen} />
+                  <path d="M12 8.5V13.5" stroke={status === 'away' ? colors.white : colors.primaryGreen} strokeWidth="2" strokeLinecap="round" />
+                  <path d="M12 13.5L9.5 19" stroke={status === 'away' ? colors.white : colors.primaryGreen} strokeWidth="2" strokeLinecap="round" />
+                  <path d="M12 13.5L14.5 19" stroke={status === 'away' ? colors.white : colors.primaryGreen} strokeWidth="2" strokeLinecap="round" />
+                  <path d="M12 10.5L15 12.5" stroke={status === 'away' ? colors.white : colors.primaryGreen} strokeWidth="2" strokeLinecap="round" />
+                  <path d="M12 10.5L10 12.5" stroke={status === 'away' ? colors.white : colors.primaryGreen} strokeWidth="2" strokeLinecap="round" />
+                  <path d="M14.5 19C14.5 19 15 20 16 20" stroke={status === 'away' ? colors.white : colors.primaryGreen} strokeWidth="2" strokeLinecap="round" />
+                  <path d="M9.5 19C9.5 19 9 20 8 20" stroke={status === 'away' ? colors.white : colors.primaryGreen} strokeWidth="2" strokeLinecap="round" />
                 </svg>
               </div>
               <span className={`mt-2 text-sm font-semibold ${status === 'away' ? 'text-white' : 'text-[#076332] opacity-70'}`}>{t('away')}</span>
@@ -154,10 +159,10 @@ export default function HomePage() {
           {/* Gold Banner */}
           <button
             className="w-full rounded-lg px-4 py-2 text-center font-medium flex items-center justify-center gap-2"
-            style={{ background: '#EDC381', color: '#fff' }}
+            style={{ background: colors.gold, color: colors.white }}
             onClick={() => setLeftForBaseModalOpen(true)}
           >
-            <svg width="20" height="20" fill="none" viewBox="0 0 24 24"><path d="M3 21V7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><rect x="7" y="10" width="3" height="7" rx="1" fill="#fff"/><rect x="14" y="10" width="3" height="7" rx="1" fill="#fff"/></svg>
+            <svg width="20" height="20" fill="none" viewBox="0 0 24 24"><path d="M3 21V7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14" stroke={colors.white} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><rect x="7" y="10" width="3" height="7" rx="1" fill={colors.white}/><rect x="14" y="10" width="3" height="7" rx="1" fill={colors.white}/></svg>
             {t('leftForBase')}
           </button>
         </div>
@@ -165,8 +170,8 @@ export default function HomePage() {
         {/* Upcoming Events */}
         <CollapsibleSection
           title={t('upcoming_events')}
-          headerBg="rgba(0,0,0,0.28)"
-          headerText="#EDC381"
+          headerBg={colors.sectionBg}
+          headerText={colors.gold}
           contentBg="rgba(0,0,0,0.18)"
         >
           {loadingEvents ? (
@@ -198,8 +203,8 @@ export default function HomePage() {
         {/* Surveys to Fill */}
         <CollapsibleSection
           title={t('surveys_to_fill')}
-          headerBg="rgba(0,0,0,0.28)"
-          headerText="#EDC381"
+          headerBg={colors.sectionBg}
+          headerText={colors.gold}
           contentBg="rgba(0,0,0,0.18)"
         >
           {loadingSurveys ? (
@@ -215,6 +220,7 @@ export default function HomePage() {
                 subtitle={survey.dueDate ? `${t('due')}: ${new Date(survey.dueDate.seconds * 1000).toLocaleDateString()}` : ''}
                 action={t('fill_now')}
                 statusColor="bg-green-700"
+                onClick={() => { setSelectedSurvey(survey); setSurveyModalOpen(true); }}
               />
             ))
           )}
@@ -222,7 +228,7 @@ export default function HomePage() {
 
         {/* Important Messages as a horizontal carousel */}
         <div className="mb-4">
-          <div className="flex items-center px-4 py-2 rounded-t-lg shadow-sm select-none" style={{ background: 'rgba(0,0,0,0.28)', color: '#EDC381' }}>
+          <div className="flex items-center px-4 py-2 rounded-t-lg shadow-sm select-none" style={{ background: colors.sectionBg, color: colors.gold }}>
             <span className="font-semibold text-base">{t('important_messages')}</span>
           </div>
           <div className="rounded-b-lg p-4 overflow-x-auto flex gap-4" style={{ background: 'rgba(0,0,0,0.00)' }}>
@@ -232,13 +238,13 @@ export default function HomePage() {
               <div className="text-center text-muted py-2">{t('no_important_messages')}</div>
             ) : (
               futureMessages.map(msg => (
-                <div key={msg.id} className="min-w-[220px] max-w-xs bg-white text-[#076332] rounded-lg px-4 py-3 flex-shrink-0 shadow-lg border border-gray-100">
+                <div key={msg.id} className="min-w-[220px] max-w-xs" style={{ background: colors.white, color: colors.primaryGreen, borderColor: colors.gray400 }}>
                   <div className="flex items-center gap-2 mb-2">
                     <span className="text-xl">⚠️</span>
                     <span className="font-semibold">{msg.Title}</span>
                   </div>
-                  <div className="text-sm text-black">{msg.Body}</div>
-                  <div className="text-xs text-gray-400 mt-2">{t('until')}: {msg.dueDate && new Date(msg.dueDate.seconds * 1000).toLocaleDateString()}</div>
+                  <div className="text-sm" style={{ color: colors.black }}>{msg.Body}</div>
+                  <div className="text-xs mt-2" style={{ color: colors.gray400 }}>{t('until')}: {msg.dueDate && new Date(msg.dueDate.seconds * 1000).toLocaleDateString()}</div>
                 </div>
               ))
             )}
@@ -255,39 +261,116 @@ export default function HomePage() {
       </button>
 
       {/* Render the modal at the root of the page */}
-      <EventResponseModal
-        open={modalOpen}
-        onClose={() => setModalOpen(false)}
-        onSelect={(option) => {
-          setModalOpen(false);
-          // TODO: Save response to Firestore if needed
-        }}
-      />
-      <BottomNavBar active="home" />
-
-      {leftForBaseModalOpen && (
+      {modalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 shadow-lg min-w-[280px]">
-            <h2 className="text-lg font-bold mb-4 text-center">{t('leftForBase')}</h2>
+            <h2 className="text-lg font-bold mb-4 text-center">{selectedEvent?.title}</h2>
             <div className="flex flex-col gap-3">
               <button
-                className="bg-green-600 text-white px-4 py-2 rounded font-semibold hover:bg-green-700"
-                onClick={() => setLeftForBaseModalOpen(false)}
+                className="font-semibold rounded px-8 py-2"
+                style={{ background: colors.primaryGreen, color: colors.white }}
+                onClick={() => setModalOpen(false)}
               >
                 {t('coming')}
               </button>
               <button
-                className="bg-yellow-400 text-white px-4 py-2 rounded font-semibold hover:bg-yellow-500"
-                onClick={() => setLeftForBaseModalOpen(false)}
+                className="font-semibold rounded px-8 py-2"
+                style={{ background: 'transparent', color: colors.black, border: `1px solid ${colors.gold}` }}
+                onClick={() => setModalOpen(false)}
               >
                 {t('maybe')}
               </button>
               <button
-                className="bg-red-500 text-white px-4 py-2 rounded font-semibold hover:bg-red-600"
-                onClick={() => setLeftForBaseModalOpen(false)}
+                className="font-semibold rounded px-8 py-2"
+                style={{ background: 'transparent', color: colors.black, border: `1px solid ${colors.red}` }}
+                onClick={() => setModalOpen(false)}
               >
-                {t('not_coming')}
+                Not Coming
               </button>
+              <button
+                className="mt-2 text-gray-500 underline"
+                onClick={() => setModalOpen(false)}
+              >
+                {t('close')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      <BottomNavBar active="home" />
+
+      {surveyModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 shadow-lg min-w-[280px]">
+            <h2 className="text-lg font-bold mb-4 text-center">{selectedSurvey?.title}</h2>
+            <div className="flex flex-col gap-3">
+              <button
+                className="font-semibold rounded px-4 py-2"
+                style={{ background: colors.primaryGreen, color: colors.white }}
+                onClick={() => setSurveyModalOpen(false)}
+              >
+                {t('coming')}
+              </button>
+              <button
+                className="font-semibold rounded px-4 py-2"
+                style={{ background: 'transparent', color: colors.black, border: `2px solid ${colors.yellow}` }}
+                onClick={() => setSurveyModalOpen(false)}
+              >
+                {t('maybe')}
+              </button>
+              <button
+                className="font-semibold rounded px-4 py-2"
+                style={{ background: 'transparent', color: colors.black, border: `2px solid ${colors.red}` }}
+                onClick={() => setSurveyModalOpen(false)}
+              >
+                Not Coming
+              </button>
+              <button
+                className="mt-2 text-gray-500 underline"
+                onClick={() => setSurveyModalOpen(false)}
+              >
+                {t('close')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {leftForBaseModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 shadow-lg min-w-[320px]">
+            <h2 className="text-lg font-bold mb-4 text-center">{t('leftForBase')}</h2>
+            <div className="flex flex-col gap-6">
+              <div className="flex items-center justify-between">
+                <span className="font-medium">Clean your room?</span>
+                <div className="flex gap-2">
+                  <button
+                    className="px-4 py-1 rounded-full font-semibold border"
+                    style={{ background: cleanRoom === true ? colors.gold : colors.white, color: colors.primaryGreen, borderColor: colors.gold }}
+                    onClick={() => setCleanRoom(true)}
+                  >Yes</button>
+                  <button
+                    className="px-4 py-1 rounded-full font-semibold border"
+                    style={{ background: cleanRoom === false ? colors.gold : colors.white, color: colors.primaryGreen, borderColor: colors.gold }}
+                    onClick={() => setCleanRoom(false)}
+                  >No</button>
+                </div>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="font-medium">Change your sheets?</span>
+                <div className="flex gap-2">
+                  <button
+                    className="px-4 py-1 rounded-full font-semibold border"
+                    style={{ background: changeSheets === true ? colors.gold : colors.white, color: colors.primaryGreen, borderColor: colors.gold }}
+                    onClick={() => setChangeSheets(true)}
+                  >Yes</button>
+                  <button
+                    className="px-4 py-1 rounded-full font-semibold border"
+                    style={{ background: changeSheets === false ? colors.gold : colors.white, color: colors.primaryGreen, borderColor: colors.gold }}
+                    onClick={() => setChangeSheets(false)}
+                  >No</button>
+                </div>
+              </div>
               <button
                 className="mt-2 text-gray-500 underline"
                 onClick={() => setLeftForBaseModalOpen(false)}

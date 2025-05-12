@@ -2,6 +2,7 @@
 import { useTranslation } from 'react-i18next';
 import BottomNavBar from '@/components/BottomNavBar';
 import { useState, useEffect } from 'react';
+import colors from '../colors';
 
 export default function ReportPage() {
   const { t, i18n } = useTranslation('report');
