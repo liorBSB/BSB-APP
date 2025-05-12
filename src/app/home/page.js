@@ -26,6 +26,7 @@ export default function HomePage() {
   const [loadingMessages, setLoadingMessages] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState(null);
+  const [leftForBaseModalOpen, setLeftForBaseModalOpen] = useState(false);
   const isRTL = i18n.language === 'he';
 
   useEffect(() => {
@@ -47,7 +48,7 @@ export default function HomePage() {
       setLoadingEvents(true);
       const now = new Date();
       const eventsRef = collection(db, 'events');
-      const q = query(eventsRef, where('date', '>=', now), orderBy('date', 'asc'));
+      const q = query(eventsRef, where('dueDate', '>=', now), orderBy('dueDate', 'asc'));
       const querySnapshot = await getDocs(q);
       setEvents(querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
       setLoadingEvents(false);
@@ -89,21 +90,21 @@ export default function HomePage() {
     document.documentElement.dir = nextLang === 'he' ? 'rtl' : 'ltr';
   };
 
-  // Filter and sort events to only show future events, sorted by date ascending
+  // Filter and sort events to only show future events, sorted by dueDate ascending
   const now = new Date();
   const futureEvents = events
-    .filter(event => event.date && new Date(event.date.seconds * 1000) > now)
-    .sort((a, b) => new Date(a.date.seconds * 1000) - new Date(b.date.seconds * 1000));
+    .filter(event => event.dueDate && new Date(event.dueDate.seconds * 1000) > now)
+    .sort((a, b) => new Date(a.dueDate.seconds * 1000) - new Date(b.dueDate.seconds * 1000));
 
-  // Filter and sort surveys to only show future surveys, sorted by duedate ascending
+  // Filter and sort surveys to only show future surveys, sorted by dueDate ascending
   const futureSurveys = surveys
-    .filter(survey => survey.duedate && new Date(survey.duedate.seconds * 1000) > now)
-    .sort((a, b) => new Date(a.duedate.seconds * 1000) - new Date(b.duedate.seconds * 1000));
+    .filter(survey => survey.dueDate && new Date(survey.dueDate.seconds * 1000) > now)
+    .sort((a, b) => new Date(a.dueDate.seconds * 1000) - new Date(b.dueDate.seconds * 1000));
 
-  // Filter and sort messages to only show those with future RelevantUntil, sorted ascending
+  // Filter and sort messages to only show those with future dueDate, sorted ascending
   const futureMessages = messages
-    .filter(msg => msg.RelevantUntil && new Date(msg.RelevantUntil.seconds * 1000) > now)
-    .sort((a, b) => new Date(a.RelevantUntil.seconds * 1000) - new Date(b.RelevantUntil.seconds * 1000));
+    .filter(msg => msg.dueDate && new Date(msg.dueDate.seconds * 1000) > now)
+    .sort((a, b) => new Date(a.dueDate.seconds * 1000) - new Date(b.dueDate.seconds * 1000));
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-blue-200/60 to-green-100/60 font-body flex flex-col items-center pt-6 pb-32 px-4">
@@ -151,10 +152,14 @@ export default function HomePage() {
             </button>
           </div>
           {/* Gold Banner */}
-          <div className="w-full rounded-lg px-4 py-2 text-center font-medium flex items-center justify-center gap-2" style={{ background: '#EDC381', color: '#fff' }}>
+          <button
+            className="w-full rounded-lg px-4 py-2 text-center font-medium flex items-center justify-center gap-2"
+            style={{ background: '#EDC381', color: '#fff' }}
+            onClick={() => setLeftForBaseModalOpen(true)}
+          >
             <svg width="20" height="20" fill="none" viewBox="0 0 24 24"><path d="M3 21V7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><rect x="7" y="10" width="3" height="7" rx="1" fill="#fff"/><rect x="14" y="10" width="3" height="7" rx="1" fill="#fff"/></svg>
             {t('leftForBase')}
-          </div>
+          </button>
         </div>
 
         {/* Upcoming Events */}
@@ -174,7 +179,7 @@ export default function HomePage() {
                 <ListItem
                   icon="📅"
                   title={event.title}
-                  subtitle={event.date && new Date(event.date.seconds * 1000).toLocaleString()}
+                  subtitle={event.dueDate && new Date(event.dueDate.seconds * 1000).toLocaleString()}
                   statusText={event.status || ''}
                   statusColor="bg-green-700"
                 />
@@ -207,7 +212,7 @@ export default function HomePage() {
                 key={survey.id}
                 icon="📝"
                 title={survey.title}
-                subtitle={survey.duedate ? `${t('due')}: ${new Date(survey.duedate.seconds * 1000).toLocaleDateString()}` : ''}
+                subtitle={survey.dueDate ? `${t('due')}: ${new Date(survey.dueDate.seconds * 1000).toLocaleDateString()}` : ''}
                 action={t('fill_now')}
                 statusColor="bg-green-700"
               />
@@ -233,7 +238,7 @@ export default function HomePage() {
                     <span className="font-semibold">{msg.Title}</span>
                   </div>
                   <div className="text-sm text-black">{msg.Body}</div>
-                  <div className="text-xs text-gray-400 mt-2">{t('until')}: {msg.RelevantUntil && new Date(msg.RelevantUntil.seconds * 1000).toLocaleDateString()}</div>
+                  <div className="text-xs text-gray-400 mt-2">{t('until')}: {msg.dueDate && new Date(msg.dueDate.seconds * 1000).toLocaleDateString()}</div>
                 </div>
               ))
             )}
@@ -259,6 +264,40 @@ export default function HomePage() {
         }}
       />
       <BottomNavBar active="home" />
+
+      {leftForBaseModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 shadow-lg min-w-[280px]">
+            <h2 className="text-lg font-bold mb-4 text-center">{t('leftForBase')}</h2>
+            <div className="flex flex-col gap-3">
+              <button
+                className="bg-green-600 text-white px-4 py-2 rounded font-semibold hover:bg-green-700"
+                onClick={() => setLeftForBaseModalOpen(false)}
+              >
+                {t('coming')}
+              </button>
+              <button
+                className="bg-yellow-400 text-white px-4 py-2 rounded font-semibold hover:bg-yellow-500"
+                onClick={() => setLeftForBaseModalOpen(false)}
+              >
+                {t('maybe')}
+              </button>
+              <button
+                className="bg-red-500 text-white px-4 py-2 rounded font-semibold hover:bg-red-600"
+                onClick={() => setLeftForBaseModalOpen(false)}
+              >
+                {t('not_coming')}
+              </button>
+              <button
+                className="mt-2 text-gray-500 underline"
+                onClick={() => setLeftForBaseModalOpen(false)}
+              >
+                {t('close')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
