@@ -1,8 +1,11 @@
 'use client';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '../../lib/firebase';
+import { createUserWithEmailAndPassword, signInWithPopup } from 'firebase/auth';
+import { auth, googleProvider, db } from '../../lib/firebase';
+import colors from '../colors';
+import Image from 'next/image';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -20,41 +23,64 @@ export default function RegisterPage() {
     }
   };
 
+  const handleGoogleSignIn = async () => {
+    try {
+      const result = await signInWithPopup(auth, googleProvider);
+      const user = result.user;
+      const userRef = doc(db, 'users', user.uid);
+      const docSnap = await getDoc(userRef);
+      if (!docSnap.exists()) {
+        await setDoc(userRef, {
+          uid: user.uid,
+          email: user.email,
+          fullName: user.displayName,
+          status: 'home',
+          roomNumber: '',
+          roomLetter: '',
+        });
+        router.push('/profile-setup');
+      } else {
+        router.push('/home');
+      }
+    } catch (error) {
+      console.error('Google Sign-In Error:', error.message);
+    }
+  };
+
   return (
-    <main className="min-h-screen flex items-center justify-center bg-gray-100 px-4">
-      <form
-        onSubmit={handleRegister}
-        className="bg-white shadow-lg rounded-xl p-6 w-full max-w-sm space-y-4"
-      >
-        <h2 className="text-xl font-bold text-center">Create Your Account</h2>
-
-        <input
-          type="email"
-          placeholder="Email"
-          className="border rounded w-full p-2"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-        />
-
-        <input
-          type="password"
-          placeholder="Password"
-          className="border rounded w-full p-2"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-        />
-
-        {error && <p className="text-red-500 text-sm">{error}</p>}
-
-        <button
-          type="submit"
-          className="bg-green-600 hover:bg-green-700 text-white w-full py-2 rounded"
-        >
-          Register
+    <main className="min-h-screen flex items-center justify-center font-body" style={{ background: 'linear-gradient(135deg, #bfdbfe99 0%, #bbf7d0 100%)' }}>
+      <div style={{ background: colors.white, borderRadius: '2.5rem', width: 420, maxWidth: '95vw', padding: '3.5rem 2.2rem', boxShadow: '0 4px 24px rgba(0,0,0,0.08)' }}>
+        <h2 style={{ fontWeight: 700, fontSize: '2.5rem', textAlign: 'center', marginBottom: '2.8rem' }}>Sign up</h2>
+        <form onSubmit={handleRegister}>
+          <div style={{ marginBottom: '2.2rem' }}>
+            <label style={{ display: 'block', color: colors.muted, fontWeight: 600, marginBottom: 2, fontSize: 18 }}>Email</label>
+            <input
+              type="email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              style={{ width: '100%', border: 'none', borderBottom: `2px solid ${colors.muted}`, outline: 'none', fontSize: '1.25rem', padding: '0.7rem 0', background: 'transparent', marginBottom: 18 }}
+              placeholder="your.email@example.com"
+              required
+            />
+            <label style={{ display: 'block', color: colors.muted, fontWeight: 600, marginBottom: 2, fontSize: 18 }}>password</label>
+            <input
+              type="password"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              style={{ width: '100%', border: 'none', borderBottom: `2px solid ${colors.muted}`, outline: 'none', fontSize: '1.25rem', padding: '0.7rem 0', background: 'transparent' }}
+              placeholder="your password"
+              required
+            />
+          </div>
+          <button type="submit" style={{ width: '100%', background: colors.gold, color: colors.black, fontWeight: 700, fontSize: '1.35rem', border: 'none', borderRadius: 999, padding: '0.8rem 0', marginBottom: 32, marginTop: 12, cursor: 'pointer' }}>Sign up</button>
+        </form>
+        <button onClick={handleGoogleSignIn} style={{ width: '100%', background: 'transparent', color: colors.black, fontWeight: 600, border: `2px solid ${colors.primaryGreen}`, borderRadius: 999, padding: '0.8rem 0', marginBottom: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, fontSize: 18, boxShadow: '0 1px 4px rgba(0,0,0,0.03)' }}>
+          <img src="/google-logo.png" alt="Google" style={{ width: 28, height: 28, marginRight: 10 }} /> Sign up with Google
         </button>
-      </form>
+        <div style={{ textAlign: 'center', fontSize: 16, color: colors.muted }}>
+          Already have an account? <a href="#" style={{ color: colors.primaryGreen, fontWeight: 600, textDecoration: 'none' }} onClick={e => { e.preventDefault(); router.push('/'); }}>Log in</a>
+        </div>
+      </div>
     </main>
   );
 }

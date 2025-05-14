@@ -13,8 +13,11 @@ import { onAuthStateChanged } from 'firebase/auth';
 import EventResponseModal from '@/components/home/EventResponseModal';
 import BottomNavBar from '@/components/BottomNavBar';
 import colors from '../colors';
+import useAuthRedirect from '@/hooks/useAuthRedirect';
 
 export default function HomePage() {
+  const [isCheckingProfile, setIsCheckingProfile] = useState(true);
+  useAuthRedirect(true);
   const { t } = useTranslation('home');
   const [status, setStatus] = useState('home');
   const [userData, setUserData] = useState(null);
@@ -44,6 +47,7 @@ export default function HomePage() {
         }
       }
       setLoadingUser(false);
+      setIsCheckingProfile(false);
     });
     return () => unsubscribe();
   }, []);
@@ -110,6 +114,15 @@ export default function HomePage() {
   const futureMessages = messages
     .filter(msg => msg.dueDate && new Date(msg.dueDate.seconds * 1000) > now)
     .sort((a, b) => new Date(a.dueDate.seconds * 1000) - new Date(b.dueDate.seconds * 1000));
+
+  // Show loading state while checking profile
+  if (isCheckingProfile) {
+    return (
+      <main className="min-h-screen bg-gradient-to-br from-blue-200/60 to-green-100/60 font-body flex items-center justify-center">
+        <div className="text-center text-muted">Loading...</div>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-blue-200/60 to-green-100/60 font-body flex flex-col items-center pt-6 pb-32 px-4">

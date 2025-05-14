@@ -123,6 +123,12 @@ export default function SettingsPage() {
             </>
           )}
         </div>
+        <button
+          onClick={() => { auth.signOut(); router.push('/'); }}
+          style={{ width: '100%', background: 'transparent', color: colors.primaryGreen, fontWeight: 600, border: `2px solid ${colors.primaryGreen}`, borderRadius: 999, padding: '0.8rem 0', fontSize: 18, boxShadow: '0 1px 4px rgba(0,0,0,0.03)', marginTop: 12 }}
+        >
+          Log Out
+        </button>
       </div>
       <EditFieldModal
         open={!!editField}

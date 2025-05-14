@@ -10,8 +10,10 @@ export default function useAuthRedirect(redirectIfIncomplete = false) {
   useEffect(() => {
     const checkAuth = async () => {
       const user = auth.currentUser;
+      console.log('Current user:', user?.uid);
 
       if (!user) {
+        console.log('No user found, redirecting to login');
         router.push('/');
         return;
       }
@@ -19,9 +21,13 @@ export default function useAuthRedirect(redirectIfIncomplete = false) {
       if (redirectIfIncomplete) {
         const docRef = doc(db, 'users', user.uid);
         const docSnap = await getDoc(docRef);
+        console.log('Profile exists:', docSnap.exists());
+        console.log('Profile data:', docSnap.data());
 
-        if (!docSnap.exists()) {
+        if (!docSnap.exists() || !docSnap.data()?.roomNumber) {
+          console.log('Profile incomplete, redirecting to setup');
           router.push('/profile-setup');
+          return;
         }
       }
     };

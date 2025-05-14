@@ -5,9 +5,10 @@ import i18n from '@/i18n';
 import { useTranslation } from 'react-i18next';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { signInWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '../lib/firebase';
-import GoogleSignInButton from '../../components/GoogleSignInButton';
+import { signInWithEmailAndPassword, signInWithPopup } from 'firebase/auth';
+import { auth, googleProvider, db } from '../lib/firebase';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import colors from './colors';
 
 export default function LoginPage() {
   const { t } = useTranslation(); // 👈 i18n hook
@@ -26,90 +27,67 @@ export default function LoginPage() {
     }
   };
 
+  const handleGoogleSignIn = async () => {
+    try {
+      const result = await signInWithPopup(auth, googleProvider);
+      const user = result.user;
+      const userRef = doc(db, 'users', user.uid);
+      const docSnap = await getDoc(userRef);
+      if (!docSnap.exists()) {
+        await setDoc(userRef, {
+          uid: user.uid,
+          email: user.email,
+          fullName: user.displayName,
+          status: 'home',
+          roomNumber: '',
+          roomLetter: '',
+        });
+        router.push('/profile-setup');
+      } else {
+        router.push('/home');
+      }
+    } catch (error) {
+      console.error('Google Sign-In Error:', error.message);
+    }
+  };
+
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center px-4 bg-background font-body">
-  <div className="text-4xl mb-2">🏠</div>
-  <h1 className="text-lg font-semibold mb-1 text-text">{t('title')}</h1>
-  <p className="text-sm mb-6 text-muted">{t('subtitle')}</p>
-
-  <form
-    onSubmit={handleLogin}
-    className="bg-surface shadow-sm rounded-lg w-full max-w-sm p-6 space-y-4"
-  >
-    <div>
-      <label className="block text-sm mb-1 text-text">{t('email')}</label>
-      <input
-        type="email"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        className="w-full border border-muted px-3 py-2 rounded-md text-text bg-background"
-        placeholder="your.email@example.com"
-        required
-      />
-    </div>
-
-    <div>
-      <label className="block text-sm mb-1 text-text">{t('password')}</label>
-      <input
-        type="password"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        className="w-full border border-muted px-3 py-2 rounded-md text-text bg-background"
-        placeholder={t('password_placeholder')}
-        required
-      />
-    </div>
-
-    <GoogleSignInButton />
-
-    <div className="flex justify-between items-center text-sm text-text">
-      <label className="flex items-center gap-1">
-        <input type="checkbox" className="accent-success" /> {t('remember')}
-      </label>
-      <button type="button" className="text-success hover:underline">
-        {t('forgot')}
-      </button>
-    </div>
-
-    {error && <p className="text-error text-sm">{error}</p>}
-
-    <button
-      type="submit"
-      className="w-full bg-primary hover:bg-accent text-white py-2 rounded-md font-semibold"
-    >
-      ➜ {t('login')}
-    </button>
-  </form>
-
-  <p className="mt-4 text-sm text-text">
-    {t('no_account')}{' '}
-    <button
-      onClick={() => router.push('/register')}
-      className="text-success font-medium hover:underline"
-    >
-      {t('register')}
-    </button>
-  </p>
-
-  <button
-    onClick={() => router.push('/crew-login')}
-    className="mt-4 border border-accent text-accent px-4 py-2 rounded-md text-sm hover:bg-accent/10"
-  >
-    👥 {t('crew_login')}
-  </button>
-
-  <div className="mt-6">
-    <button
-      onClick={() => {
-        const nextLang = i18n.language === 'en' ? 'he' : 'en';
-        i18n.changeLanguage(nextLang);
-        document.documentElement.dir = nextLang === 'he' ? 'rtl' : 'ltr';
-      }}
-      className="text-sm underline text-muted hover:text-text"
-    >
-      {i18n.language === 'en' ? 'עברית' : 'English'}
-    </button>
-  </div>
-</main>
+    <main className="min-h-screen flex items-center justify-center font-body" style={{ background: 'linear-gradient(135deg, #bfdbfe99 0%, #bbf7d0 100%)' }}>
+      <div style={{ background: colors.white, borderRadius: '2.5rem', width: 420, maxWidth: '95vw', padding: '3.5rem 2.2rem', boxShadow: '0 4px 24px rgba(0,0,0,0.08)' }}>
+        <h2 style={{ fontWeight: 700, fontSize: '2.5rem', textAlign: 'center', marginBottom: '2.8rem' }}>Log in</h2>
+        <form onSubmit={handleLogin}>
+          <div style={{ marginBottom: '2.2rem' }}>
+            <label style={{ display: 'block', color: colors.muted, fontWeight: 600, marginBottom: 2, fontSize: 18 }}>Email</label>
+            <input
+              type="email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              style={{ width: '100%', border: 'none', borderBottom: `2px solid ${colors.muted}`, outline: 'none', fontSize: '1.25rem', padding: '0.7rem 0', background: 'transparent', marginBottom: 18 }}
+              placeholder="your.email@example.com"
+              required
+            />
+            <label style={{ display: 'block', color: colors.muted, fontWeight: 600, marginBottom: 2, fontSize: 18 }}>password</label>
+            <input
+              type="password"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              style={{ width: '100%', border: 'none', borderBottom: `2px solid ${colors.muted}`, outline: 'none', fontSize: '1.25rem', padding: '0.7rem 0', background: 'transparent' }}
+              placeholder="your password"
+              required
+            />
+            <div style={{ marginTop: 12, marginBottom: 0 }}>
+              <a href="#" style={{ color: colors.primaryGreen, fontSize: 16, textDecoration: 'none', fontWeight: 500 }}>Forgot password?</a>
+            </div>
+          </div>
+          <button type="submit" style={{ width: '100%', background: colors.gold, color: colors.black, fontWeight: 700, fontSize: '1.35rem', border: 'none', borderRadius: 999, padding: '0.8rem 0', marginBottom: 32, marginTop: 12, cursor: 'pointer' }}>Log in</button>
+        </form>
+        <button onClick={handleGoogleSignIn} style={{ width: '100%', background: 'transparent', color: colors.black, fontWeight: 600, border: `2px solid ${colors.primaryGreen}`, borderRadius: 999, padding: '0.8rem 0', marginBottom: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, fontSize: 18, boxShadow: '0 1px 4px rgba(0,0,0,0.03)' }}>
+          <img src="/google-logo.png" alt="Google" style={{ width: 28, height: 28, marginRight: 10 }} /> Log in with Google
+        </button>
+        <div style={{ textAlign: 'center', fontSize: 16, color: colors.muted }}>
+          Not a member? <a href="#" style={{ color: colors.primaryGreen, fontWeight: 600, textDecoration: 'none' }} onClick={e => { e.preventDefault(); router.push('/register'); }}>Join Now</a>
+        </div>
+      </div>
+    </main>
   );
 }

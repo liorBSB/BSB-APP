@@ -16,6 +16,7 @@ const colors = {
   red: '#FF5252',
   green: '#4CAF50',
   sectionBg: 'rgba(0,0,0,0.28)',
+  Seconderytext: '#4F7DF3'
   // Add more as needed
 };
 
