@@ -52,18 +52,11 @@ export default function LoginPage() {
   };
 
   return (
-    <main className="min-h-screen flex items-center justify-center font-body phone-sm:px-0 phone-md:px-0 phone-lg:px-0" style={{ background: 'linear-gradient(135deg, #bfdbfe99 0%, #bbf7d0 100%)' }}>
+    <main className="min-h-screen flex items-center justify-center font-body px-0" style={{ background: 'linear-gradient(135deg, #bfdbfe99 0%, #bbf7d0 100%)' }}>
       <div
-        className="w-full max-w-xs phone-md:max-w-sm phone-lg:max-w-md mx-auto"
-        style={{
-          background: 'white',
-          borderRadius: '2.5rem',
-          boxShadow: '0 4px 24px rgba(0,0,0,0.08)',
-          padding: '3.5rem 2.2rem',
-          maxWidth: 420,
-          width: '100%',
-          ...(window.innerWidth <= 480 ? { background: 'none', borderRadius: 0, boxShadow: 'none', padding: 0 } : {})
-        }}
+        className="w-full max-w-xs phone-md:max-w-sm phone-lg:max-w-md mx-auto 
+          bg-transparent rounded-none shadow-none p-0
+          phone-lg:bg-white phone-lg:rounded-[2.5rem] phone-lg:shadow-lg phone-lg:p-[3.5rem_2.2rem]"
       >
         <h2 style={{ fontWeight: 700, fontSize: '2.5rem', textAlign: 'center', marginBottom: '2.8rem' }}>Log in</h2>
         <form onSubmit={handleLogin} style={{ width: '100%' }}>
