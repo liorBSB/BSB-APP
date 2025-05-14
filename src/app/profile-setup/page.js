@@ -48,8 +48,19 @@ export default function ProfileSetup() {
   };
 
   return (
-    <main className="min-h-screen flex items-center justify-center font-body phone-sm:px-2 phone-md:px-4 phone-lg:px-6" style={{ background: 'linear-gradient(135deg, #bfdbfe99 0%, #bbf7d0 100%)' }}>
-      <div style={{ background: colors.white, borderRadius: '2.5rem', width: '100%', maxWidth: 420, padding: '3.5rem 2.2rem', boxShadow: '0 4px 24px rgba(0,0,0,0.08)' }} className="w-full max-w-xs phone-md:max-w-sm phone-lg:max-w-md">
+    <main className="min-h-screen flex items-center justify-center font-body phone-sm:px-0 phone-md:px-0 phone-lg:px-0" style={{ background: 'linear-gradient(135deg, #bfdbfe99 0%, #bbf7d0 100%)' }}>
+      <div
+        className="w-full max-w-xs phone-md:max-w-sm phone-lg:max-w-md mx-auto"
+        style={{
+          background: 'white',
+          borderRadius: '2.5rem',
+          boxShadow: '0 4px 24px rgba(0,0,0,0.08)',
+          padding: '3.5rem 2.2rem',
+          maxWidth: 420,
+          width: '100%',
+          ...(window.innerWidth <= 480 ? { background: 'none', borderRadius: 0, boxShadow: 'none', padding: 0 } : {})
+        }}
+      >
         <h2 style={{ fontWeight: 700, fontSize: '2.5rem', textAlign: 'center', marginBottom: '2.8rem' }}>Complete Your Profile</h2>
         <form onSubmit={handleSave}>
           <div style={{ marginBottom: '2.2rem' }}>
