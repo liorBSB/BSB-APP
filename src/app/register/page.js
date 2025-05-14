@@ -1,7 +1,7 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { createUserWithEmailAndPassword, signInWithPopup } from 'firebase/auth';
+import { createUserWithEmailAndPassword, signInWithPopup, onAuthStateChanged } from 'firebase/auth';
 import { auth, googleProvider, db } from '../../lib/firebase';
 import colors from '../colors';
 import Image from 'next/image';
@@ -12,6 +12,15 @@ export default function RegisterPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        router.push('/home');
+      }
+    });
+    return () => unsubscribe();
+  }, [router]);
 
   const handleRegister = async (e) => {
     e.preventDefault();

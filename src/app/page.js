@@ -3,9 +3,9 @@
 import '@/i18n'; // 👈 This loads your i18n config
 import i18n from '@/i18n';
 import { useTranslation } from 'react-i18next';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { signInWithEmailAndPassword, signInWithPopup } from 'firebase/auth';
+import { signInWithEmailAndPassword, signInWithPopup, onAuthStateChanged } from 'firebase/auth';
 import { auth, googleProvider, db } from '../lib/firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import colors from './colors';
@@ -16,6 +16,15 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        router.push('/home');
+      }
+    });
+    return () => unsubscribe();
+  }, [router]);
 
   const handleLogin = async (e) => {
     e.preventDefault();
