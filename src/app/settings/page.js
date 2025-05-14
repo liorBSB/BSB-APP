@@ -89,14 +89,14 @@ export default function SettingsPage() {
   };
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-blue-200/60 to-green-100/60 font-body flex flex-col items-center pt-6 pb-32 px-4">
+    <main className="min-h-screen bg-gradient-to-br from-blue-200/60 to-green-100/60 font-body flex flex-col items-center pt-6 pb-32 px-4 phone-sm:px-2 phone-md:px-4 phone-lg:px-6">
       <button
         onClick={handleLanguageSwitch}
         className="absolute top-4 right-4 bg-surface p-2 rounded-full text-muted hover:text-text"
       >
         {i18n.language === 'en' ? 'עברית' : 'EN'}
       </button>
-      <div className="w-full max-w-md">
+      <div className="w-full max-w-xs phone-md:max-w-sm phone-lg:max-w-md">
         <div className="rounded-2xl p-6 mb-6 shadow-sm" style={{ background: 'rgba(0,0,0,0.28)' }}>
           <h2 className="text-lg font-bold mb-4 text-[#EDC381]">{t('settings')}</h2>
           {loading ? (

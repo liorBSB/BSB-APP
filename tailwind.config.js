@@ -17,7 +17,12 @@ module.exports = {
       fontFamily: {
         heading: ['Poppins', 'sans-serif'],
         body: ['Poppins', 'sans-serif'],
-      }
+      },
+      screens: {
+        'phone-sm': {'min': '320px', 'max': '375px'},
+        'phone-md': {'min': '375px', 'max': '414px'},
+        'phone-lg': {'min': '414px', 'max': '480px'},
+      },
     }
   },
   plugins: [],
