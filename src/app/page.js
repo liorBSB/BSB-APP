@@ -52,7 +52,7 @@ export default function LoginPage() {
   };
 
   return (
-    <main className="min-h-screen flex items-center justify-center font-body px-0" style={{ background: 'linear-gradient(135deg, #bfdbfe99 0%, #bbf7d0 100%)' }}>
+    <main className="min-h-screen flex items-center justify-center font-body px-4 phone-lg:px-0" style={{ background: colors.white }}>
       <div
         className="w-full max-w-xs phone-md:max-w-sm phone-lg:max-w-md mx-auto 
           bg-transparent rounded-none shadow-none p-0
@@ -85,7 +85,12 @@ export default function LoginPage() {
           </div>
           <button type="submit" style={{ width: '100%', background: colors.gold, color: colors.black, fontWeight: 700, fontSize: '1.35rem', border: 'none', borderRadius: 999, padding: '0.8rem 0', marginBottom: 32, marginTop: 12, cursor: 'pointer' }}>Log in</button>
         </form>
-        <button onClick={handleGoogleSignIn} style={{ width: '100%', maxWidth: 340, background: 'transparent', color: colors.black, fontWeight: 600, border: `2px solid ${colors.primaryGreen}`, borderRadius: 999, padding: '0.8rem 0', marginBottom: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, fontSize: 18, boxShadow: '0 1px 4px rgba(0,0,0,0.03)' }}>
+        <button onClick={handleGoogleSignIn} 
+          className="w-full flex items-center justify-center gap-2 font-semibold text-black px-0 py-0
+            bg-transparent border-none shadow-none
+            phone-lg:bg-white phone-lg:border-2 phone-lg:border-primaryGreen phone-lg:shadow-md phone-lg:py-3 phone-lg:px-0 phone-lg:rounded-full"
+          style={{ maxWidth: 340, marginBottom: 32 }}
+        >
           <img src="/google-logo.png" alt="Google" style={{ width: 28, height: 28, marginRight: 10 }} /> Log in with Google
         </button>
         <div style={{ textAlign: 'center', fontSize: 16, color: colors.muted, width: '100%', maxWidth: 340 }}>

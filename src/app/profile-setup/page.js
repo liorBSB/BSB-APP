@@ -48,7 +48,7 @@ export default function ProfileSetup() {
   };
 
   return (
-    <main className="min-h-screen flex items-center justify-center font-body px-0" style={{ background: 'linear-gradient(135deg, #bfdbfe99 0%, #bbf7d0 100%)' }}>
+    <main className="min-h-screen flex items-center justify-center font-body px-4 phone-lg:px-0" style={{ background: colors.white }}>
       <div
         className="w-full max-w-xs phone-md:max-w-sm phone-lg:max-w-md mx-auto 
           bg-transparent rounded-none shadow-none p-0
