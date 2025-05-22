@@ -89,43 +89,43 @@ export default function SettingsPage() {
   };
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-blue-200/60 to-green-100/60 font-body flex flex-col items-center pt-6 pb-32 px-4 phone-sm:px-2 phone-md:px-4 phone-lg:px-6">
+    <main className="min-h-screen bg-gradient-to-br from-blue-200/60 to-green-100/60 font-body flex flex-col items-center pt-10 pb-32 px-2 phone-sm:px-2 phone-md:px-4 phone-lg:px-6">
       <button
         onClick={handleLanguageSwitch}
-        className="absolute top-4 right-4 bg-surface p-2 rounded-full text-muted hover:text-text"
+        className="absolute top-4 right-4 bg-surface p-2 rounded-full text-white text-xl hover:text-text"
       >
         {i18n.language === 'en' ? 'עברית' : 'EN'}
       </button>
-      <div className="w-full max-w-xs phone-md:max-w-sm phone-lg:max-w-md">
-        <div className="rounded-2xl p-6 mb-6 shadow-sm" style={{ background: 'rgba(0,0,0,0.28)' }}>
-          <h2 className="text-lg font-bold mb-4 text-[#EDC381]">{t('settings')}</h2>
+      <div className="w-full max-w-md">
+        <div className="rounded-3xl p-10 mb-8 shadow-lg flex flex-col items-center" style={{ background: 'rgba(0,0,0,0.38)' }}>
+          <h2 className="text-3xl font-extrabold mb-8 text-white text-center tracking-wide">{t('settings')}</h2>
           {loading ? (
-            <div className="text-center text-muted py-4">{t('loading')}</div>
+            <div className="text-center text-white text-xl py-8">{t('loading')}</div>
           ) : (
             <>
               {Object.keys(fields).map((field) => (
-                <div key={field} className="flex items-center justify-between bg-background rounded-lg shadow-sm p-3 mb-3">
+                <div key={field} className="flex items-center justify-between w-full bg-transparent rounded-xl shadow-none p-5 mb-6 border-b border-white/20">
                   <div>
-                    <div className="font-medium text-text text-sm">{fieldLabels[field]}</div>
-                    <div className="text-xs text-muted mt-1">{fields[field]}</div>
+                    <div className="font-semibold text-white text-lg mb-1">{fieldLabels[field]}</div>
+                    <div className="text-base text-white/80 mt-1">{fields[field]}</div>
                   </div>
                   <button
-                    className="ml-2 p-2 rounded-full hover:bg-[#EDC381]/20"
+                    className="ml-4 p-3 rounded-full hover:bg-[#EDC381]/20"
                     onClick={() => setEditField(field)}
                     aria-label={t('edit')}
                   >
-                    <svg width="20" height="20" fill="none" stroke="#EDC381" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19.5 3 21l1.5-4L16.5 3.5z"/></svg>
+                    <svg width="28" height="28" fill="none" stroke="#EDC381" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19.5 3 21l1.5-4L16.5 3.5z"/></svg>
                   </button>
                 </div>
               ))}
-              {success && <div className="text-green-600 text-sm mb-2">{success}</div>}
-              {error && <div className="text-red-600 text-sm mb-2">{error}</div>}
+              {success && <div className="text-green-300 text-lg mb-2">{success}</div>}
+              {error && <div className="text-red-300 text-lg mb-2">{error}</div>}
             </>
           )}
         </div>
         <button
           onClick={() => { auth.signOut(); router.push('/'); }}
-          style={{ width: '100%', background: 'transparent', color: colors.primaryGreen, fontWeight: 600, border: `2px solid ${colors.primaryGreen}`, borderRadius: 999, padding: '0.8rem 0', fontSize: 18, boxShadow: '0 1px 4px rgba(0,0,0,0.03)', marginTop: 12 }}
+          style={{ width: '100%', background: 'transparent', color: colors.primaryGreen, fontWeight: 700, border: `2.5px solid ${colors.primaryGreen}`, borderRadius: 999, padding: '1.2rem 0', fontSize: 22, boxShadow: '0 2px 8px rgba(0,0,0,0.08)', marginTop: 18 }}
         >
           Log Out
         </button>

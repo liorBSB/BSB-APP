@@ -102,6 +102,13 @@ export default function LoginPage() {
         >
           <img src="/google-logo.png" alt="Google" style={{ width: 28, height: 28, marginRight: 10 }} /> Log in with Google
         </button>
+        <button
+          className="w-full flex items-center justify-center gap-2 font-semibold text-black px-0 py-0 bg-transparent border-none shadow-none phone-lg:bg-white phone-lg:border-2 phone-lg:border-primaryGreen phone-lg:shadow-md phone-lg:py-3 phone-lg:px-0 phone-lg:rounded-full"
+          style={{ maxWidth: 340, marginBottom: 32 }}
+          onClick={() => router.push('/admin/login')}
+        >
+          <span role="img" aria-label="admin" style={{ fontSize: 24, marginRight: 10 }}>🛡️</span> Admin
+        </button>
         <div style={{ textAlign: 'center', fontSize: 16, color: colors.muted, width: '100%', maxWidth: 340 }}>
           Not a member? <a href="#" style={{ color: colors.primaryGreen, fontWeight: 600, textDecoration: 'none' }} onClick={e => { e.preventDefault(); router.push('/register'); }}>Join Now</a>
         </div>

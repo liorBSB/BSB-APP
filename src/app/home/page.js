@@ -75,7 +75,9 @@ export default function HomePage() {
       setLoadingMessages(true);
       const messagesRef = collection(db, 'messages');
       const querySnapshot = await getDocs(messagesRef);
-      setMessages(querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      const messagesData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      console.log('Messages data:', messagesData);
+      setMessages(messagesData);
       setLoadingMessages(false);
     };
 
@@ -182,24 +184,27 @@ export default function HomePage() {
 
         {/* Upcoming Events */}
         <CollapsibleSection
-          title={t('upcoming_events')}
+          title={t('upcomingEvents')}
           headerBg={colors.sectionBg}
-          headerText={colors.gold}
+          headerText={colors.white}
           contentBg="rgba(0,0,0,0.18)"
+          titleClassName="text-xl font-bold"
         >
           {loadingEvents ? (
             <div className="text-center text-muted py-2">{t('loading')}</div>
           ) : futureEvents.length === 0 ? (
-            <div className="text-center text-muted py-2">{t('no_upcoming_events')}</div>
+            <div className="text-center text-muted py-2">{t('noUpcomingEvents')}</div>
           ) : (
             futureEvents.map((event, idx) => (
               <div key={event.id} className="relative mb-3">
                 <ListItem
                   icon="📅"
                   title={event.title}
-                  subtitle={event.dueDate && new Date(event.dueDate.seconds * 1000).toLocaleString()}
+                  subtitle={event.dueDate && `When: ${new Date(event.dueDate.seconds * 1000).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit' })} ${new Date(event.dueDate.seconds * 1000).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`}
                   statusText={event.status || ''}
                   statusColor="bg-green-700"
+                  titleClassName="font-bold text-lg"
+                  subtitleClassName="text-white opacity-80"
                 />
                 <button
                   className={`absolute top-5 ${isRTL ? 'left-8' : 'right-8'} px-3 py-1 rounded-lg bg-[#EDC381] text-white font-semibold text-xs shadow-md`}
@@ -215,34 +220,44 @@ export default function HomePage() {
 
         {/* Surveys to Fill */}
         <CollapsibleSection
-          title={t('surveys_to_fill')}
+          title={t('surveysToFill')}
           headerBg={colors.sectionBg}
-          headerText={colors.gold}
+          headerText={colors.white}
           contentBg="rgba(0,0,0,0.18)"
+          titleClassName="text-xl font-bold"
         >
           {loadingSurveys ? (
             <div className="text-center text-muted py-2">{t('loading')}</div>
           ) : futureSurveys.length === 0 ? (
-            <div className="text-center text-muted py-2">{t('no_surveys')}</div>
+            <div className="text-center text-muted py-2">{t('noSurveys')}</div>
           ) : (
             futureSurveys.map((survey, idx) => (
-              <ListItem
-                key={survey.id}
-                icon="📝"
-                title={survey.title}
-                subtitle={survey.dueDate ? `${t('due')}: ${new Date(survey.dueDate.seconds * 1000).toLocaleDateString()}` : ''}
-                action={t('fill_now')}
-                statusColor="bg-green-700"
-                onClick={() => { setSelectedSurvey(survey); setSurveyModalOpen(true); }}
-              />
+              <div key={survey.id} className="relative mb-3">
+                <ListItem
+                  icon="📝"
+                  title={survey.title}
+                  subtitle={survey.dueDate ? `Due Date: ${new Date(survey.dueDate.seconds * 1000).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit' })} ${new Date(survey.dueDate.seconds * 1000).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}` : ''}
+                  statusText={''}
+                  statusColor="bg-green-700"
+                  titleClassName="font-bold text-lg"
+                  subtitleClassName="text-white opacity-80"
+                />
+                <button
+                  className={`absolute top-5 ${isRTL ? 'left-8' : 'right-8'} px-3 py-1 rounded-lg bg-[#EDC381] text-white font-semibold text-xs shadow-md`}
+                  onClick={() => { setSelectedSurvey(survey); setSurveyModalOpen(true); }}
+                  style={{ zIndex: 2 }}
+                >
+                  {t('fillNow')}
+                </button>
+              </div>
             ))
           )}
         </CollapsibleSection>
 
         {/* Important Messages as a horizontal carousel */}
         <div className="mb-4">
-          <div className="flex items-center px-4 py-2 rounded-t-lg shadow-sm select-none" style={{ background: colors.sectionBg, color: colors.gold }}>
-            <span className="font-semibold text-base">{t('important_messages')}</span>
+          <div className="flex items-center px-4 py-2 rounded-t-lg shadow-sm select-none" style={{ background: colors.sectionBg, color: colors.white }}>
+            <span className="font-semibold text-base">{t('importantMessages')}</span>
           </div>
           <div className="rounded-b-lg p-4 overflow-x-auto flex gap-4" style={{ background: 'rgba(0,0,0,0.00)' }}>
             {loadingMessages ? (
@@ -251,13 +266,19 @@ export default function HomePage() {
               <div className="text-center text-muted py-2">{t('no_important_messages')}</div>
             ) : (
               futureMessages.map(msg => (
-                <div key={msg.id} className="min-w-[220px] max-w-xs" style={{ background: colors.white, color: colors.primaryGreen, borderColor: colors.gray400 }}>
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="text-xl">⚠️</span>
-                    <span className="font-semibold">{msg.Title}</span>
+                <div key={msg.id} className="min-w-[220px] max-w-xs p-4 rounded-lg" style={{ background: colors.white, color: colors.primaryGreen, borderColor: colors.gray400 }}>
+                  <div className="flex flex-col gap-2">
+                    <h3 className="font-bold text-lg" style={{ color: colors.primaryGreen }}>{msg.title}</h3>
+                    <p className="text-sm" style={{ color: colors.black }}>{msg.body}</p>
+                    <div className="flex flex-col gap-1 text-xs" style={{ color: colors.gray400 }}>
+                      {msg.startDate && (
+                        <span>Start: {new Date(msg.startDate.seconds * 1000).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit' })} {new Date(msg.startDate.seconds * 1000).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</span>
+                      )}
+                      {msg.dueDate && (
+                        <span>End: {new Date(msg.dueDate.seconds * 1000).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit' })} {new Date(msg.dueDate.seconds * 1000).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</span>
+                      )}
+                    </div>
                   </div>
-                  <div className="text-sm" style={{ color: colors.black }}>{msg.Body}</div>
-                  <div className="text-xs mt-2" style={{ color: colors.gray400 }}>{t('until')}: {msg.dueDate && new Date(msg.dueDate.seconds * 1000).toLocaleDateString()}</div>
                 </div>
               ))
             )}
@@ -351,41 +372,39 @@ export default function HomePage() {
 
       {leftForBaseModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 shadow-lg min-w-[320px]">
-            <h2 className="text-lg font-bold mb-4 text-center">{t('leftForBase')}</h2>
-            <div className="flex flex-col gap-6">
+          <div className="rounded-3xl p-8 shadow-lg min-w-[320px] w-full max-w-md" style={{ background: '#fff' }}>
+            <div className="rounded-xl mb-6 px-4 py-3" style={{ background: '#fff' }}>
+              <h2 className="text-2xl font-bold text-black text-center">{t('leftForBase')}</h2>
+            </div>
+            <div className="flex flex-col gap-8">
               <div className="flex items-center justify-between">
-                <span className="font-medium">Clean your room?</span>
-                <div className="flex gap-2">
-                  <button
-                    className="px-4 py-1 rounded-full font-semibold border"
-                    style={{ background: cleanRoom === true ? colors.gold : colors.white, color: colors.primaryGreen, borderColor: colors.gold }}
-                    onClick={() => setCleanRoom(true)}
-                  >Yes</button>
-                  <button
-                    className="px-4 py-1 rounded-full font-semibold border"
-                    style={{ background: cleanRoom === false ? colors.gold : colors.white, color: colors.primaryGreen, borderColor: colors.gold }}
-                    onClick={() => setCleanRoom(false)}
-                  >No</button>
-                </div>
+                <span className="font-medium text-black">Clean your room?</span>
+                <button
+                  className={`w-14 h-8 rounded-full flex items-center transition-colors duration-200`}
+                  onClick={() => setCleanRoom(val => !val)}
+                  style={{ background: cleanRoom ? colors.gold : '#4B5563', padding: 0 }}
+                >
+                  <span
+                    className={`w-7 h-7 bg-white rounded-full shadow-md transform transition-transform duration-200 ${cleanRoom ? 'translate-x-6' : 'translate-x-1'}`}
+                    style={{ display: 'inline-block' }}
+                  />
+                </button>
               </div>
               <div className="flex items-center justify-between">
-                <span className="font-medium">Change your sheets?</span>
-                <div className="flex gap-2">
-                  <button
-                    className="px-4 py-1 rounded-full font-semibold border"
-                    style={{ background: changeSheets === true ? colors.gold : colors.white, color: colors.primaryGreen, borderColor: colors.gold }}
-                    onClick={() => setChangeSheets(true)}
-                  >Yes</button>
-                  <button
-                    className="px-4 py-1 rounded-full font-semibold border"
-                    style={{ background: changeSheets === false ? colors.gold : colors.white, color: colors.primaryGreen, borderColor: colors.gold }}
-                    onClick={() => setChangeSheets(false)}
-                  >No</button>
-                </div>
+                <span className="font-medium text-black">Change your sheets?</span>
+                <button
+                  className={`w-14 h-8 rounded-full flex items-center transition-colors duration-200`}
+                  onClick={() => setChangeSheets(val => !val)}
+                  style={{ background: changeSheets ? colors.gold : '#4B5563', padding: 0 }}
+                >
+                  <span
+                    className={`w-7 h-7 bg-white rounded-full shadow-md transform transition-transform duration-200 ${changeSheets ? 'translate-x-6' : 'translate-x-1'}`}
+                    style={{ display: 'inline-block' }}
+                  />
+                </button>
               </div>
               <button
-                className="mt-2 text-gray-500 underline"
+                className="mt-2 underline text-lg text-black"
                 onClick={() => setLeftForBaseModalOpen(false)}
               >
                 {t('close')}
