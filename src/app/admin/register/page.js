@@ -2,6 +2,8 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import colors from '../../colors';
+import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { auth } from '../../../lib/firebase';
 
 export default function AdminRegisterPage() {
   const router = useRouter();
@@ -12,11 +14,23 @@ export default function AdminRegisterPage() {
 
   const handleRegister = async (e) => {
     e.preventDefault();
-    if (adminCode !== '1111') {
-      setError('Invalid admin code.');
+    setError("");
+    // Securely check admin code via API
+    const res = await fetch("/api/check-admin-code", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code: adminCode })
+    });
+    if (!res.ok) {
+      setError("Invalid admin code.");
       return;
     }
-    // TODO: Add admin register logic
+    try {
+      await createUserWithEmailAndPassword(auth, email, password);
+      router.push('/admin/profile-setup');
+    } catch (err) {
+      setError('Registration failed: ' + err.message);
+    }
   };
 
   return (

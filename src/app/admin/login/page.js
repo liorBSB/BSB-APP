@@ -12,8 +12,15 @@ export default function AdminLoginPage() {
 
   const handleLogin = async (e) => {
     e.preventDefault();
-    if (adminCode !== '1111') {
-      setError('Invalid admin code.');
+    setError("");
+    // Securely check admin code via API
+    const res = await fetch("/api/check-admin-code", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code: adminCode })
+    });
+    if (!res.ok) {
+      setError("Invalid admin code.");
       return;
     }
     // TODO: Add admin login logic
