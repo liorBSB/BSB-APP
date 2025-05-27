@@ -2,6 +2,8 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import colors from '../../colors';
+import { signInWithEmailAndPassword } from 'firebase/auth';
+import { auth } from '../../../lib/firebase';
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -23,7 +25,12 @@ export default function AdminLoginPage() {
       setError("Invalid admin code.");
       return;
     }
-    // TODO: Add admin login logic
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      router.push('/admin/home');
+    } catch (err) {
+      setError('Login failed: ' + err.message);
+    }
   };
 
   return (
