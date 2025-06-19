@@ -101,6 +101,7 @@ export default function AdminSettingsPage() {
             </>
           )}
         </div>
+
         <button
           onClick={() => { auth.signOut(); router.push('/'); }}
           style={{ width: '100%', background: 'transparent', color: colors.primaryGreen, fontWeight: 700, border: `2.5px solid ${colors.primaryGreen}`, borderRadius: 999, padding: '1.2rem 0', fontSize: 22, boxShadow: '0 2px 8px rgba(0,0,0,0.08)', marginTop: 18 }}

@@ -14,9 +14,12 @@ import EventResponseModal from '@/components/home/EventResponseModal';
 import BottomNavBar from '@/components/BottomNavBar';
 import colors from '../colors';
 import useAuthRedirect from '@/hooks/useAuthRedirect';
+import { useRouter } from 'next/navigation';
 
 export default function HomePage() {
+  const router = useRouter();
   const [isCheckingProfile, setIsCheckingProfile] = useState(true);
+  const [profileComplete, setProfileComplete] = useState(false);
   useAuthRedirect(true);
   const { t } = useTranslation('home');
   const [status, setStatus] = useState('home');
@@ -37,27 +40,50 @@ export default function HomePage() {
   const [selectedSurvey, setSelectedSurvey] = useState(null);
   const isRTL = i18n.language === 'he';
 
+  // Check if user profile is complete
+  const checkUserProfileComplete = (userData) => {
+    if (!userData) return false;
+    return !!(userData.fullName && userData.roomNumber);
+  };
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         const userRef = doc(db, 'users', user.uid);
         const userSnap = await getDoc(userRef);
+        
         if (userSnap.exists()) {
-          setUserData(userSnap.data());
+          const data = userSnap.data();
+          setUserData(data);
+          
+          // Check if user profile is complete
+          const isComplete = checkUserProfileComplete(data);
+          setProfileComplete(isComplete);
+          
+          if (!isComplete) {
+            router.push('/profile-setup');
+            return;
+          }
+        } else {
+          router.push('/profile-setup');
+          return;
         }
       }
       setLoadingUser(false);
       setIsCheckingProfile(false);
     });
     return () => unsubscribe();
-  }, []);
+  }, [router]);
 
   useEffect(() => {
+    // Only fetch data if profile is complete
+    if (!profileComplete) return;
+
     const fetchEvents = async () => {
       setLoadingEvents(true);
       const now = new Date();
       const eventsRef = collection(db, 'events');
-      const q = query(eventsRef, where('dueDate', '>=', now), orderBy('dueDate', 'asc'));
+      const q = query(eventsRef, where('endTime', '>=', now), orderBy('endTime', 'asc'));
       const querySnapshot = await getDocs(q);
       setEvents(querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
       setLoadingEvents(false);
@@ -65,26 +91,28 @@ export default function HomePage() {
 
     const fetchSurveys = async () => {
       setLoadingSurveys(true);
+      const now = new Date();
       const surveysRef = collection(db, 'surveys');
-      const querySnapshot = await getDocs(surveysRef);
+      const q = query(surveysRef, where('endTime', '>=', now), orderBy('endTime', 'asc'));
+      const querySnapshot = await getDocs(q);
       setSurveys(querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
       setLoadingSurveys(false);
     };
 
     const fetchMessages = async () => {
       setLoadingMessages(true);
+      const now = new Date();
       const messagesRef = collection(db, 'messages');
-      const querySnapshot = await getDocs(messagesRef);
-      const messagesData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      console.log('Messages data:', messagesData);
-      setMessages(messagesData);
+      const q = query(messagesRef, where('endTime', '>=', now), orderBy('endTime', 'asc'));
+      const querySnapshot = await getDocs(q);
+      setMessages(querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
       setLoadingMessages(false);
     };
 
     fetchEvents();
     fetchSurveys();
     fetchMessages();
-  }, []);
+  }, [profileComplete]);
 
   const handleStatusToggle = async (newStatus) => {
     setStatus(newStatus);
@@ -101,27 +129,57 @@ export default function HomePage() {
     document.documentElement.dir = nextLang === 'he' ? 'rtl' : 'ltr';
   };
 
-  // Filter and sort events to only show future events, sorted by dueDate ascending
+  // Filter and sort events to only show future events, sorted by endTime ascending
   const now = new Date();
   const futureEvents = events
-    .filter(event => event.dueDate && new Date(event.dueDate.seconds * 1000) > now)
-    .sort((a, b) => new Date(a.dueDate.seconds * 1000) - new Date(b.dueDate.seconds * 1000));
+    .filter(event => event.endTime && new Date(event.endTime.seconds ? event.endTime.seconds * 1000 : event.endTime) > now)
+    .sort((a, b) => new Date((a.endTime.seconds ? a.endTime.seconds * 1000 : a.endTime)) - new Date((b.endTime.seconds ? b.endTime.seconds * 1000 : b.endTime)));
 
-  // Filter and sort surveys to only show future surveys, sorted by dueDate ascending
+  // Filter and sort surveys to only show future surveys, sorted by endTime ascending
   const futureSurveys = surveys
-    .filter(survey => survey.dueDate && new Date(survey.dueDate.seconds * 1000) > now)
-    .sort((a, b) => new Date(a.dueDate.seconds * 1000) - new Date(b.dueDate.seconds * 1000));
+    .filter(survey => survey.endTime && new Date(survey.endTime.seconds ? survey.endTime.seconds * 1000 : survey.endTime) > now)
+    .sort((a, b) => new Date((a.endTime.seconds ? a.endTime.seconds * 1000 : a.endTime)) - new Date((b.endTime.seconds ? b.endTime.seconds * 1000 : b.endTime)));
 
-  // Filter and sort messages to only show those with future dueDate, sorted ascending
+  // Filter and sort messages to only show those with future endTime, sorted ascending
   const futureMessages = messages
-    .filter(msg => msg.dueDate && new Date(msg.dueDate.seconds * 1000) > now)
-    .sort((a, b) => new Date(a.dueDate.seconds * 1000) - new Date(b.dueDate.seconds * 1000));
+    .filter(msg => msg.endTime && new Date(msg.endTime.seconds ? msg.endTime.seconds * 1000 : msg.endTime) > now)
+    .sort((a, b) => new Date((a.endTime.seconds ? a.endTime.seconds * 1000 : a.endTime)) - new Date((b.endTime.seconds ? b.endTime.seconds * 1000 : b.endTime)));
 
   // Show loading state while checking profile
   if (isCheckingProfile) {
     return (
       <main className="min-h-screen bg-gradient-to-br from-blue-200/60 to-green-100/60 font-body flex items-center justify-center">
         <div className="text-center text-muted">Loading...</div>
+      </main>
+    );
+  }
+
+  // Show profile incomplete message
+  if (!profileComplete) {
+    return (
+      <main className="min-h-screen bg-gradient-to-br from-blue-200/60 to-green-100/60 font-body flex items-center justify-center px-4">
+        <div className="text-center max-w-md">
+          <div className="text-2xl font-bold text-red-600 mb-4">⚠️ Profile Incomplete</div>
+          <div className="text-muted mb-6">
+            Your profile needs to be completed before you can use the app. 
+            Please set up your profile with your name and room number.
+          </div>
+          <button
+            onClick={() => router.push('/profile-setup')}
+            style={{
+              background: colors.primaryGreen,
+              color: colors.white,
+              padding: '12px 24px',
+              borderRadius: '999px',
+              border: 'none',
+              fontSize: '16px',
+              fontWeight: 600,
+              cursor: 'pointer'
+            }}
+          >
+            Complete Profile Setup
+          </button>
+        </div>
       </main>
     );
   }
@@ -200,7 +258,7 @@ export default function HomePage() {
                 <ListItem
                   icon="📅"
                   title={event.title}
-                  subtitle={event.dueDate && `When: ${new Date(event.dueDate.seconds * 1000).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit' })} ${new Date(event.dueDate.seconds * 1000).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`}
+                  subtitle={event.endTime && `When: ${new Date(event.endTime.seconds ? event.endTime.seconds * 1000 : event.endTime).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit' })} ${new Date(event.endTime.seconds ? event.endTime.seconds * 1000 : event.endTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`}
                   statusText={event.status || ''}
                   statusColor="bg-green-700"
                   titleClassName="font-bold text-lg"
@@ -236,7 +294,7 @@ export default function HomePage() {
                 <ListItem
                   icon="📝"
                   title={survey.title}
-                  subtitle={survey.dueDate ? `Due Date: ${new Date(survey.dueDate.seconds * 1000).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit' })} ${new Date(survey.dueDate.seconds * 1000).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}` : ''}
+                  subtitle={survey.endTime ? `Due Date: ${new Date(survey.endTime.seconds ? survey.endTime.seconds * 1000 : survey.endTime).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit' })} ${new Date(survey.endTime.seconds ? survey.endTime.seconds * 1000 : survey.endTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}` : ''}
                   statusText={''}
                   statusColor="bg-green-700"
                   titleClassName="font-bold text-lg"
@@ -274,8 +332,8 @@ export default function HomePage() {
                       {msg.startDate && (
                         <span>Start: {new Date(msg.startDate.seconds * 1000).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit' })} {new Date(msg.startDate.seconds * 1000).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</span>
                       )}
-                      {msg.dueDate && (
-                        <span>End: {new Date(msg.dueDate.seconds * 1000).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit' })} {new Date(msg.dueDate.seconds * 1000).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</span>
+                      {msg.endTime && (
+                        <span>End: {new Date(msg.endTime.seconds ? msg.endTime.seconds * 1000 : msg.endTime).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit' })} {new Date(msg.endTime.seconds ? msg.endTime.seconds * 1000 : msg.endTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</span>
                       )}
                     </div>
                   </div>

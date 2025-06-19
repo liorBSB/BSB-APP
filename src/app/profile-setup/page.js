@@ -38,7 +38,8 @@ export default function ProfileSetup() {
         roomNumberOnly: roomNumber,
         roomLetter,
         email: auth.currentUser.email,
-        status: 'home', // default status
+        userType: 'user',
+        createdAt: new Date()
       });
 
       router.push('/home');

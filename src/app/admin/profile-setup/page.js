@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { auth, db } from '@/lib/firebase';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, collection, addDoc } from 'firebase/firestore';
 import colors from '../../colors';
 
 export default function AdminProfileSetupPage() {
@@ -33,12 +33,24 @@ export default function AdminProfileSetupPage() {
         fullName: `${formData.firstName} ${formData.lastName}`,
         jobTitle: formData.jobTitle,
         email: user.email,
-        isAdmin: true,
+        userType: 'pending_approval',
         createdAt: new Date(),
       });
 
-      // Redirect to admin home
-      router.push('/admin/home');
+      // Create approval request
+      await addDoc(collection(db, 'approvalRequests'), {
+        userId: user.uid,
+        userEmail: user.email,
+        userName: `${formData.firstName} ${formData.lastName}`,
+        jobTitle: formData.jobTitle,
+        requestType: 'work_here',
+        status: 'pending',
+        createdAt: new Date(),
+        updatedAt: new Date()
+      });
+
+      // Redirect to pending approval page
+      router.push('/register/pending-approval');
     } catch (error) {
       console.error('Profile setup error:', error);
       setError(error.message);

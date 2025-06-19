@@ -24,6 +24,8 @@ export default function GoogleSignInButton() {
           status: 'home',
           roomNumber: '',
           roomLetter: '',
+          isAdmin: false,
+          createdAt: new Date()
         });
         router.push('/profile-setup');
       } else {

@@ -25,8 +25,21 @@ export default function RegisterPage() {
   const handleRegister = async (e) => {
     e.preventDefault();
     try {
-      await createUserWithEmailAndPassword(auth, email, password);
-      router.push('/profile-setup');
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+      
+      // Create user document with all required fields
+      await setDoc(doc(db, 'users', user.uid), {
+        uid: user.uid,
+        email: user.email,
+        isAdmin: false,
+        status: 'home',
+        roomNumber: '',
+        roomLetter: '',
+        createdAt: new Date()
+      });
+      
+      router.push('/register/selection');
     } catch (err) {
       setError('Registration failed: ' + err.message);
     }
@@ -46,8 +59,10 @@ export default function RegisterPage() {
           status: 'home',
           roomNumber: '',
           roomLetter: '',
+          isAdmin: false,
+          createdAt: new Date()
         });
-        router.push('/profile-setup');
+        router.push('/register/selection');
       } else {
         router.push('/home');
       }
@@ -85,22 +100,34 @@ export default function RegisterPage() {
               required
             />
           </div>
+          {error && <div style={{ color: 'red', marginBottom: 16 }}>{error}</div>}
           <button type="submit" style={{ width: '100%', background: colors.gold, color: colors.black, fontWeight: 700, fontSize: '1.35rem', border: 'none', borderRadius: 999, padding: '0.8rem 0', marginBottom: 32, marginTop: 12, cursor: 'pointer' }}>Sign up</button>
         </form>
+        
+        {/* Separator Line */}
+        <div style={{ display: 'flex', alignItems: 'center', marginBottom: 32 }}>
+          <div style={{ flex: 1, height: '1px', background: colors.muted }}></div>
+          <span style={{ margin: '0 16px', color: colors.muted, fontSize: 14 }}>or</span>
+          <div style={{ flex: 1, height: '1px', background: colors.muted }}></div>
+        </div>
+        
         <button onClick={handleGoogleSignIn} 
-          className="w-full flex items-center justify-center gap-2 font-semibold text-black px-0 py-0
-            bg-transparent border-none shadow-none
-            phone-lg:bg-white phone-lg:border-2 phone-lg:border-primaryGreen phone-lg:shadow-md phone-lg:py-3 phone-lg:px-0 phone-lg:rounded-full"
-          style={{ maxWidth: 340, marginBottom: 32 }}
+          className="w-full flex items-center justify-center gap-3 font-semibold text-black px-0 py-0
+            bg-transparent border-2 border-primaryGreen shadow-none
+            phone-lg:bg-transparent phone-lg:border-2 phone-lg:border-primaryGreen phone-lg:shadow-md phone-lg:py-4 phone-lg:px-0 phone-lg:rounded-full"
+          style={{ 
+            maxWidth: 340, 
+            marginBottom: 32,
+            fontSize: '1.25rem',
+            padding: '1rem 0',
+            borderRadius: 999,
+            borderColor: colors.primaryGreen,
+            color: colors.primaryGreen,
+            fontWeight: 600
+          }}
         >
-          <img src="/google-logo.png" alt="Google" style={{ width: 28, height: 28, marginRight: 10 }} /> Sign up with Google
-        </button>
-        <button
-          className="w-full flex items-center justify-center gap-2 font-semibold text-black px-0 py-0 bg-transparent border-none shadow-none phone-lg:bg-white phone-lg:border-2 phone-lg:border-primaryGreen phone-lg:shadow-md phone-lg:py-3 phone-lg:px-0 phone-lg:rounded-full"
-          style={{ maxWidth: 340, marginBottom: 32 }}
-          onClick={() => router.push('/admin/login')}
-        >
-          <span role="img" aria-label="admin" style={{ fontSize: 24, marginRight: 10 }}>🛡️</span> Admin
+          <img src="/google-logo.png" alt="Google" style={{ width: 24, height: 24 }} /> 
+          Sign up with Google
         </button>
         <div style={{ textAlign: 'center', fontSize: 16, color: colors.muted, width: '100%', maxWidth: 340 }}>
           Already have an account? <a href="#" style={{ color: colors.primaryGreen, fontWeight: 600, textDecoration: 'none' }} onClick={e => { e.preventDefault(); router.push('/'); }}>Log in</a>

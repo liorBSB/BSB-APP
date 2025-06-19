@@ -28,15 +28,15 @@ export default function AdminEditPage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const eventsQuery = query(collection(db, 'events'), orderBy('dueDate', 'desc'));
+        const eventsQuery = query(collection(db, 'events'), orderBy('endTime', 'desc'));
         const eventsSnapshot = await getDocs(eventsQuery);
         setEvents(eventsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
 
-        const surveysQuery = query(collection(db, 'surveys'), orderBy('dueDate', 'desc'));
+        const surveysQuery = query(collection(db, 'surveys'), orderBy('endTime', 'desc'));
         const surveysSnapshot = await getDocs(surveysQuery);
         setSurveys(surveysSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
 
-        const messagesQuery = query(collection(db, 'messages'), orderBy('dueDate', 'desc'));
+        const messagesQuery = query(collection(db, 'messages'), orderBy('endTime', 'desc'));
         const messagesSnapshot = await getDocs(messagesQuery);
         setMessages(messagesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
 
@@ -152,9 +152,12 @@ export default function AdminEditPage() {
                     <span className="text-2xl">📅</span>
                     <div className="flex-1">
                       <div className="font-bold text-lg text-[#076332]">{event.title}</div>
-                      <div className="text-sm text-gray-700">
-                        {event.dueDate ? `When: ${new Date(event.dueDate.seconds * 1000).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit' })} ${new Date(event.dueDate.seconds * 1000).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}` : ''}
-                      </div>
+                      {event.body && <div className="text-sm text-gray-700">{event.body}</div>}
+                      {event.endTime && (
+                        <div className="text-sm font-semibold" style={{ color: '#fff', background: '#076332', borderRadius: 6, padding: '2px 8px', display: 'inline-block', marginTop: 4 }}>
+                          When: {new Date(event.endTime.seconds ? event.endTime.seconds * 1000 : event.endTime).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit' })} {new Date(event.endTime.seconds ? event.endTime.seconds * 1000 : event.endTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                        </div>
+                      )}
                     </div>
                     <button onClick={() => handleEditClick('event', event)} className="ml-2 p-2 rounded-full hover:bg-gray-100">
                       <PencilIcon />
@@ -170,9 +173,12 @@ export default function AdminEditPage() {
                   <span className="text-2xl">📅</span>
                   <div className="flex-1">
                     <div className="font-bold text-lg text-[#076332]">{events[0].title}</div>
-                    <div className="text-sm text-gray-700">
-                      {events[0].dueDate ? `When: ${new Date(events[0].dueDate.seconds * 1000).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit' })} ${new Date(events[0].dueDate.seconds * 1000).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}` : ''}
-                    </div>
+                    {events[0].body && <div className="text-sm text-gray-700">{events[0].body}</div>}
+                    {events[0].endTime && (
+                      <div className="text-sm font-semibold" style={{ color: '#fff', background: '#076332', borderRadius: 6, padding: '2px 8px', display: 'inline-block', marginTop: 4 }}>
+                        When: {new Date(events[0].endTime.seconds ? events[0].endTime.seconds * 1000 : events[0].endTime).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit' })} {new Date(events[0].endTime.seconds ? events[0].endTime.seconds * 1000 : events[0].endTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                      </div>
+                    )}
                   </div>
                   <button onClick={() => handleEditClick('event', events[0])} className="ml-2 p-2 rounded-full hover:bg-gray-100">
                     <PencilIcon />
@@ -213,11 +219,14 @@ export default function AdminEditPage() {
                     <span className="text-2xl">📝</span>
                     <div className="flex-1">
                       <div className="font-bold text-lg text-[#076332]">{survey.title}</div>
-                      <div className="text-sm text-gray-700">
-                        {survey.dueDate ? `Due Date: ${new Date(survey.dueDate.seconds * 1000).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit' })} ${new Date(survey.dueDate.seconds * 1000).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}` : ''}
-                      </div>
+                      {survey.body && <div className="text-sm text-gray-700">{survey.body}</div>}
+                      {survey.endTime && (
+                        <div className="text-sm font-semibold" style={{ color: '#fff', background: '#076332', borderRadius: 6, padding: '2px 8px', display: 'inline-block', marginTop: 4 }}>
+                          Due Date: {new Date(survey.endTime.seconds ? survey.endTime.seconds * 1000 : survey.endTime).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit' })} {new Date(survey.endTime.seconds ? survey.endTime.seconds * 1000 : survey.endTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                        </div>
+                      )}
                     </div>
-                    <button onClick={() => handleEditClick('survey', survey)} className="ml-2 p-2 rounded-full hover:bg-gray-100" style={{background: 'none'}}>
+                    <button onClick={() => handleEditClick('survey', survey)} className="ml-2 p-2 rounded-full hover:bg-gray-100">
                       <PencilIcon />
                     </button>
                   </div>
@@ -231,11 +240,14 @@ export default function AdminEditPage() {
                   <span className="text-2xl">📝</span>
                   <div className="flex-1">
                     <div className="font-bold text-lg text-[#076332]">{surveys[0].title}</div>
-                    <div className="text-sm text-gray-700">
-                      {surveys[0].dueDate ? `Due Date: ${new Date(surveys[0].dueDate.seconds * 1000).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit' })} ${new Date(surveys[0].dueDate.seconds * 1000).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}` : ''}
-                    </div>
+                    {surveys[0].body && <div className="text-sm text-gray-700">{surveys[0].body}</div>}
+                    {surveys[0].endTime && (
+                      <div className="text-sm font-semibold" style={{ color: '#fff', background: '#076332', borderRadius: 6, padding: '2px 8px', display: 'inline-block', marginTop: 4 }}>
+                        Due Date: {new Date(surveys[0].endTime.seconds ? surveys[0].endTime.seconds * 1000 : surveys[0].endTime).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit' })} {new Date(surveys[0].endTime.seconds ? surveys[0].endTime.seconds * 1000 : surveys[0].endTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                      </div>
+                    )}
                   </div>
-                  <button onClick={() => handleEditClick('survey', surveys[0])} className="ml-2 p-2 rounded-full hover:bg-gray-100" style={{background: 'none'}}>
+                  <button onClick={() => handleEditClick('survey', surveys[0])} className="ml-2 p-2 rounded-full hover:bg-gray-100">
                     <PencilIcon />
                   </button>
                 </div>
@@ -275,11 +287,18 @@ export default function AdminEditPage() {
                     <div className="flex-1">
                       <div className="font-bold text-lg text-[#076332]">{message.title}</div>
                       {message.body && <div className="text-sm text-gray-700">{message.body}</div>}
-                      <div className="text-sm text-gray-700">
-                        {message.dueDate ? `Due: ${new Date(message.dueDate.seconds * 1000).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit' })} ${new Date(message.dueDate.seconds * 1000).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}` : ''}
-                      </div>
+                      {message.startTime && (
+                        <div className="text-sm font-semibold" style={{ color: '#fff', background: '#076332', borderRadius: 6, padding: '2px 8px', display: 'inline-block', marginTop: 4 }}>
+                          Start: {new Date(message.startTime.seconds ? message.startTime.seconds * 1000 : message.startTime).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit' })} {new Date(message.startTime.seconds ? message.startTime.seconds * 1000 : message.startTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                        </div>
+                      )}
+                      {message.endTime && (
+                        <div className="text-sm font-semibold" style={{ color: '#fff', background: '#076332', borderRadius: 6, padding: '2px 8px', display: 'inline-block', marginTop: 4, marginLeft: 4 }}>
+                          End: {new Date(message.endTime.seconds ? message.endTime.seconds * 1000 : message.endTime).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit' })} {new Date(message.endTime.seconds ? message.endTime.seconds * 1000 : message.endTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                        </div>
+                      )}
                     </div>
-                    <button onClick={() => handleEditClick('message', message)} className="ml-2 p-2 rounded-full hover:bg-gray-100" style={{background: 'none'}}>
+                    <button onClick={() => handleEditClick('message', message)} className="ml-2 p-2 rounded-full hover:bg-gray-100">
                       <PencilIcon />
                     </button>
                   </div>
@@ -294,11 +313,18 @@ export default function AdminEditPage() {
                   <div className="flex-1">
                     <div className="font-bold text-lg text-[#076332]">{messages[0].title}</div>
                     {messages[0].body && <div className="text-sm text-gray-700">{messages[0].body}</div>}
-                    <div className="text-sm text-gray-700">
-                      {messages[0].dueDate ? `Due: ${new Date(messages[0].dueDate.seconds * 1000).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit' })} ${new Date(messages[0].dueDate.seconds * 1000).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}` : ''}
-                    </div>
+                    {messages[0].startTime && (
+                      <div className="text-sm font-semibold" style={{ color: '#fff', background: '#076332', borderRadius: 6, padding: '2px 8px', display: 'inline-block', marginTop: 4 }}>
+                        Start: {new Date(messages[0].startTime.seconds ? messages[0].startTime.seconds * 1000 : messages[0].startTime).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit' })} {new Date(messages[0].startTime.seconds ? messages[0].startTime.seconds * 1000 : messages[0].startTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                      </div>
+                    )}
+                    {messages[0].endTime && (
+                      <div className="text-sm font-semibold" style={{ color: '#fff', background: '#076332', borderRadius: 6, padding: '2px 8px', display: 'inline-block', marginTop: 4, marginLeft: 4 }}>
+                        End: {new Date(messages[0].endTime.seconds ? messages[0].endTime.seconds * 1000 : messages[0].endTime).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit' })} {new Date(messages[0].endTime.seconds ? messages[0].endTime.seconds * 1000 : messages[0].endTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                      </div>
+                    )}
                   </div>
-                  <button onClick={() => handleEditClick('message', messages[0])} className="ml-2 p-2 rounded-full hover:bg-gray-100" style={{background: 'none'}}>
+                  <button onClick={() => handleEditClick('message', messages[0])} className="ml-2 p-2 rounded-full hover:bg-gray-100">
                     <PencilIcon />
                   </button>
                 </div>
@@ -306,8 +332,18 @@ export default function AdminEditPage() {
             )
           )}
         </div>
-        <AdminBottomNavBar active="edit" />
       </div>
+
+      {/* Add Item Modal */}
+      <AddItemModal
+        open={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        onSave={handleAddSave}
+        type={modalType}
+        loading={addLoading}
+      />
+
+      {/* Edit Modal */}
       {editModal.open && (
         <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 shadow-lg w-full max-w-xs mx-4">
@@ -345,13 +381,8 @@ export default function AdminEditPage() {
           </div>
         </div>
       )}
-      <AddItemModal
-        open={showAddModal}
-        onClose={() => setShowAddModal(false)}
-        onSave={handleAddSave}
-        type={modalType}
-        loading={addLoading}
-      />
+
+      <AdminBottomNavBar active="edit" />
     </main>
   );
 } 

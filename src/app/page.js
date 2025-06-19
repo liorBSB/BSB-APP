@@ -7,8 +7,37 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { signInWithEmailAndPassword, signInWithPopup, onAuthStateChanged } from 'firebase/auth';
 import { auth, googleProvider, db } from '../lib/firebase';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 import colors from './colors';
+
+// Simple function to check user type and redirect
+const getRedirectPath = async (userId) => {
+  try {
+    const userRef = doc(db, 'users', userId);
+    const userDoc = await getDoc(userRef);
+    
+    if (userDoc.exists()) {
+      const userData = userDoc.data();
+      
+      // Check user type and handle accordingly
+      switch (userData.userType) {
+        case 'admin':
+          return '/admin/home';
+        case 'pending_approval':
+          return '/register/pending-approval';
+        case 'user':
+        default:
+          return '/home';
+      }
+    }
+    
+    // If user doesn't exist, send to register
+    return '/register';
+  } catch (error) {
+    console.error('Error checking user:', error);
+    return '/register';
+  }
+};
 
 export default function LoginPage() {
   const { t } = useTranslation(); // 👈 i18n hook
@@ -18,9 +47,9 @@ export default function LoginPage() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
-        router.push('/home');
+        router.push('/redirect');
       }
     });
     return () => unsubscribe();
@@ -30,7 +59,7 @@ export default function LoginPage() {
     e.preventDefault();
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      router.push('/home');
+      router.push('/redirect');
     } catch (err) {
       setError(t('error'));
     }
@@ -38,23 +67,8 @@ export default function LoginPage() {
 
   const handleGoogleSignIn = async () => {
     try {
-      const result = await signInWithPopup(auth, googleProvider);
-      const user = result.user;
-      const userRef = doc(db, 'users', user.uid);
-      const docSnap = await getDoc(userRef);
-      if (!docSnap.exists()) {
-        await setDoc(userRef, {
-          uid: user.uid,
-          email: user.email,
-          fullName: user.displayName,
-          status: 'home',
-          roomNumber: '',
-          roomLetter: '',
-        });
-        router.push('/profile-setup');
-      } else {
-        router.push('/home');
-      }
+      await signInWithPopup(auth, googleProvider);
+      router.push('/redirect');
     } catch (error) {
       console.error('Google Sign-In Error:', error.message);
     }
@@ -67,6 +81,9 @@ export default function LoginPage() {
           bg-transparent rounded-none shadow-none p-0
           phone-lg:bg-white phone-lg:rounded-[2.5rem] phone-lg:shadow-lg phone-lg:p-[3.5rem_2.2rem]"
       >
+        <h1 style={{ fontWeight: 700, fontSize: '1.5rem', textAlign: 'center', marginBottom: '1rem', color: colors.primaryGreen }}>
+          Welcome to the future of the house
+        </h1>
         <h2 style={{ fontWeight: 700, fontSize: '2.5rem', textAlign: 'center', marginBottom: '2.8rem' }}>Log in</h2>
         <form onSubmit={handleLogin} style={{ width: '100%' }}>
           <div style={{ marginBottom: '2.2rem' }}>
@@ -92,25 +109,37 @@ export default function LoginPage() {
               <a href="#" style={{ color: colors.primaryGreen, fontSize: 16, textDecoration: 'none', fontWeight: 500 }}>Forgot password?</a>
             </div>
           </div>
+          {error && <div style={{ color: 'red', marginBottom: 16 }}>{error}</div>}
           <button type="submit" style={{ width: '100%', background: colors.gold, color: colors.black, fontWeight: 700, fontSize: '1.35rem', border: 'none', borderRadius: 999, padding: '0.8rem 0', marginBottom: 32, marginTop: 12, cursor: 'pointer' }}>Log in</button>
         </form>
+        
+        {/* Separator Line */}
+        <div style={{ display: 'flex', alignItems: 'center', marginBottom: 32 }}>
+          <div style={{ flex: 1, height: '1px', background: colors.muted }}></div>
+          <span style={{ margin: '0 16px', color: colors.muted, fontSize: 14 }}>or</span>
+          <div style={{ flex: 1, height: '1px', background: colors.muted }}></div>
+        </div>
+        
         <button onClick={handleGoogleSignIn} 
-          className="w-full flex items-center justify-center gap-2 font-semibold text-black px-0 py-0
-            bg-transparent border-none shadow-none
-            phone-lg:bg-white phone-lg:border-2 phone-lg:border-primaryGreen phone-lg:shadow-md phone-lg:py-3 phone-lg:px-0 phone-lg:rounded-full"
-          style={{ maxWidth: 340, marginBottom: 32 }}
+          className="w-full flex items-center justify-center gap-3 font-semibold text-black px-0 py-0
+            bg-transparent border-2 border-primaryGreen shadow-none
+            phone-lg:bg-transparent phone-lg:border-2 phone-lg:border-primaryGreen phone-lg:shadow-md phone-lg:py-4 phone-lg:px-0 phone-lg:rounded-full"
+          style={{ 
+            maxWidth: 340, 
+            marginBottom: 32,
+            fontSize: '1.25rem',
+            padding: '1rem 0',
+            borderRadius: 999,
+            borderColor: colors.primaryGreen,
+            color: colors.primaryGreen,
+            fontWeight: 600
+          }}
         >
-          <img src="/google-logo.png" alt="Google" style={{ width: 28, height: 28, marginRight: 10 }} /> Log in with Google
+          <img src="/google-logo.png" alt="Google" style={{ width: 24, height: 24 }} /> 
+          Log in with Google
         </button>
-        <button
-          className="w-full flex items-center justify-center gap-2 font-semibold text-black px-0 py-0 bg-transparent border-none shadow-none phone-lg:bg-white phone-lg:border-2 phone-lg:border-primaryGreen phone-lg:shadow-md phone-lg:py-3 phone-lg:px-0 phone-lg:rounded-full"
-          style={{ maxWidth: 340, marginBottom: 32 }}
-          onClick={() => router.push('/admin/login')}
-        >
-          <span role="img" aria-label="admin" style={{ fontSize: 24, marginRight: 10 }}>🛡️</span> Admin
-        </button>
-        <div style={{ textAlign: 'center', fontSize: 16, color: colors.muted, width: '100%', maxWidth: 340 }}>
-          Not a member? <a href="#" style={{ color: colors.primaryGreen, fontWeight: 600, textDecoration: 'none' }} onClick={e => { e.preventDefault(); router.push('/register'); }}>Join Now</a>
+        <div style={{ textAlign: 'center', fontSize: 18, color: colors.muted, width: '100%', maxWidth: 340 }}>
+          Don't have a user yet? <a href="#" style={{ color: colors.primaryGreen, fontWeight: 600, textDecoration: 'none' }} onClick={e => { e.preventDefault(); router.push('/register'); }}>Sign up</a>
         </div>
       </div>
     </main>
