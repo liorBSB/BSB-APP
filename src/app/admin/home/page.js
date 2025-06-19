@@ -148,7 +148,7 @@ export default function AdminHomePage() {
       setIsCheckingProfile(false);
     });
     return () => unsubscribe();
-  }, []);
+  }, [router]);
 
   // Show loading state while checking profile
   if (isCheckingProfile) {

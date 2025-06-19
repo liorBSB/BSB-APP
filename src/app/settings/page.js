@@ -48,7 +48,7 @@ export default function SettingsPage() {
       setLoading(false);
     });
     return () => unsubscribe();
-  }, []);
+  }, [i18n]);
 
   const handleSaveField = async (field, value) => {
     setSaving(true);

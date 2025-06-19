@@ -5,6 +5,7 @@ import i18n from '@/i18n';
 import { useTranslation } from 'react-i18next';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { signInWithEmailAndPassword, signInWithPopup, onAuthStateChanged } from 'firebase/auth';
 import { auth, googleProvider, db } from '../lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
@@ -135,11 +136,11 @@ export default function LoginPage() {
             fontWeight: 600
           }}
         >
-          <img src="/google-logo.png" alt="Google" style={{ width: 24, height: 24 }} /> 
+          <Image src="/google-logo.png" alt="Google" width={24} height={24} /> 
           Log in with Google
         </button>
         <div style={{ textAlign: 'center', fontSize: 18, color: colors.muted, width: '100%', maxWidth: 340 }}>
-          Don't have a user yet? <a href="#" style={{ color: colors.primaryGreen, fontWeight: 600, textDecoration: 'none' }} onClick={e => { e.preventDefault(); router.push('/register'); }}>Sign up</a>
+          Don&apos;t have a user yet? <a href="#" style={{ color: colors.primaryGreen, fontWeight: 600, textDecoration: 'none' }} onClick={e => { e.preventDefault(); router.push('/register'); }}>Sign up</a>
         </div>
       </div>
     </main>
