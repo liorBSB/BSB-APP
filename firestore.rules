@@ -2,18 +2,76 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+    function isSignedIn() { return request.auth != null; }
+    function isAdmin(uid) { return get(/databases/$(database)/documents/users/$(uid)).data.userType == 'admin'; }
+    function isOwner(uid) { return request.auth != null && request.auth.uid == uid; }
 
-    // This rule allows anyone with your Firestore database reference to view, edit,
-    // and delete all data in your Firestore database. It is useful for getting
-    // started, but it is configured to expire after 30 days because it
-    // leaves your app open to attackers. At that time, all client
-    // requests to your Firestore database will be denied.
-    //
-    // Make sure to write security rules for your app before that time, or else
-    // all client requests to your Firestore database will be denied until you Update
-    // your rules
-    match /{document=**} {
-      allow read, write: if request.time < timestamp.date(2025, 5, 10);
+    // Users read their own profile; admins can read all
+    match /users/{userId} {
+      allow read: if isSignedIn() && (isOwner(userId) || isAdmin(request.auth.uid));
+      allow write: if isSignedIn() && (isOwner(userId) || isAdmin(request.auth.uid));
+    }
+
+    // Expenses (admin managed records)
+    match /expenses/{expenseId} {
+      allow create: if isSignedIn() && isAdmin(request.auth.uid);
+      allow read: if isSignedIn(); // UI will scope by role; audits can be added later
+      allow update, delete: if isSignedIn() && isAdmin(request.auth.uid);
+    }
+
+    // Events shown on home; admins manage
+    match /events/{eventId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isSignedIn() && isAdmin(request.auth.uid);
+    }
+
+    // Surveys shown on home; admins manage
+    match /surveys/{surveyId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isSignedIn() && isAdmin(request.auth.uid);
+    }
+
+    // Messages shown on home; admins manage
+    match /messages/{messageId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isSignedIn() && isAdmin(request.auth.uid);
+    }
+
+    // Refund requests (created by soldiers; reviewed by admins)
+    match /refundRequests/{requestId} {
+      allow create: if isSignedIn();
+      allow read: if isSignedIn() && (
+        resource.data.ownerUid == request.auth.uid ||
+        isAdmin(request.auth.uid)
+      );
+      // Owners can update until status is terminal; admins can always update
+      allow update: if isSignedIn() && (
+        isAdmin(request.auth.uid) ||
+        (resource.data.ownerUid == request.auth.uid && resource.data.status in ['waiting'])
+      );
+      // Soft delete flag only; restrict hard delete to admins
+      allow delete: if isSignedIn() && isAdmin(request.auth.uid);
+    }
+
+    // Minimal metadata for user report uploads
+    // Created when a user uploads a photo to Storage under reports/{uid}/...
+    match /reportUploads/{docId} {
+      allow create: if isSignedIn();
+      allow read: if isSignedIn();
+      // Only the existing owner or admin can update/delete
+      allow update, delete: if isSignedIn() && (
+        isAdmin(request.auth.uid) ||
+        (resource.data.ownerUid == request.auth.uid)
+      );
+    }
+
+    // Admin approval requests for admin access
+    match /approvalRequests/{reqId} {
+      // any signed-in user can create a request to become admin
+      allow create: if isSignedIn();
+      // only admins can read and manage requests
+      allow read: if isSignedIn() && isAdmin(request.auth.uid);
+      allow update, delete: if isSignedIn() && isAdmin(request.auth.uid);
     }
   }
 }

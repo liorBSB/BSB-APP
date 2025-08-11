@@ -1,18 +1,28 @@
 rules_version = '2';
 
 // Craft rules based on data in your Firestore database
-// allow write: if firestore.get(
-//    /databases/(default)/documents/users/$(request.auth.uid)).data.isAdmin;
 service firebase.storage {
   match /b/{bucket}/o {
     function isSignedIn() { return request.auth != null; }
     function isAdmin(uid) { return firestore.get(/databases/(default)/documents/users/$(uid)).data.userType == 'admin'; }
 
-    // Receipts path: receipts/{ownerUid}/{filename} - allow any filename
-    match /receipts/{ownerUid}/{fileName} {
+    // Report images uploaded by users
+    // Path: reports/{ownerUid}/{fileId}
+    match /reports/{ownerUid}/{fileId} {
+      allow read: if isSignedIn() && (request.auth.uid == ownerUid || isAdmin(request.auth.uid));
+      // Only the owner can write to their own report folder; restrict to images up to 10MB
+      allow write: if isSignedIn()
+                  && request.auth.uid == ownerUid
+                  && request.resource.size < 10 * 1024 * 1024
+                  && request.resource.contentType.matches('image/.*');
+      allow delete: if isSignedIn() && (request.auth.uid == ownerUid || isAdmin(request.auth.uid));
+    }
+
+    // Receipts path: receipts/{ownerUid}/{expenseId}
+    match /receipts/{ownerUid}/{fileId} {
       allow read: if isSignedIn();
-      allow write: if isSignedIn() && request.auth.uid == ownerUid;
-      allow delete: if isSignedIn() && request.auth.uid == ownerUid;
+      allow write: if isSignedIn() && isAdmin(request.auth.uid);
+      allow delete: if isSignedIn() && isAdmin(request.auth.uid);
     }
 
     // Refunds path: refunds/{ownerUid}/{requestId}

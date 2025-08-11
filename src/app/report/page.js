@@ -1,17 +1,27 @@
 "use client";
 import { useTranslation } from 'react-i18next';
 import BottomNavBar from '@/components/BottomNavBar';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import colors from '../colors';
+import { auth, db, storage } from '@/lib/firebase';
+import { addDoc, collection, doc, getDoc, serverTimestamp } from 'firebase/firestore';
+import { ref as storageRef, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 
 export default function ReportPage() {
   const { t, i18n } = useTranslation('report');
   const [desc, setDesc] = useState('');
-  const [photo, setPhoto] = useState(null);
-  const [photos, setPhotos] = useState([]);
+  const [refundOpen, setRefundOpen] = useState(false);
+  const [refundSaving, setRefundSaving] = useState(false);
+  const [refundError, setRefundError] = useState('');
+  const [refundSuccess, setRefundSuccess] = useState('');
+  const [refundForm, setRefundForm] = useState({ title: '', amount: '', method: 'rent_deduction', expenseDate: '' });
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadError, setUploadError] = useState('');
+  const [uploadSuccess, setUploadSuccess] = useState('');
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
-    // On mount, set language from localStorage if available
     const savedLang = typeof window !== 'undefined' ? localStorage.getItem('lang') : null;
     if (savedLang && savedLang !== i18n.language) {
       i18n.changeLanguage(savedLang);
@@ -26,14 +36,101 @@ export default function ReportPage() {
     document.documentElement.dir = nextLang === 'he' ? 'rtl' : 'ltr';
   };
 
+  const triggerFilePicker = () => {
+    setUploadError('');
+    setUploadSuccess('');
+    if (fileInputRef.current) fileInputRef.current.click();
+  };
+
+  const handleFileSelected = async (event) => {
+    try {
+      setUploadError('');
+      setUploadSuccess('');
+      const file = event.target.files?.[0];
+      if (!file) return;
+      const user = auth.currentUser;
+      if (!user) { setUploadError('You must be logged in'); return; }
+      if (!file.type.startsWith('image/')) { setUploadError('Please select an image file'); return; }
+      if (file.size > 10 * 1024 * 1024) { setUploadError('File too large (max 10MB)'); return; }
+
+      setUploading(true);
+      setUploadProgress(0);
+      const path = `reports/${user.uid}/${Date.now()}_${file.name}`;
+      const ref = storageRef(storage, path);
+      // Debug info to validate bucket and path in case of stuck uploads
+      try { console.log('Upload to bucket:', storage.app?.options?.storageBucket, 'ref.bucket:', ref.bucket, 'path:', path); } catch(_) {}
+      const task = uploadBytesResumable(ref, file, { contentType: file.type });
+
+      await new Promise((resolve, reject) => {
+        task.on('state_changed', (snap) => {
+          if (snap.totalBytes > 0) {
+            setUploadProgress(Math.round((snap.bytesTransferred / snap.totalBytes) * 100));
+          }
+        }, reject, resolve);
+      });
+
+      const downloadURL = await getDownloadURL(task.snapshot.ref);
+
+      // Save minimal metadata for later linking
+      await addDoc(collection(db, 'reportUploads'), {
+        ownerUid: user.uid,
+        storagePath: path,
+        downloadURL,
+        createdAt: serverTimestamp(),
+      });
+
+      setUploadSuccess('Photo uploaded');
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    } catch (e) {
+      setUploadError(`Failed to upload photo: ${e?.message || ''}`.trim());
+    } finally {
+      setUploading(false);
+      setUploadProgress(0);
+    }
+  };
+
+  const validateRefund = () => {
+    if (!refundForm.title.trim()) return 'Please enter what for';
+    if (!refundForm.amount || isNaN(Number(refundForm.amount))) return 'Please enter a valid amount';
+    if (!refundForm.method) return 'Please choose a repayment method';
+    if (!refundForm.expenseDate) return 'Please choose the expense date';
+    return '';
+  };
+
+  const handleRefundSave = async () => {
+    setRefundError(''); setRefundSuccess('');
+    const v = validateRefund(); if (v) { setRefundError(v); return; }
+    try {
+      setRefundSaving(true);
+      const user = auth.currentUser; if (!user) { setRefundError('You must be logged in'); setRefundSaving(false); return; }
+      const userSnap = await getDoc(doc(db, 'users', user.uid));
+      const userData = userSnap.exists() ? userSnap.data() : {};
+      const payload = {
+        ownerUid: user.uid,
+        ownerName: userData.fullName || '',
+        ownerRoomNumber: userData.roomNumber || '',
+        title: refundForm.title.trim(),
+        amount: Number(refundForm.amount),
+        repaymentMethod: refundForm.method,
+        expenseDate: new Date(refundForm.expenseDate),
+        status: 'waiting',
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        softDeleted: false,
+      };
+      await addDoc(collection(db, 'refundRequests'), payload);
+      setRefundSuccess('Request submitted');
+      setRefundForm({ title: '', amount: '', method: 'rent_deduction', expenseDate: '' });
+    } catch (e) { setRefundError('Failed to submit request'); }
+    finally { setRefundSaving(false); }
+  };
+
   return (
     <main className="min-h-screen bg-gradient-to-br from-blue-200/60 to-green-100/60 font-body flex flex-col items-center pt-10 pb-32 px-2 phone-sm:px-2 phone-md:px-4 phone-lg:px-6">
-      <button
-        onClick={handleLanguageSwitch}
-        className="absolute top-4 right-4 bg-surface p-2 rounded-full text-white text-xl hover:text-text"
-      >
-        {i18n.language === 'en' ? 'עברית' : 'EN'}
-      </button>
+      <div className="w-full max-w-md mb-6">
+        <button onClick={()=>setRefundOpen(true)} className="w-full rounded-full px-6 py-4 font-bold text-white text-lg shadow" style={{ background: colors.gold }}>Request refund</button>
+      </div>
+      <button onClick={handleLanguageSwitch} className="absolute top-4 right-4 bg-surface p-2 rounded-full text-white text-xl hover:text-text">{i18n.language === 'en' ? 'עברית' : 'EN'}</button>
       <div className="w-full max-w-md">
         <div className="rounded-3xl p-10 mb-8 shadow-lg flex flex-col items-center" style={{ background: 'rgba(0,0,0,0.38)' }}>
           <h2 className="text-3xl font-extrabold mb-8 text-white text-center tracking-wide">{t('report_a_problem')}</h2>
@@ -41,32 +138,42 @@ export default function ReportPage() {
             <label className="block text-lg mb-2 text-white font-semibold">{t('describe_problem')}</label>
             <textarea className="w-full border border-white/30 px-4 py-3 rounded-xl text-black bg-white text-lg placeholder-black/50 focus:outline-none focus:border-gold transition" rows={5} value={desc} onChange={e => setDesc(e.target.value)} placeholder={t('describe_problem')} style={{ background: colors.white, color: 'black' }} />
           </div>
-          <div className="mb-8 w-full flex flex-col items-center">
-            <label className="block text-lg mb-2 text-white font-semibold">{t('add_photo')}</label>
-            <label className="flex items-center justify-center px-4 py-2 rounded-full cursor-pointer bg-white text-black font-semibold text-base transition hover:bg-gray-100 border border-white/30 mx-auto" style={{ minWidth: 120 }}>
-              <input type="file" accept="image/*" multiple onChange={e => {
-                const files = Array.from(e.target.files);
-                setPhotos(prev => [...prev, ...files]);
-              }} className="hidden" />
-              Upload File
-            </label>
-            <div className="mt-4 w-full flex flex-col items-center gap-2">
-              {photos.map((file, idx) => (
-                <div key={idx} className="flex items-center justify-between bg-white/80 text-black rounded-lg px-3 py-2 w-full max-w-xs shadow">
-                  <span className="truncate max-w-[140px]">{file.name}</span>
-                  <button
-                    className="ml-3 text-red-500 hover:text-red-700 text-lg"
-                    onClick={() => setPhotos(photos.filter((_, i) => i !== idx))}
-                    aria-label="Remove file"
-                  >🗑️</button>
-                </div>
-              ))}
-            </div>
+          {/* Upload photo section */}
+          <div className="w-full mb-4">
+            {uploadError && <div className="mb-3 text-red-200 text-sm bg-red-500/20 rounded px-3 py-2">{uploadError}</div>}
+            {uploadSuccess && <div className="mb-3 text-green-200 text-sm bg-green-500/20 rounded px-3 py-2">{uploadSuccess}</div>}
+            <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileSelected} />
+            <button onClick={triggerFilePicker} disabled={uploading} className="w-full bg-white/15 hover:bg-white/25 text-white py-3 rounded-xl font-semibold text-lg disabled:opacity-60">
+              {uploading ? `Uploading… ${uploadProgress}%` : 'Upload photo'}
+            </button>
           </div>
           <button className="w-full bg-[#EDC381] hover:bg-[#d4b06a] text-white py-4 rounded-full font-bold text-xl transition">{t('submit')}</button>
         </div>
       </div>
       <BottomNavBar active="report" />
+
+      {refundOpen && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
+          <div className="bg-white rounded-2xl w-full max-w-md mx-4 p-5">
+            <div className="flex items-center justify-between mb-3"><h3 className="text-lg font-bold">Request refund</h3><button onClick={()=>setRefundOpen(false)} className="text-gray-600">✕</button></div>
+            {refundError && <div className="mb-3 text-red-600 text-sm bg-red-50 rounded px-3 py-2">{refundError}</div>}
+            {refundSuccess && <div className="mb-3 text-green-700 text-sm bg-green-50 rounded px-3 py-2">{refundSuccess}</div>}
+            <div className="grid grid-cols-1 gap-3">
+              <input className="w-full px-4 py-3 rounded-xl border" placeholder="What for?" value={refundForm.title} onChange={(e)=>setRefundForm(f=>({...f,title:e.target.value}))} />
+              <input className="w-full px-4 py-3 rounded-xl border" placeholder="Amount (₪)" value={refundForm.amount} inputMode="decimal" onChange={(e)=>setRefundForm(f=>({...f,amount:e.target.value}))} />
+              <select className="w-full px-4 py-3 rounded-xl border" value={refundForm.method} onChange={(e)=>setRefundForm(f=>({...f,method:e.target.value}))}>
+                <option value="rent_deduction">Deduct from rent</option>
+                <option value="bit">Bit</option>
+                <option value="cash">Cash</option>
+              </select>
+              <input type="date" className="w-full px-4 py-3 rounded-xl border" value={refundForm.expenseDate} onChange={(e)=>setRefundForm(f=>({...f,expenseDate:e.target.value}))} />
+              <button onClick={handleRefundSave} disabled={refundSaving} className="w-full px-4 py-3 rounded-xl text-white font-semibold disabled:opacity-70 text-lg" style={{ background: colors.gold }}>
+                {refundSaving?"Submitting...":"Submit request"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 } 
