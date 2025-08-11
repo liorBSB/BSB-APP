@@ -5,8 +5,21 @@ rules_version = '2';
 //    /databases/(default)/documents/users/$(request.auth.uid)).data.isAdmin;
 service firebase.storage {
   match /b/{bucket}/o {
-    match /{allPaths=**} {
-      allow read, write: if false;
+    function isSignedIn() { return request.auth != null; }
+    function isAdmin(uid) { return firestore.get(/databases/(default)/documents/users/$(uid)).data.userType == 'admin'; }
+
+    // Receipts path: receipts/{ownerUid}/{filename} - allow any filename
+    match /receipts/{ownerUid}/{fileName} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && request.auth.uid == ownerUid;
+      allow delete: if isSignedIn() && request.auth.uid == ownerUid;
+    }
+
+    // Refunds path: refunds/{ownerUid}/{requestId}
+    match /refunds/{ownerUid}/{fileId} {
+      allow read: if isSignedIn() && (request.auth.uid == ownerUid || isAdmin(request.auth.uid));
+      allow write: if isSignedIn() && request.auth.uid == ownerUid;
+      allow delete: if isSignedIn() && (request.auth.uid == ownerUid || isAdmin(request.auth.uid));
     }
   }
 }
