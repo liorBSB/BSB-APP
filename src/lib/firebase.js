@@ -6,15 +6,14 @@ import { getFirestore, collection, addDoc, Timestamp, getDocs, writeBatch } from
 import { getStorage } from 'firebase/storage';
 
 const firebaseConfig = {
-    apiKey: "AIzaSyBKggC-pkA1U-CNNc08ByLcDeoYDrkYVwU",
-    authDomain: "bsb-app-e37dc.firebaseapp.com",
-    projectId: "bsb-app-e37dc",
-    // IMPORTANT: Use the actual bucket name shown in Firebase Storage console
-    // e.g., gs://bsb-app-e37dc.firebasestorage.app
-    storageBucket: "bsb-app-e37dc.firebasestorage.app", 
-    messagingSenderId: "42055438329",
-    appId: "1:42055438329:web:405e792e16eb8d2eed7728"
-  };
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  // IMPORTANT: Use the actual bucket name shown in Firebase Storage console
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+};
 
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 
