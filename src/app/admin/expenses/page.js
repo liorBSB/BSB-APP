@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   addDoc,
@@ -12,22 +12,14 @@ import {
   orderBy,
   query,
   serverTimestamp,
-  startAfter,
-  updateDoc,
   where,
+  updateDoc,
 } from "firebase/firestore";
-import {
-  getDownloadURL,
-  ref as storageRef,
-  uploadBytes,
-  uploadBytesResumable,
-  uploadString,
-} from "firebase/storage";
-import { auth, db, storage } from "@/lib/firebase";
+import { auth, db } from "@/lib/firebase";
 import { deleteDoc } from "firebase/firestore";
 import AdminBottomNavBar from "@/components/AdminBottomNavBar";
 import DatePickerModal from "@/components/DatePickerModal";
-import CameraCaptureModal from "@/components/CameraCaptureModal";
+import PhotoUpload from "@/components/PhotoUpload";
 import colors from "@/app/colors";
 
 function ApprovalRequestsBody({ items, loading, onApprove, onReject, processingId }) {
@@ -76,54 +68,8 @@ function ApprovalRequestsBody({ items, loading, onApprove, onReject, processingI
   );
 }
 
-// Lightweight script loader to avoid bundling heavy PDF libs
-async function loadScript(url) {
-  return new Promise((resolve, reject) => {
-    if (document.querySelector(`script[src="${url}"]`)) return resolve();
-    const s = document.createElement('script');
-    s.src = url;
-    s.async = true;
-    s.onload = () => resolve();
-    s.onerror = () => reject(new Error(`Failed to load ${url}`));
-    document.body.appendChild(s);
-  });
-}
-
-async function ensureJsPdfLoaded() {
-  if (!globalThis.window) return;
-  if (!window.jspdf || !window.jspdf.jsPDF) {
-    await loadScript('https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js');
-  }
-  if (!window.jspdf || !window.jspdf.jsPDF) throw new Error('jsPDF failed to load');
-  // autotable plugin
-  if (!('autoTable' in (window.jspdf || {}))) {
-    await loadScript('https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js');
-  }
-}
-
-async function ensureXlsxLoaded() {
-  if (!globalThis.window) return;
-  if (!window.XLSX) {
-    await loadScript('https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js');
-  }
-  if (!window.XLSX) throw new Error('XLSX failed to load');
-}
-
-const CATEGORIES = [
-  "Food",
-  "Equipment",
-  "Maintenance",
-  "Transport",
-  "Utilities",
-  "Other",
-];
-
-const REIMBURSEMENT_METHODS = [
-  "Credit Card",
-  "Bank Transfer",
-  "Cash",
-  "Other",
-];
+const CATEGORIES = ["Food","Equipment","Maintenance","Transport","Utilities","Other"];
+const REIMBURSEMENT_METHODS = ["Credit Card","Bank Transfer","Cash","Other"];
 
 export default function AdminExpensesPage() {
   const router = useRouter();
@@ -138,11 +84,9 @@ export default function AdminExpensesPage() {
     notes: "",
     linkedSoldierUid: "",
     expenseDate: new Date().toISOString().slice(0,16),
+    photoUrl: "",
+    photoPath: "",
   });
-  const [receiptFile, setReceiptFile] = useState(null);
-  const cameraInputRef = useRef(null);
-  const galleryInputRef = useRef(null);
-  const [cameraOpen, setCameraOpen] = useState(false);
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -151,28 +95,70 @@ export default function AdminExpensesPage() {
   // List state
   const [items, setItems] = useState([]);
   const [loadingList, setLoadingList] = useState(true);
-  const [filters, setFilters] = useState({
-    from: "",
-    to: "",
-    category: "",
-  });
+  const [filters, setFilters] = useState({ from: "", to: "", category: "" });
   const [expandedId, setExpandedId] = useState(null);
+
+  // Photo viewer state
+  const [photoViewerOpen, setPhotoViewerOpen] = useState(false);
+  const [selectedPhoto, setSelectedPhoto] = useState(null);
+
+  // Report modal state
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportItems, setReportItems] = useState([]);
+  const [reportLoading, setReportLoading] = useState(false);
+  const [reportFilters, setReportFilters] = useState({
+    dateRange: "all",
+    category: "",
+    customFrom: "",
+    customTo: ""
+  });
+
+  // Edit/Delete state
+  const [editingExpense, setEditingExpense] = useState(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [expenseToDelete, setExpenseToDelete] = useState(null);
+
+  // Modal view state
+  const [showSearchResults, setShowSearchResults] = useState(false);
 
   // Access control: only admins
   useEffect(() => {
     const check = async () => {
-      const user = auth.currentUser;
-      if (!user) {
+      try {
+        console.log('Checking user access...');
+        const user = auth.currentUser;
+        if (!user) { 
+          console.log('No user, redirecting to /');
+          router.push("/"); 
+          return; 
+        }
+        
+        console.log('User found:', user.uid);
+        const uRef = doc(db, "users", user.uid);
+        const uSnap = await getDoc(uRef);
+        
+        if (!uSnap.exists()) { 
+          console.log('User doc does not exist, redirecting to /home');
+          router.push("/home"); 
+          return; 
+        }
+        
+        const userData = uSnap.data();
+        console.log('User data:', userData);
+        
+        if (userData?.userType !== "admin") { 
+          console.log('User is not admin, redirecting to /home');
+          router.push("/home"); 
+          return; 
+        }
+        
+        console.log('User is admin, setting userDoc');
+        setUserDoc({ id: uSnap.id, ...userData });
+        
+      } catch (error) {
+        console.error('Error checking user access:', error);
         router.push("/");
-        return;
       }
-      const uRef = doc(db, "users", user.uid);
-      const uSnap = await getDoc(uRef);
-      if (!uSnap.exists() || uSnap.data()?.userType !== "admin") {
-        router.push("/home");
-        return;
-      }
-      setUserDoc({ id: uSnap.id, ...uSnap.data() });
     };
     check();
   }, [router]);
@@ -184,124 +170,109 @@ export default function AdminExpensesPage() {
     if (form.category === "Other" && !form.categoryOther.trim()) return "Please specify the other category";
     if (!form.reimbursementMethod) return "Reimbursement method is required";
     if (!form.expenseDate) return "Expense date is required";
-    if (!receiptFile) return "Receipt image is required";
-    
-    // Validate file type
-    if (receiptFile && !receiptFile.type.startsWith('image/')) {
-      return "Selected file must be an image";
-    }
-    
-    // Validate file size (max 10MB)
-    if (receiptFile && receiptFile.size > 10 * 1024 * 1024) {
-      return "Image file size must be less than 10MB";
-    }
-    
     return "";
   };
 
-  // Compress image to reasonable size for faster uploads
-  const compressImageToDataUrl = async (file, maxDim = 1400, quality = 0.85) => {
+  const showSuccess = (msg) => { setSuccess(msg); try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch {} };
+  const showError = (msg) => { setError(msg); try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch {} };
+
+  const handlePhotoUploaded = (photoUrl, photoPath) => {
+    console.log('Photo uploaded:', photoUrl, photoPath);
+    setForm(prev => ({
+      ...prev,
+      photoUrl,
+      photoPath
+    }));
+  };
+
+  const handlePhotoRemoved = () => {
+    setForm(prev => ({
+      ...prev,
+      photoUrl: "",
+      photoPath: ""
+    }));
+  };
+
+  const handleCloseReportModal = () => {
+    setReportOpen(false);
+    setShowSearchResults(false);
+    setReportItems([]);
+  };
+
+  const handleEditExpense = (expense) => {
+    // Remember the current view state before editing
+    const wasInSearchResults = showSearchResults;
+    
+    setEditingExpense(expense);
+    setForm({
+      title: expense.title || "",
+      amount: expense.amount?.toString() || "",
+      category: expense.category || "Food",
+      categoryOther: expense.categoryOther || "",
+      reimbursementMethod: expense.reimbursementMethod || "Credit Card",
+      notes: expense.notes || "",
+      linkedSoldierUid: expense.linkedSoldierUid || "",
+      expenseDate: expense.expenseDate?.toDate?.()?.toISOString().slice(0,16) || new Date().toISOString().slice(0,16),
+      photoUrl: expense.photoUrl || "",
+      photoPath: expense.photoPath || "",
+    });
+    setReportOpen(false);
+    
+    // Store the view state to restore later
+    expense.viewState = wasInSearchResults;
+  };
+
+  const handleDeleteExpense = (expense) => {
+    // Remember the current view state before deleting
+    expense.viewState = showSearchResults;
+    
+    setExpenseToDelete(expense);
+    setDeleteConfirmOpen(true);
+  };
+
+  const confirmDeleteExpense = async () => {
+    if (!expenseToDelete) return;
+    
     try {
-      console.log("Starting image compression for file:", file.name, "size:", file.size);
+      await deleteDoc(doc(db, "expenses", expenseToDelete.id));
+      setSuccess("Expense deleted successfully");
+      setDeleteConfirmOpen(false);
+      setExpenseToDelete(null);
       
-      const imgBitmap = await createImageBitmap(file);
-      console.log("Image bitmap created, dimensions:", imgBitmap.width, "x", imgBitmap.height);
+      // Refresh the data
+      await fetchList();
+      if (reportOpen) {
+        await fetchReportData();
+      }
       
-      const scale = Math.min(1, maxDim / Math.max(imgBitmap.width, imgBitmap.height));
-      const targetW = Math.max(1, Math.round(imgBitmap.width * scale));
-      const targetH = Math.max(1, Math.round(imgBitmap.height * scale));
-      console.log("Target dimensions:", targetW, "x", targetH, "scale:", scale);
+      // Restore the view state that was active before deleting
+      if (expenseToDelete && expenseToDelete.viewState) {
+        setShowSearchResults(true);
+      } else {
+        setShowSearchResults(false);
+      }
       
-      const canvas = document.createElement('canvas');
-      canvas.width = targetW; 
-      canvas.height = targetH;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(imgBitmap, 0, 0, targetW, targetH);
-      
-      const dataUrl = canvas.toDataURL('image/jpeg', quality);
-      console.log("Compression completed, data URL length:", dataUrl.length);
-      return dataUrl;
-    } catch (e) {
-      console.warn("Image compression failed, using fallback:", e);
-      // Fallback: read original as data URL
-      return await new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => {
-          console.log("Fallback: original file read as data URL, length:", reader.result.length);
-          resolve(reader.result);
-        };
-        reader.onerror = (error) => {
-          console.error("FileReader error:", error);
-          reject(error);
-        };
-        reader.readAsDataURL(file);
-      });
+    } catch (error) {
+      console.error("Error deleting expense:", error);
+      setError("Failed to delete expense");
     }
   };
 
-  const handleSave = async () => {
-    setError("");
-    setSuccess("");
-    const v = validate();
-    if (v) {
-      setError(v);
+  const handleUpdateExpense = async () => {
+    const validationError = validate();
+    if (validationError) {
+      showError(validationError);
       return;
     }
-    try {
-      setSaving(true);
-      if (!receiptFile) {
-        setError("Receipt image is required");
-        setSaving(false);
-        return;
-      }
-      const ownerUid = auth.currentUser.uid;
-      console.log("Starting upload for user:", ownerUid);
-      console.log("Receipt file:", receiptFile);
-      console.log("File type:", receiptFile.type);
-      console.log("File size:", receiptFile.size);
-      
-      // 1) Upload first
-      const mime = "image/jpeg";
-      const safeName = `receipt_${Date.now()}.jpg`;
-      const path = `receipts/${ownerUid}/${safeName}`;
-      console.log("Storage path:", path);
-      
-      const refObj = storageRef(storage, path);
-      console.log("Storage ref created");
-      
-      const dataUrl = await compressImageToDataUrl(receiptFile);
-      console.log("Image compressed, data URL length:", dataUrl.length);
-      
-      console.log("Starting upload...");
-      try {
-        // Try data URL method first
-        await uploadString(refObj, dataUrl, 'data_url', { contentType: mime });
-        console.log("Upload completed with data URL method");
-      } catch (uploadError) {
-        console.warn("Data URL upload failed, trying blob method:", uploadError);
-        // Fallback to blob upload
-        const blob = await new Promise((resolve) => {
-          const canvas = document.createElement('canvas');
-          const img = new Image();
-          img.onload = () => {
-            canvas.width = img.width;
-            canvas.height = img.height;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(img, 0, 0);
-            canvas.toBlob(resolve, 'image/jpeg', 0.9);
-          };
-          img.src = dataUrl;
-        });
-        await uploadBytes(refObj, blob, { contentType: mime });
-        console.log("Upload completed with blob method");
-      }
-      
-      const url = await getDownloadURL(refObj);
-      console.log("Download URL obtained:", url);
 
-      // 2) Then create the expense document including the receipt
+    if (!editingExpense) return;
+
+    setSaving(true);
+    setError("");
+    setSuccess("");
+
+    try {
       const payload = {
-        ownerUid,
         title: form.title.trim(),
         amount: Number(form.amount),
         currency: "ILS",
@@ -311,15 +282,15 @@ export default function AdminExpensesPage() {
         notes: form.notes.trim(),
         linkedSoldierUid: form.linkedSoldierUid || null,
         expenseDate: new Date(form.expenseDate),
-        createdAt: serverTimestamp(),
+        photoUrl: form.photoUrl,
+        photoPath: form.photoPath,
         updatedAt: serverTimestamp(),
-        softDeleted: false,
-        receiptUrl: url,
-        receiptStoragePath: path,
       };
-      await addDoc(collection(db, "expenses"), payload);
 
-      setSuccess("Expense saved");
+      await updateDoc(doc(db, "expenses", editingExpense.id), payload);
+      
+      showSuccess("Expense updated successfully");
+      setEditingExpense(null);
       setForm({
         title: "",
         amount: "",
@@ -328,34 +299,82 @@ export default function AdminExpensesPage() {
         reimbursementMethod: "Credit Card",
         notes: "",
         linkedSoldierUid: "",
-        expenseDate: "",
-      });
-      setReceiptFile(null);
-      await fetchList();
-    } catch (e) {
-      console.error('Failed to save expense', e);
-      console.error('Error details:', {
-        code: e?.code,
-        message: e?.message,
-        stack: e?.stack
+        expenseDate: new Date().toISOString().slice(0,16),
+        photoUrl: "",
+        photoPath: "",
       });
       
-      // Provide more specific error messages
-      let errorMessage = "Failed to save expense";
-      if (e?.code === 'storage/unauthorized') {
-        errorMessage = "Storage access denied. Please check your permissions.";
-      } else if (e?.code === 'storage/quota-exceeded') {
-        errorMessage = "Storage quota exceeded. Please try with a smaller image.";
-      } else if (e?.code === 'storage/unauthenticated') {
-        errorMessage = "Please sign in again to upload images.";
-      } else if (e?.message) {
-        errorMessage = e.message;
+      // Refresh the data and return to modal
+      await fetchList();
+      if (reportOpen) {
+        await fetchReportData();
       }
       
-      setError(errorMessage);
+      // Reopen the modal if it was closed
+      if (!reportOpen) {
+        setReportOpen(true);
+        // Restore the view state that was active before editing
+        if (editingExpense && editingExpense.viewState) {
+          setShowSearchResults(true);
+        } else {
+          setShowSearchResults(false);
+        }
+      }
+      
+    } catch (error) {
+      console.error("Error updating expense:", error);
+      showError("Failed to update expense");
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleSave = async () => {
+    setError(""); setSuccess("");
+    const v = validate(); if (v) { showError(v); return; }
+    try {
+      setSaving(true);
+      const user = auth.currentUser; if (!user) { showError("Please sign in again"); return; }
+      const payload = {
+        ownerUid: user.uid,
+        title: form.title.trim(),
+        amount: Number(form.amount),
+        currency: "ILS",
+        category: form.category,
+        categoryOther: form.category === "Other" ? form.categoryOther.trim() : "",
+        reimbursementMethod: form.reimbursementMethod,
+        notes: form.notes.trim(),
+        linkedSoldierUid: form.linkedSoldierUid || null,
+        expenseDate: new Date(form.expenseDate),
+        photoUrl: form.photoUrl || null,
+        photoPath: form.photoPath || null,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        softDeleted: false,
+      };
+      await addDoc(collection(db, "expenses"), payload);
+      showSuccess("Expense saved");
+      
+      // Reset form completely including photo
+      setForm({ 
+        title: "", 
+        amount: "", 
+        category: "Food", 
+        categoryOther: "", 
+        reimbursementMethod: "Credit Card", 
+        notes: "", 
+        linkedSoldierUid: "", 
+        expenseDate: new Date().toISOString().slice(0,16),
+        photoUrl: "",
+        photoPath: "",
+      });
+      
+      // Refresh the expenses list
+      await fetchList();
+      
+    } catch (e) {
+      showError(e?.message || "Failed to save expense");
+    } finally { setSaving(false); }
   };
 
   const fetchList = async () => {
@@ -365,57 +384,299 @@ export default function AdminExpensesPage() {
       if (filters.category) constraints.push(where("category", "==", filters.category));
       if (filters.from) constraints.push(where("expenseDate", ">=", new Date(filters.from)));
       if (filters.to) constraints.push(where("expenseDate", "<=", new Date(filters.to)));
-      // no status filtering
-      const q = query(
-        collection(db, "expenses"),
-        ...constraints,
-        orderBy("expenseDate", "desc"),
-        limit(100)
-      );
+      const q = query(collection(db, "expenses"), ...constraints, orderBy("expenseDate", "desc"), limit(100));
       const snap = await getDocs(q);
       const data = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
       setItems(data);
-    } catch (e) {
-      // noop UI error below
-    } finally {
-      setLoadingList(false);
-    }
+    } finally { setLoadingList(false); }
   };
 
-  useEffect(() => {
-    // Fetch expenses list on first load
-    fetchList();
-    // Also preload pending requests for the count badge only
-    (async () => {
-      try {
-        const qReq = query(collection(db, 'approvalRequests'), where('status','==','pending'));
-        const snap = await getDocs(qReq);
-        setApprovalItems(snap.docs.map(d=>({ id:d.id, ...d.data() })));
-      } catch {}
-    })();
-  }, []);
+  useEffect(() => { fetchList(); }, []);
 
   const amountFormatted = (amt) => new Intl.NumberFormat("he-IL", { style: "currency", currency: "ILS" }).format(amt || 0);
 
-  // Report modal state
-  const [reportOpen, setReportOpen] = useState(false);
-  const [rangePreset, setRangePreset] = useState("last_week");
-  const [customRangeOpen, setCustomRangeOpen] = useState(false);
-  const [customFrom, setCustomFrom] = useState("");
-  const [customTo, setCustomTo] = useState("");
-  // Approval modal
+  // Report and approvals (kept minimal, unchanged)
   const [approvalOpen, setApprovalOpen] = useState(false);
   const [approvalItems, setApprovalItems] = useState([]);
   const [approvalLoading, setApprovalLoading] = useState(false);
   const [approvalProcessingId, setApprovalProcessingId] = useState("");
-  
   const fetchPendingRequests = async () => {
+    try { setApprovalLoading(true); const qReq = query(collection(db, 'approvalRequests'), where('status','==','pending')); const snap = await getDocs(qReq); setApprovalItems(snap.docs.map(d=>({ id:d.id, ...d.data() }))); } finally { setApprovalLoading(false); }
+  };
+
+  const openPhotoViewer = (photoUrl, expenseTitle) => {
+    setSelectedPhoto({ url: photoUrl, title: expenseTitle });
+    setPhotoViewerOpen(true);
+  };
+
+  const generateDateRange = (range) => {
+    const now = new Date();
+    const start = new Date();
+    
+    switch (range) {
+      case "lastDay":
+        start.setDate(now.getDate() - 1);
+        break;
+      case "lastWeek":
+        start.setDate(now.getDate() - 7);
+        break;
+      case "lastMonth":
+        start.setMonth(now.getMonth() - 1);
+        break;
+      case "last3Months":
+        start.setMonth(now.getMonth() - 3);
+        break;
+      case "lastYear":
+        start.setFullYear(now.getFullYear() - 1);
+        break;
+      case "all":
+        return { from: null, to: null };
+      default:
+        return { from: null, to: null };
+    }
+    
+    return { from: start, to: now };
+  };
+
+  const fetchReportData = async () => {
+    console.log('fetchReportData called');
+    console.log('Current filters:', reportFilters);
+    setReportLoading(true);
     try {
-      setApprovalLoading(true);
-      const qReq = query(collection(db, 'approvalRequests'), where('status','==','pending'));
-      const snap = await getDocs(qReq);
-      setApprovalItems(snap.docs.map(d=>({ id:d.id, ...d.data() })));
-    } finally { setApprovalLoading(false); }
+      // Super simple query - fetch all expenses without any constraints
+      console.log('Fetching all expenses...');
+      const querySnapshot = await getDocs(collection(db, "expenses"));
+      console.log('Query completed, docs found:', querySnapshot.docs.length);
+      
+      // Convert to array
+      let expenses = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      
+      // Apply category filtering in JavaScript
+      if (reportFilters.category) {
+        console.log('Filtering by category:', reportFilters.category);
+        expenses = expenses.filter(expense => expense.category === reportFilters.category);
+        console.log('After category filter:', expenses.length, 'expenses');
+      }
+      
+      // Apply date filtering in JavaScript
+      if (reportFilters.dateRange !== "all") {
+        const now = new Date();
+        let startDate;
+        
+        switch (reportFilters.dateRange) {
+          case "lastDay":
+            startDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+            break;
+          case "lastWeek":
+            startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+            break;
+          case "lastMonth":
+            startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+            break;
+          case "last3Months":
+            startDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+            break;
+          case "lastYear":
+            startDate = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+            break;
+          case "custom":
+            if (reportFilters.customFrom && reportFilters.customTo) {
+              startDate = new Date(reportFilters.customFrom + "T00:00:00");
+              const endDate = new Date(reportFilters.customTo + "T23:59:59");
+              expenses = expenses.filter(expense => {
+                const expenseDate = expense.expenseDate?.toDate?.() || new Date(expense.expenseDate);
+                return expenseDate >= startDate && expenseDate <= endDate;
+              });
+            }
+            break;
+        }
+        
+        if (startDate && reportFilters.dateRange !== "custom") {
+          console.log('Filtering by date from:', startDate);
+          expenses = expenses.filter(expense => {
+            const expenseDate = expense.expenseDate?.toDate?.() || new Date(expense.expenseDate);
+            return expenseDate >= startDate;
+          });
+          console.log('After date filter:', expenses.length, 'expenses');
+        }
+      }
+      
+      // Sort by date (newest first)
+      expenses.sort((a, b) => {
+        const dateA = a.expenseDate?.toDate?.() || new Date(a.expenseDate);
+        const dateB = b.expenseDate?.toDate?.() || new Date(b.expenseDate);
+        return dateB - dateA;
+      });
+      
+      console.log('Search results after filtering:', expenses.length, 'expenses found');
+      console.log('First expense sample:', expenses[0]);
+      setReportItems(expenses);
+      setShowSearchResults(true);
+    } catch (error) {
+      console.error("Error fetching report data:", error);
+      setError("Failed to search expenses. Please try again.");
+    } finally {
+      setReportLoading(false);
+    }
+  };
+
+  const getTotalAmount = (items) => {
+    return items.reduce((sum, item) => sum + (item.amount || 0), 0);
+  };
+
+  const getCategoryBreakdown = (items) => {
+    const breakdown = {};
+    items.forEach(item => {
+      const category = item.category || 'Other';
+      breakdown[category] = (breakdown[category] || 0) + (item.amount || 0);
+    });
+    return breakdown;
+  };
+
+  const exportToPDF = () => {
+    if (reportItems.length === 0) return;
+    
+    // Create PDF content using jsPDF-like structure
+    const pdfContent = {
+      title: 'Expenses Report',
+      generatedOn: new Date().toLocaleDateString(),
+      totalExpenses: reportItems.length,
+      totalAmount: amountFormatted(getTotalAmount(reportItems)),
+      expenses: reportItems.map(expense => ({
+        title: expense.title || '',
+        category: expense.category || '',
+        amount: amountFormatted(expense.amount || 0),
+        date: expense.expenseDate?.toDate?.()?.toLocaleDateString?.() || 'No date',
+        notes: expense.notes || '',
+        reimbursementMethod: expense.reimbursementMethod || '',
+        photoUrl: expense.photoUrl || null
+      }))
+    };
+
+    // Create HTML content for PDF
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Expenses Report</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 20px; }
+            .header { text-align: center; margin-bottom: 30px; }
+            .title { font-size: 24px; font-weight: bold; color: #333; margin-bottom: 10px; }
+            .subtitle { font-size: 14px; color: #666; margin-bottom: 5px; }
+            .summary { display: flex; justify-content: space-around; margin: 30px 0; }
+            .summary-item { text-align: center; }
+            .summary-value { font-size: 20px; font-weight: bold; color: #2563eb; }
+            .summary-label { font-size: 12px; color: #666; margin-top: 5px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+            th { background-color: #f8f9fa; font-weight: bold; }
+            .amount { text-align: right; }
+            .category { color: #666; }
+            .notes { font-size: 12px; color: #666; max-width: 200px; }
+            .photo-link { text-align: center; }
+            .photo-link a { color: #2563eb; text-decoration: underline; }
+            .photo-link a:hover { color: #1d4ed8; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="title">${pdfContent.title}</div>
+            <div class="subtitle">Generated on: ${pdfContent.generatedOn}</div>
+          </div>
+          
+          <div class="summary">
+            <div class="summary-item">
+              <div class="summary-value">${pdfContent.totalExpenses}</div>
+              <div class="summary-label">Total Expenses</div>
+            </div>
+            <div class="summary-item">
+              <div class="summary-value">${pdfContent.totalAmount}</div>
+              <div class="summary-label">Total Amount</div>
+            </div>
+          </div>
+          
+          <table>
+            <thead>
+              <tr>
+                <th>Title</th>
+                <th>Category</th>
+                <th>Amount</th>
+                <th>Date</th>
+                <th>Notes</th>
+                <th>Reimbursement Method</th>
+                <th>Photo</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${pdfContent.expenses.map(expense => `
+                <tr>
+                  <td>${expense.title}</td>
+                  <td class="category">${expense.category}</td>
+                  <td class="amount">${expense.amount}</td>
+                  <td>${expense.date}</td>
+                  <td class="notes">${expense.notes}</td>
+                  <td>${expense.reimbursementMethod}</td>
+                  <td class="photo-link">
+                    ${expense.photoUrl ? 
+                      `<a href="${expense.photoUrl}" target="_blank" style="color: #2563eb; text-decoration: underline;">View Receipt</a>` : 
+                      '<span style="color: #999;">No photo</span>'
+                    }
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </body>
+      </html>
+    `;
+
+    // Create and download the HTML file (can be opened in browser and printed to PDF)
+    const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `expenses_report_${new Date().toISOString().slice(0, 10)}.html`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    // Show success message
+    setSuccess('PDF report downloaded! Open the HTML file in your browser and use Print → Save as PDF');
+  };
+
+  const exportToExcel = () => {
+    if (reportItems.length === 0) return;
+    
+    // Create CSV content (Excel can open CSV files)
+    const headers = ['Title', 'Category', 'Amount', 'Date', 'Notes', 'Reimbursement Method', 'Photo URL'];
+    const csvContent = [
+      headers.join(','),
+      ...reportItems.map(expense => [
+        `"${(expense.title || '').replace(/"/g, '""')}"`,
+        `"${(expense.category || '').replace(/"/g, '""')}"`,
+        expense.amount || 0,
+        `"${expense.expenseDate?.toDate?.()?.toLocaleDateString?.() || 'No date'}"`,
+        `"${(expense.notes || '').replace(/"/g, '""')}"`,
+        `"${(expense.reimbursementMethod || '').replace(/"/g, '""')}"`,
+        `"${expense.photoUrl || 'No photo'}"`
+      ].join(','))
+    ].join('\n');
+
+    // Create and download CSV file
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `expenses_report_${new Date().toISOString().slice(0, 10)}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   return (
@@ -441,330 +702,548 @@ export default function AdminExpensesPage() {
             </select>
             <div>
               <div className="flex gap-2 items-center">
-                <button
-                  onClick={()=>setForm(f=>({...f,expenseDate:new Date().toISOString().slice(0,16)}))}
-                  className="px-4 py-2 rounded-full text-sm font-semibold text-white"
-                  style={{ background: colors.gold }}
-                >Today</button>
-                <button
-                  onClick={()=>setDatePickerOpen(true)}
-                  className="px-4 py-2 rounded-full text-sm font-semibold border"
-                  style={{ borderColor: colors.primaryGreen, color: colors.primaryGreen }}
-                >Other date</button>
+                <button onClick={()=>setForm(f=>({...f,expenseDate:new Date().toISOString().slice(0,16)}))} className="px-4 py-2 rounded-full text-sm font-semibold text-white" style={{ background: colors.gold }}>Today</button>
+                <button onClick={()=>setDatePickerOpen(true)} className="px-4 py-2 rounded-full text-sm font-semibold border" style={{ borderColor: colors.primaryGreen, color: colors.primaryGreen }}>Other date</button>
               </div>
               {form.expenseDate && (
                 <div className="mt-2 text-white text-sm">Selected: {new Date(form.expenseDate).toLocaleString()}</div>
               )}
             </div>
             <textarea className="w-full px-4 py-3 rounded-xl border text-lg" placeholder="Notes (optional)" value={form.notes} onChange={(e)=>setForm(f=>({...f,notes:e.target.value}))} />
-            <div className="w-full flex items-center justify-between gap-2">
-              <button type="button" onClick={()=>setCameraOpen(true)} className="flex-1 px-4 py-3 rounded-xl border bg-white text-sm">Take photo</button>
-              <button type="button" onClick={()=>galleryInputRef.current?.click()} className="flex-1 px-4 py-3 rounded-xl border bg-white text-sm">Choose from photos</button>
+            
+            {/* Photo Upload Section */}
+            <div className="bg-white/10 rounded-xl p-4">
+              <h3 className="text-white font-semibold mb-3 text-center">Receipt Photo</h3>
+              <PhotoUpload
+                key={`photo-${form.photoUrl}-${Date.now()}`}
+                onPhotoUploaded={handlePhotoUploaded}
+                onPhotoRemoved={handlePhotoRemoved}
+                currentPhotoUrl={form.photoUrl}
+                uploadPath="expenses"
+              />
             </div>
-            {/* hidden camera input retained as fallback */}
-            <input 
-              ref={cameraInputRef} 
-              className="hidden" 
-              type="file" 
-              accept="image/*" 
-              capture="environment" 
-              onChange={(e)=>{
-                const file = e.target.files?.[0];
-                console.log("Camera file selected:", file);
-                setReceiptFile(file);
-              }} 
-            />
-            <input 
-              ref={galleryInputRef} 
-              className="hidden" 
-              type="file" 
-              accept="image/*" 
-              onChange={(e)=>{
-                const file = e.target.files?.[0];
-                console.log("Gallery file selected:", file);
-                setReceiptFile(file);
-              }} 
-            />
-            <div className="text-xs text-white/90">{receiptFile ? `Selected: ${receiptFile.name}` : 'No file selected'}</div>
             
-            {/* Test storage button */}
-            <button 
-              onClick={async () => {
-                try {
-                  console.log("Testing storage access...");
-                  const ownerUid = auth.currentUser?.uid;
-                  if (!ownerUid) { setError("Not signed in"); return; }
-                  const testRef = storageRef(storage, `receipts/${ownerUid}/test_${Date.now()}.txt`);
-                  await uploadString(testRef, "test content", 'raw');
-                  console.log("Storage test successful");
-                  setSuccess("Storage test successful");
-                } catch (e) {
-                  console.error("Storage test failed:", e);
-                  setError(`Storage test failed: ${e.message}`);
-                }
-              }}
-              className="w-full px-4 py-3 rounded-xl text-white font-semibold mb-2 text-sm"
-              style={{ background: "#6b7280" }}
-            >
-              Test Storage Access
-            </button>
-            
-            {/* Test image upload button */}
-            <button 
-              onClick={async () => {
-                try {
-                  console.log("Testing image upload...");
-                  if (!receiptFile) {
-                    setError("Please select an image first");
-                    return;
-                  }
-                  const ownerUid = auth.currentUser?.uid;
-                  if (!ownerUid) { setError("Not signed in"); return; }
-                  const testRef = storageRef(storage, `receipts/${ownerUid}/image_test_${Date.now()}.jpg`);
-                  const dataUrl = await compressImageToDataUrl(receiptFile);
-                  await uploadString(testRef, dataUrl, 'data_url', { contentType: 'image/jpeg' });
-                  console.log("Image upload test successful");
-                  setSuccess("Image upload test successful");
-                } catch (e) {
-                  console.error("Image upload test failed:", e);
-                  setError(`Image upload test failed: ${e.message}`);
-                }
-              }}
-              className="w-full px-4 py-3 rounded-xl text-white font-semibold mb-2 text-sm"
-              style={{ background: "#059669" }}
-            >
-              Test Image Upload
-            </button>
-            
-            <button onClick={handleSave} disabled={saving} className="w-full px-4 py-3 rounded-xl text-white font-semibold disabled:opacity-70 text-lg" style={{ background: colors.gold }}>
-              {saving?"Saving...":"Save Expense"}
-            </button>
+            <button onClick={handleSave} disabled={saving} className="w-full px-4 py-3 rounded-xl text-white font-semibold disabled:opacity-70 text-lg" style={{ background: colors.gold }}>{saving?"Saving...":"Save Expense"}</button>
           </div>
         </div>
 
+        {/* Expenses List with Photos */}
         <div className="mb-3 rounded-2xl p-5 shadow-xl" style={{ background: "rgba(0,0,0,0.22)" }}>
-          <div className="flex items-center justify-between">
-            <h3 className="text-white font-extrabold text-xl">Expenses</h3>
-          </div>
-          <button onClick={()=>setReportOpen(true)} className="w-full mt-4 px-6 py-4 rounded-full text-white font-bold text-lg" style={{ background: colors.gold }}>Get a report</button>
-          <button
-            onClick={()=>{ fetchPendingRequests(); setApprovalOpen(true); }}
-            className={`w-full mt-3 px-6 py-4 rounded-full font-bold text-lg flex items-center justify-center gap-2 ${approvalItems.length>0 ? 'text-white' : ''}`}
-            style={
-              approvalItems.length>0
-                ? { background: colors.primaryGreen }
-                : { borderColor: colors.primaryGreen, color: colors.white, borderWidth: 2, borderStyle: 'solid' }
-            }
-          >
+          <div className="flex items-center justify-between"><h3 className="text-white font-extrabold text-xl">Expenses</h3></div>
+          <button onClick={()=>{ setReportOpen(true); setShowSearchResults(false); }} className="w-full mt-4 px-6 py-4 rounded-full text-white font-bold text-lg" style={{ background: colors.gold }}>View Expenses</button>
+          <button onClick={()=>{ fetchPendingRequests(); setApprovalOpen(true); }} className={`w-full mt-3 px-6 py-4 rounded-full font-bold text-lg flex items-center justify-center gap-2 ${approvalItems.length>0 ? 'text-white' : ''}`} style={approvalItems.length>0 ? { background: colors.primaryGreen } : { borderColor: colors.primaryGreen, color: colors.white, borderWidth: 2, borderStyle: 'solid' }}>
             <span>{`Pending (${approvalItems.length})`}</span>
           </button>
         </div>
       </div>
-      {/* Single date picker for add expense */}
-      <DatePickerModal
-        open={datePickerOpen}
-        mode="single"
-        title="Choose expense date"
-        onClose={()=>setDatePickerOpen(false)}
-        onSelect={({date})=>{
-          // date is yyyy-mm-dd; convert to local datetime at noon to avoid TZ date shift
-          const dt = new Date(date + "T12:00");
-          setForm(f=>({...f,expenseDate: dt.toISOString().slice(0,16)}));
-          setDatePickerOpen(false);
-        }}
-      />
 
-      {/* Camera capture modal */}
-      <CameraCaptureModal
-        open={cameraOpen}
-        onClose={()=>setCameraOpen(false)}
-        onCapture={(blob)=>{ setReceiptFile(new File([blob], `receipt_${Date.now()}.jpg`, { type: 'image/jpeg' })); setCameraOpen(false); }}
-      />
-
-      {/* Report modal */}
+      {/* Comprehensive Report Modal */}
       {reportOpen && (
-        <div className="fixed inset-0 z-[55] bg-black/50 flex items-center justify-center">
-          <div className="bg-white rounded-2xl w-full max-w-2xl mx-4 p-5 max-h-[85vh] flex flex-col">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-xl font-bold">Expenses report</h3>
-              <button onClick={()=>setReportOpen(false)} className="text-gray-600">✕</button>
+        <div className="fixed inset-0 z-[55] bg-black/50 flex items-center justify-center p-4">
+          <div className="rounded-2xl w-full max-w-4xl mx-4 p-5 max-h-[90vh] flex flex-col" style={{ background: colors.surface }}>
+            <div className="flex items-center justify-between mb-4 border-b pb-3" style={{ borderColor: colors.gray400 }}>
+              <h3 className="text-2xl font-bold" style={{ color: colors.text }}>View Expenses</h3>
+              <button onClick={handleCloseReportModal} className="text-2xl font-bold transition-colors duration-200" style={{ color: colors.muted }} onMouseEnter={(e) => e.target.style.color = colors.text} onMouseLeave={(e) => e.target.style.color = colors.muted }>✕</button>
             </div>
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-2">
-                <button onClick={()=>setRangePreset('last_week')} className={`px-3 py-3 rounded-xl border ${rangePreset==='last_week'?'bg-[#EDC381] text-white':'bg-white'}`}>Last week</button>
-                <button onClick={()=>setRangePreset('last_month')} className={`px-3 py-3 rounded-xl border ${rangePreset==='last_month'?'bg-[#EDC381] text-white':'bg-white'}`}>Last month</button>
-                <button onClick={()=>setRangePreset('last_3_months')} className={`px-3 py-3 rounded-xl border ${rangePreset==='last_3_months'?'bg-[#EDC381] text-white':'bg-white'}`}>Last 3 months</button>
-                <button onClick={()=>{setRangePreset('custom'); setCustomRangeOpen(true);}} className={`px-3 py-3 rounded-xl border ${rangePreset==='custom'?'bg-[#EDC381] text-white':'bg-white'}`}>Other</button>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <select className="px-3 py-3 rounded-xl border" value={filters.category} onChange={(e)=>setFilters(f=>({...f,category:e.target.value}))}>
-                  <option value="">All categories</option>
-                  {CATEGORIES.map(c=> <option key={c} value={c}>{c}</option>)}
-                </select>
-                <div />
-              </div>
-              <div className="flex justify-end gap-2">
-                <button onClick={()=>setReportOpen(false)} className="px-4 py-2 rounded-full border" style={{ borderColor: colors.primaryGreen, color: colors.primaryGreen }}>Close</button>
-                <button onClick={()=>{
-                  const now = new Date();
-                  let fromDate = null;
-                  if (rangePreset==='last_week') { const d=new Date(); d.setDate(d.getDate()-7); fromDate=d; }
-                  if (rangePreset==='last_month') { const d=new Date(); d.setMonth(d.getMonth()-1); fromDate=d; }
-                  if (rangePreset==='last_3_months') { const d=new Date(); d.setMonth(d.getMonth()-3); fromDate=d; }
-                  if (rangePreset==='custom') { if (customFrom && customTo) { setFilters(f=>({...f,from:customFrom,to:customTo})); fetchList(); return; } }
-                  if (fromDate) { setFilters(f=>({...f,from:fromDate.toISOString().slice(0,10), to: now.toISOString().slice(0,10)})); fetchList(); }
-                }} className="px-4 py-2 rounded-full text-white" style={{ background: colors.gold }}>Apply</button>
-              </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={async ()=>{
-                    try {
-                      await ensureXlsxLoaded();
-                      const XLSX = window.XLSX;
-                    const rows = items.map(it=>({
-                      id: it.id,
-                      title: it.title,
-                      amount: it.amount,
-                      currency: it.currency,
-                      category: it.category === "Other" ? it.categoryOther : it.category,
-                      reimbursementMethod: it.reimbursementMethod,
-                      notes: it.notes || "",
-                      linkedSoldierUid: it.linkedSoldierUid || "",
-                      expenseDate: (it.expenseDate?.toDate ? it.expenseDate.toDate() : new Date(it.expenseDate)).toISOString(),
-                      status: it.status,
-                    }));
-                      const ws = XLSX.utils.json_to_sheet(rows);
-                      const wb = XLSX.utils.book_new();
-                      XLSX.utils.book_append_sheet(wb, ws, "Expenses");
-                      XLSX.writeFile(wb, `expenses_${Date.now()}.xlsx`);
-                    } catch (e) {
-                      alert('Failed to export Excel');
-                    }
-                  }}
-                  className="px-4 py-2 rounded-full text-sm font-semibold text-white" style={{ background: colors.gold }}
-                >Export Excel</button>
-                <button
-                  onClick={async ()=>{
-                    try {
-                      await ensureJsPdfLoaded();
-                      // @ts-ignore
-                      const { jsPDF } = window.jspdf;
-                      const docPdf = new jsPDF({ unit: "pt", format: "a4" });
-                      docPdf.setFontSize(14);
-                      docPdf.text("Expenses", 40, 40);
-                      const head = [["Date","Title","Category","Amount (ILS)"]];
-                      const body = items.map(it=>[
-                        (it.expenseDate?.toDate ? it.expenseDate.toDate() : new Date(it.expenseDate)).toLocaleDateString(),
-                        it.title,
-                        it.category === "Other" ? it.categoryOther : it.category,
-                        (Number(it.amount) || 0).toFixed(2),
-                      ]);
-                      // @ts-ignore
-                      docPdf.autoTable({ head, body, startY: 60 });
-                      docPdf.save(`expenses_${Date.now()}.pdf`);
-                    } catch (e) {
-                      alert('Failed to generate PDF');
-                    }
-                  }}
-                  className="px-4 py-2 rounded-full text-sm font-semibold text-white" style={{ background: colors.gold }}
-                >Export PDF</button>
-              </div>
-              <div className="mt-2 overflow-auto border rounded-xl max-h-[45vh]">
-                {loadingList ? (
-                  <div className="p-4">Loading...</div>
-                ) : items.length === 0 ? (
-                  <div className="p-4">No expenses found</div>
-                ) : (
-                  <ul className="divide-y">
-                    {items.map(it => {
-                      const open = expandedId === it.id;
-                      return (
-                        <li key={it.id} className="p-0">
-                          <button type="button"
-                            className="w-full p-3 flex items-center justify-between text-left"
-                            onClick={()=> setExpandedId(prev => prev === it.id ? null : it.id)}
-                          >
-                            <div>
-                              <div className="font-semibold">{it.title}</div>
-                              <div className="text-xs text-gray-600">{it.expenseDate?.toDate ? it.expenseDate.toDate().toLocaleDateString() : new Date(it.expenseDate).toLocaleDateString()} • {it.category === "Other" ? it.categoryOther : it.category}</div>
+            
+            {/* Recent Expenses Preview */}
+            {!showSearchResults && (
+              <div className="mb-6 p-4 rounded-lg" style={{ background: colors.background }}>
+                <h4 className="text-lg font-semibold mb-3" style={{ color: colors.text }}>Recent Expenses</h4>
+                <div className="space-y-3 max-h-80 overflow-y-auto">
+                  {loadingList ? (
+                    <div className="text-center py-4" style={{ color: colors.muted }}>Loading expenses...</div>
+                  ) : items.length === 0 ? (
+                    <div className="text-center py-4" style={{ color: colors.muted }}>No expenses found</div>
+                  ) : (
+                    <>
+                      {items.slice(0, expandedId === 'recent' ? items.length : 3).map(expense => (
+                        <div key={expense.id} className="border rounded-lg p-4 hover:bg-white transition-colors duration-200" style={{ borderColor: colors.gray400 }}>
+                          <div className="flex justify-between items-start">
+                            <div className="flex-1">
+                              <h5 className="text-xl font-bold mb-2" style={{ color: colors.text }}>{expense.title}</h5>
+                              <p className="text-base font-semibold mb-1" style={{ color: colors.primaryGreen }}>{expense.category}</p>
+                              <p className="text-lg font-bold mb-2" style={{ color: colors.text }}>{amountFormatted(expense.amount)}</p>
+                              <p className="text-sm font-medium" style={{ color: colors.muted }}>
+                                📅 {expense.expenseDate?.toDate?.()?.toLocaleDateString?.() || 'No date'}
+                              </p>
                             </div>
-                            <div className="font-bold">{amountFormatted(it.amount)}</div>
-                          </button>
-                          {open && (
-                            <div className="px-3 pb-3">
-                              <div className="text-sm text-gray-700 space-y-1 mb-2">
-                                <div><span className="font-semibold">Amount:</span> {amountFormatted(it.amount)}</div>
-                                <div><span className="font-semibold">Date:</span> {it.expenseDate?.toDate ? it.expenseDate.toDate().toLocaleString() : new Date(it.expenseDate).toLocaleString()}</div>
-                                <div><span className="font-semibold">Category:</span> {it.category === 'Other' ? it.categoryOther : it.category}</div>
-                                <div><span className="font-semibold">Method:</span> {it.reimbursementMethod}</div>
-                                {it.notes && <div><span className="font-semibold">Notes:</span> {it.notes}</div>}
-                              </div>
-                              {it.receiptUrl ? (
-                                <img src={it.receiptUrl} alt="Receipt" className="w-full rounded" />
-                              ) : (
-                                <div className="text-xs text-gray-500">No receipt attached</div>
+                            <div className="flex items-center gap-2 ml-3">
+                              {expense.photoUrl && (
+                                <img
+                                  src={expense.photoUrl}
+                                  alt="Receipt"
+                                  className="w-12 h-12 object-cover rounded border cursor-pointer"
+                                  onClick={() => {
+                                    setSelectedPhoto({ url: expense.photoUrl, title: expense.title });
+                                    setPhotoViewerOpen(true);
+                                    setReportOpen(false);
+                                  }}
+                                  title="Click to view receipt"
+                                />
                               )}
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => handleEditExpense(expense)}
+                                  className="px-4 py-2 border-2 font-bold text-sm rounded-lg transition-colors duration-200"
+                                  style={{ borderColor: colors.primaryGreen, color: colors.primaryGreen }}
+                                  onMouseEnter={(e) => {
+                                    e.target.style.background = colors.primaryGreen;
+                                    e.target.style.color = 'white';
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    e.target.style.background = 'transparent';
+                                    e.target.style.color = colors.primaryGreen;
+                                  }}
+                                  title="Edit expense"
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteExpense(expense)}
+                                  className="px-4 py-2 border-2 font-bold text-sm rounded-lg transition-colors duration-200"
+                                  style={{ borderColor: colors.red, color: colors.red }}
+                                  onMouseEnter={(e) => {
+                                    e.target.style.background = colors.red;
+                                    e.target.style.color = 'white';
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    e.target.style.background = 'transparent';
+                                    e.target.style.color = colors.red;
+                                  }}
+                                  title="Delete expense"
+                                >
+                                  Delete
+                                </button>
+                              </div>
                             </div>
+                          </div>
+                          {expense.notes && (
+                            <p className="text-sm mt-3 p-2 rounded" style={{ color: colors.muted, background: colors.surface }}>{expense.notes}</p>
                           )}
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )}
+                        </div>
+                      ))}
+                      
+                      {/* Show More/Less Button */}
+                      {items.length > 3 && (
+                        <div className="text-center pt-2">
+                          <button 
+                            onClick={() => setExpandedId(expandedId === 'recent' ? null : 'recent')}
+                            className="px-4 py-2 border-2 font-bold text-sm rounded-lg transition-colors duration-200"
+                            style={{ 
+                              borderColor: colors.primaryGreen, 
+                              color: colors.primaryGreen 
+                            }}
+                            onMouseEnter={(e) => {
+                              e.target.style.background = colors.primaryGreen;
+                              e.target.style.color = 'white';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.target.style.background = 'transparent';
+                              e.target.style.color = colors.primaryGreen;
+                            }}
+                          >
+                            {expandedId === 'recent' ? 'Show Less' : `Show ${items.length - 3} More`}
+                          </button>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
               </div>
+            )}
+            
+            {/* Search Results Dashboard */}
+            {showSearchResults && reportItems.length > 0 && (
+              <div className="flex-1 overflow-auto">
+                {/* Summary Stats */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                  <div className="p-4 rounded-lg text-center" style={{ background: colors.background }}>
+                    <div className="text-2xl font-bold" style={{ color: colors.primaryGreen }}>{reportItems.length}</div>
+                    <div className="text-sm" style={{ color: colors.muted }}>Total Expenses</div>
+                  </div>
+                  <div className="p-4 rounded-lg text-center" style={{ background: colors.background }}>
+                    <div className="text-2xl font-bold" style={{ color: colors.gold }}>{amountFormatted(getTotalAmount(reportItems))}</div>
+                    <div className="text-sm" style={{ color: colors.muted }}>Total Amount</div>
+                  </div>
+                </div>
+                
+                {/* Export Buttons - Above the expense list */}
+                <div className="flex justify-center gap-4 mb-6">
+                  <button 
+                    onClick={exportToPDF}
+                    className="px-6 py-3 border-2 font-bold text-lg rounded-lg transition-colors duration-200"
+                    style={{ borderColor: colors.primaryGreen, color: colors.primaryGreen }}
+                    onMouseEnter={(e) => {
+                      e.target.style.background = colors.primaryGreen;
+                      e.target.style.color = 'white';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.background = 'transparent';
+                      e.target.style.color = colors.primaryGreen;
+                    }}
+                  >
+                    📄 Export to PDF
+                  </button>
+                  <button 
+                    onClick={exportToExcel}
+                    className="px-6 py-3 border-2 font-bold text-lg rounded-lg transition-colors duration-200"
+                    style={{ borderColor: colors.gold, color: colors.gold }}
+                    onMouseEnter={(e) => {
+                      e.target.style.background = colors.gold;
+                      e.target.style.color = 'white';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.background = 'transparent';
+                      e.target.style.color = colors.gold;
+                    }}
+                  >
+                    📊 Export to Excel
+                  </button>
+                </div>
+                
+                {/* Category Breakdown */}
+                <div className="mb-6">
+                  <h4 className="text-lg font-semibold mb-3" style={{ color: colors.text }}>Category Breakdown</h4>
+                  <div className="space-y-2">
+                    {Object.entries(getCategoryBreakdown(reportItems))
+                      .sort(([,a], [,b]) => b - a)
+                      .map(([category, amount]) => (
+                        <div key={category} className="flex justify-between items-center p-3 rounded-lg" style={{ background: colors.background }}>
+                          <span className="font-medium" style={{ color: colors.text }}>{category}</span>
+                          <span className="font-bold" style={{ color: colors.text }}>{amountFormatted(amount)}</span>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+                
+                {/* Detailed List */}
+                <div>
+                  <h4 className="text-lg font-semibold mb-3" style={{ color: colors.text }}>Expense Details</h4>
+                  <div className="space-y-3 max-h-96 overflow-auto">
+                    {reportItems.map(expense => (
+                      <div key={expense.id} className="border rounded-lg p-4 hover:bg-white transition-colors duration-200" style={{ borderColor: colors.gray400 }}>
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1">
+                            <h5 className="text-xl font-bold mb-2" style={{ color: colors.text }}>{expense.title}</h5>
+                            <p className="text-base font-semibold mb-1" style={{ color: colors.primaryGreen }}>{expense.category}</p>
+                            <p className="text-sm font-medium mb-2" style={{ color: colors.muted }}>
+                              📅 {expense.expenseDate?.toDate?.()?.toLocaleDateString?.() || 'No date'}
+                            </p>
+                            {expense.notes && (
+                              <p className="text-sm mt-2 p-2 rounded" style={{ color: colors.muted, background: colors.surface }}>{expense.notes}</p>
+                            )}
+                          </div>
+                          <div className="text-right ml-4">
+                            <div className="text-xl font-bold mb-2" style={{ color: colors.text }}>{amountFormatted(expense.amount)}</div>
+                            <div className="flex items-center gap-2 mt-2">
+                              {expense.photoUrl && (
+                                <img
+                                  src={expense.photoUrl}
+                                  alt="Receipt"
+                                  className="w-12 h-12 object-cover rounded border cursor-pointer"
+                                  onClick={() => {
+                                    setSelectedPhoto({ url: expense.photoUrl, title: expense.title });
+                                    setPhotoViewerOpen(true);
+                                    setReportOpen(false);
+                                  }}
+                                  title="Click to view receipt"
+                                />
+                              )}
+                              <div className="flex flex-col gap-1">
+                                <button
+                                  onClick={() => handleEditExpense(expense)}
+                                  className="px-4 py-2 border-2 font-bold text-sm rounded-lg transition-colors duration-200"
+                                  style={{ borderColor: colors.primaryGreen, color: colors.primaryGreen }}
+                                  onMouseEnter={(e) => {
+                                    e.target.style.background = colors.primaryGreen;
+                                    e.target.style.color = 'white';
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    e.target.style.background = 'transparent';
+                                    e.target.style.color = colors.primaryGreen;
+                                  }}
+                                  title="Edit expense"
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteExpense(expense)}
+                                  className="px-4 py-2 border-2 font-bold text-sm rounded-lg transition-colors duration-200"
+                                  style={{ borderColor: colors.red, color: colors.red }}
+                                  onMouseEnter={(e) => {
+                                    e.target.style.background = colors.red;
+                                    e.target.style.color = 'white';
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    e.target.style.background = 'transparent';
+                                    e.target.style.color = colors.red;
+                                  }}
+                                  title="Delete expense"
+                                >
+                                  Delete
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                
+                {/* Export Buttons - Only show when displaying search results */}
+                {/* This block is now moved above the expense list */}
+              </div>
+            )}
+            
+            {/* No Results Message */}
+            {showSearchResults && reportItems.length === 0 && !reportLoading && (
+              <div className="text-center py-8" style={{ color: colors.muted }}>
+                {reportFilters.dateRange === "all" && !reportFilters.category 
+                  ? "No expenses found. Try adding some expenses first."
+                  : "No expenses match your current filters. Try adjusting the criteria."
+                }
+              </div>
+            )}
+            
+            {/* Filters and Search Button - Only show when not displaying search results */}
+            {!showSearchResults && (
+              <>
+                {/* Filters */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 p-4 rounded-lg" style={{ background: colors.background }}>
+                  <div>
+                    <label className="block text-sm font-medium mb-2" style={{ color: colors.text }}>Date Range</label>
+                    <select 
+                      className="w-full px-3 py-2 border rounded-lg"
+                      style={{ borderColor: colors.gray400 }}
+                      value={reportFilters.dateRange}
+                      onChange={(e) => setReportFilters(prev => ({ ...prev, dateRange: e.target.value }))}
+                    >
+                      <option value="all">All Time</option>
+                      <option value="lastDay">Last Day</option>
+                      <option value="lastWeek">Last Week</option>
+                      <option value="lastMonth">Last Month</option>
+                      <option value="last3Months">Last 3 Months</option>
+                      <option value="lastYear">Last Year</option>
+                      <option value="custom">Custom Range</option>
+                    </select>
+                  </div>
+                  
+                  {reportFilters.dateRange === "custom" && (
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-sm font-medium mb-1" style={{ color: colors.text }}>From</label>
+                        <input 
+                          type="date" 
+                          className="w-full px-3 py-2 border rounded-lg"
+                          style={{ borderColor: colors.gray400 }}
+                          value={reportFilters.customFrom}
+                          onChange={(e) => setReportFilters(prev => ({ ...prev, customFrom: e.target.value }))}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium mb-1" style={{ color: colors.text }}>To</label>
+                        <input 
+                          type="date" 
+                          className="w-full px-3 py-2 border rounded-lg"
+                          style={{ borderColor: colors.gray400 }}
+                          value={reportFilters.customTo}
+                          onChange={(e) => setReportFilters(prev => ({ ...prev, customTo: e.target.value }))}
+                        />
+                      </div>
+                    </div>
+                  )}
+                  
+                  <div>
+                    <label className="block text-sm font-medium mb-2" style={{ color: colors.text }}>Category</label>
+                    <select 
+                      className="w-full px-3 py-2 border rounded-lg"
+                      style={{ borderColor: colors.gray400 }}
+                      value={reportFilters.category}
+                      onChange={(e) => setReportFilters(prev => ({ ...prev, category: e.target.value }))}
+                    >
+                      <option value="">All Categories</option>
+                      {CATEGORIES.map(category => (
+                        <option key={category} value={category}>{category}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                
+                {/* Search Button */}
+                <div className="flex justify-center mb-6">
+                  <button 
+                    onClick={() => {
+                      console.log('Search button clicked');
+                      console.log('Current filters:', reportFilters);
+                      fetchReportData();
+                    }}
+                    disabled={reportLoading}
+                    className="px-8 py-3 border-2 font-bold text-lg rounded-lg transition-colors duration-200"
+                    style={{ 
+                      borderColor: colors.gold, 
+                      color: colors.gold,
+                      opacity: reportLoading ? 0.5 : 1
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!reportLoading) {
+                        e.target.style.background = colors.gold;
+                        e.target.style.color = 'white';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!reportLoading) {
+                        e.target.style.background = 'transparent';
+                        e.target.style.color = colors.gold;
+                      }
+                    }}
+                  >
+                    {reportLoading ? 'Searching...' : 'Search Expenses'}
+                  </button>
+                </div>
+              </>
+            )}
+            
+            {/* Back to Recent Button - Only show when displaying search results */}
+            {showSearchResults && (
+              <div className="flex justify-center mb-6">
+                <button 
+                  onClick={() => setShowSearchResults(false)}
+                  className="px-6 py-3 border-2 font-bold text-lg rounded-lg transition-colors duration-200"
+                  style={{ borderColor: colors.primaryGreen, color: colors.primaryGreen }}
+                  onMouseEnter={(e) => {
+                    e.target.style.background = colors.primaryGreen;
+                    e.target.style.color = 'white';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.target.style.background = 'transparent';
+                    e.target.style.color = colors.primaryGreen;
+                  }}
+                >
+                  ← Back to Recent Expenses
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Photo Viewer Modal */}
+      {photoViewerOpen && selectedPhoto && (
+        <div className="fixed inset-0 z-[60] bg-black/80 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between p-4 border-b">
+              <h3 className="text-xl font-bold text-gray-800">Receipt: {selectedPhoto.title}</h3>
+              <button 
+                onClick={() => setPhotoViewerOpen(false)}
+                className="text-gray-600 hover:text-gray-800 text-2xl font-bold"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="flex-1 overflow-auto p-4">
+              <img
+                src={selectedPhoto.url}
+                alt="Receipt"
+                className="w-full h-auto max-h-full object-contain"
+              />
             </div>
           </div>
         </div>
       )}
 
-      {/* Nested custom range modal */}
-      <DatePickerModal
-        open={customRangeOpen}
-        mode="range"
-        title="Choose date range"
-        onClose={()=>setCustomRangeOpen(false)}
-        onSelect={({from,to})=>{ setCustomFrom(from); setCustomTo(to); setCustomRangeOpen(false); }}
-      />
+      <DatePickerModal open={datePickerOpen} mode="single" title="Choose expense date" onClose={()=>setDatePickerOpen(false)} onSelect={({date})=>{ const dt=new Date(date+"T12:00"); setForm(f=>({...f,expenseDate:dt.toISOString().slice(0,16)})); setDatePickerOpen(false); }} />
 
-      {/* Approval requests modal */}
+      {/* Approval Requests Modal */}
       {approvalOpen && (
-        <div className="fixed inset-0 z-[56] bg-black/50 flex items-center justify-center">
-          <div className="bg-white rounded-2xl w-full max-w-2xl mx-4 p-5 max-h-[80vh] flex flex-col">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-xl font-bold">Approval requests</h3>
-              <div className="flex items-center gap-2">
-                <button onClick={fetchPendingRequests} className="px-3 py-1 rounded-full border text-sm" style={{ borderColor: colors.primaryGreen, color: colors.primaryGreen }}>Refresh</button>
-                <button onClick={()=>setApprovalOpen(false)} className="text-gray-600">✕</button>
+        <div className="fixed inset-0 z-[56] bg-black/50 flex items-center justify-center"><div className="bg-white rounded-2xl w-full max-w-2xl mx-4 p-5 max-h-[80vh] flex flex-col"><div className="flex items-center justify-between mb-3"><h3 className="text-xl font-bold">Approval requests</h3><div className="flex items-center gap-2"><button onClick={fetchPendingRequests} className="px-3 py-1 rounded-full border text-sm" style={{ borderColor: colors.primaryGreen, color: colors.primaryGreen }}>Refresh</button><button onClick={()=>setApprovalOpen(false)} className="text-gray-600">✕</button></div></div><ApprovalRequestsBody items={approvalItems} loading={approvalLoading} onApprove={async (req)=>{ try { setApprovalProcessingId(req.id); await updateDoc(doc(db,'users', req.userId), { userType: 'admin', approvedAt: new Date(), approvedBy: auth.currentUser.uid }); await deleteDoc(doc(db,'approvalRequests', req.id)); await fetchPendingRequests(); } finally { setApprovalProcessingId(""); } }} onReject={async (req)=>{ try { setApprovalProcessingId(req.id); await updateDoc(doc(db,'users', req.userId), { userType: 'user', rejectedAt: new Date(), rejectedBy: auth.currentUser.uid }); await deleteDoc(doc(db,'approvalRequests', req.id)); await fetchPendingRequests(); } finally { setApprovalProcessingId(""); } }} processingId={approvalProcessingId} /></div></div>
+      )}
+
+      {/* Edit Expense Modal */}
+      {editingExpense && (
+        <div className="fixed inset-0 z-[57] bg-black/50 flex items-center justify-center p-4">
+          <div className="rounded-2xl w-full max-w-2xl mx-4 flex flex-col" style={{ background: colors.surface, maxHeight: '90vh' }}>
+            {/* Header - Fixed */}
+            <div className="flex items-center justify-between p-5 pb-4 border-b" style={{ borderColor: colors.gray400 }}>
+              <h3 className="text-2xl font-bold" style={{ color: colors.text }}>Edit Expense</h3>
+              <button onClick={() => setEditingExpense(null)} className="text-2xl font-bold transition-colors duration-200" style={{ color: colors.muted }} onMouseEnter={(e) => e.target.style.color = colors.text} onMouseLeave={(e) => e.target.style.color = colors.muted }>✕</button>
+            </div>
+            
+            {/* Scrollable Content */}
+            <div className="flex-1 overflow-y-auto p-5 pt-0">
+              <div className="grid grid-cols-1 gap-4">
+                <input className="w-full px-4 py-3 rounded-xl border text-lg" placeholder="Title" value={form.title} onChange={(e)=>setForm(f=>({...f,title:e.target.value}))} />
+                <input className="w-full px-4 py-3 rounded-xl border text-lg" placeholder="Amount (₪)" inputMode="decimal" value={form.amount} onChange={(e)=>setForm(f=>({...f,amount:e.target.value}))} />
+                <div className="grid grid-cols-2 gap-3">
+                  <select className="w-full px-4 py-3 rounded-xl border text-lg" value={form.category} onChange={(e)=>setForm(f=>({...f,category:e.target.value}))}>
+                    {CATEGORIES.map(c=> <option key={c} value={c}>{c}</option>)}
+                  </select>
+                  {form.category === "Other" && (
+                    <input className="w-full px-4 py-3 rounded-xl border text-lg" placeholder="Other category" value={form.categoryOther} onChange={(e)=>setForm(f=>({...f,categoryOther:e.target.value}))} />
+                  )}
+                </div>
+                <select className="w-full px-4 py-3 rounded-xl border text-lg" value={form.reimbursementMethod} onChange={(e)=>setForm(f=>({...f,reimbursementMethod:e.target.value}))}>
+                  {REIMBURSEMENT_METHODS.map(m=> <option key={m} value={m}>{m}</option>)}
+                </select>
+                <div>
+                  <div className="flex gap-2 items-center">
+                    <button onClick={()=>setForm(f=>({...f,expenseDate:new Date().toISOString().slice(0,16)}))} className="px-4 py-2 rounded-full text-sm font-semibold text-white" style={{ background: colors.gold }}>Today</button>
+                    <button onClick={()=>setDatePickerOpen(true)} className="px-4 py-2 rounded-full text-sm font-semibold border" style={{ borderColor: colors.primaryGreen, color: colors.primaryGreen }}>Other date</button>
+                  </div>
+                  {form.expenseDate && (
+                    <div className="mt-2 text-sm" style={{ color: colors.text }}>Selected: {new Date(form.expenseDate).toLocaleDateString()}</div>
+                  )}
+                </div>
+                <textarea className="w-full px-4 py-3 rounded-xl border text-lg" placeholder="Notes (optional)" value={form.notes} onChange={(e)=>setForm(f=>({...f,notes:e.target.value}))} />
+                
+                {/* Photo Upload Section */}
+                <div className="rounded-xl p-4" style={{ background: colors.background }}>
+                  <h3 className="font-semibold mb-3 text-center" style={{ color: colors.text }}>Receipt Photo</h3>
+                  <PhotoUpload
+                    key={`photo-${form.photoUrl}-${Date.now()}`}
+                    onPhotoUploaded={handlePhotoUploaded}
+                    onPhotoRemoved={handlePhotoRemoved}
+                    currentPhotoUrl={form.photoUrl}
+                    uploadPath="expenses"
+                  />
+                </div>
               </div>
             </div>
-            <ApprovalRequestsBody
-              items={approvalItems}
-              loading={approvalLoading}
-              onApprove={async (req)=>{
-                try {
-                  setApprovalProcessingId(req.id);
-                  await updateDoc(doc(db,'users', req.userId), { userType: 'admin', approvedAt: new Date(), approvedBy: auth.currentUser.uid });
-                  await deleteDoc(doc(db,'approvalRequests', req.id));
-                  await fetchPendingRequests();
-                } finally { setApprovalProcessingId(""); }
-              }}
-              onReject={async (req)=>{
-                try {
-                  setApprovalProcessingId(req.id);
-                  await updateDoc(doc(db,'users', req.userId), { userType: 'user', rejectedAt: new Date(), rejectedBy: auth.currentUser.uid });
-                  await deleteDoc(doc(db,'approvalRequests', req.id));
-                  await fetchPendingRequests();
-                } finally { setApprovalProcessingId(""); }
-              }}
-              processingId={approvalProcessingId}
-            />
+            
+            {/* Footer - Fixed */}
+            <div className="flex justify-end gap-3 p-5 pt-4 border-t" style={{ borderColor: colors.gray400 }}>
+              <button onClick={handleUpdateExpense} disabled={saving} className="px-6 py-3 rounded-lg font-semibold text-white" style={{ background: colors.primaryGreen }}>
+                {saving ? 'Updating...' : 'Update Expense'}
+              </button>
+              <button onClick={() => setEditingExpense(null)} className="px-6 py-3 rounded-lg font-semibold text-white" style={{ background: colors.red }}>
+                Cancel
+              </button>
+            </div>
           </div>
         </div>
       )}
-      {/* row-level collapsible shows details; no separate modal anymore */}
+
+      {/* Delete Confirmation Modal */}
+      {deleteConfirmOpen && expenseToDelete && (
+        <div className="fixed inset-0 z-[58] bg-black/50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md p-6 text-center">
+            <h3 className="text-xl font-bold text-gray-800 mb-4">Confirm Deletion</h3>
+            <p className="text-gray-700 mb-4">Are you sure you want to delete this expense?</p>
+            <p className="text-red-600 font-semibold mb-4">This action cannot be undone.</p>
+            <div className="flex justify-center gap-3">
+              <button onClick={confirmDeleteExpense} className="px-6 py-3 rounded-lg font-semibold text-white" style={{ background: colors.red }}>
+                Delete
+              </button>
+              <button onClick={() => setDeleteConfirmOpen(false)} className="px-6 py-3 rounded-lg font-semibold text-white" style={{ background: colors.primaryGreen }}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <AdminBottomNavBar active="expenses" />
     </main>
   );
 }
-
-

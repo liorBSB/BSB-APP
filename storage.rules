@@ -18,6 +18,16 @@ service firebase.storage {
       allow delete: if isSignedIn() && (request.auth.uid == ownerUid || isAdmin(request.auth.uid));
     }
 
+    // Expenses photos uploaded by admins
+    // Path: expenses/{fileName}
+    match /expenses/{fileName} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && isAdmin(request.auth.uid)
+                  && request.resource.size < 10 * 1024 * 1024
+                  && request.resource.contentType.matches('image/.*');
+      allow delete: if isSignedIn() && isAdmin(request.auth.uid);
+    }
+
     // Receipts path: receipts/{ownerUid}/{expenseId}
     match /receipts/{ownerUid}/{fileId} {
       allow read: if isSignedIn();
