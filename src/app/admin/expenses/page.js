@@ -98,12 +98,9 @@ export default function AdminExpensesPage() {
   const [filters, setFilters] = useState({ from: "", to: "", category: "" });
   const [expandedId, setExpandedId] = useState(null);
 
-  // Photo viewer state
-  const [photoViewerOpen, setPhotoViewerOpen] = useState(false);
-  const [selectedPhoto, setSelectedPhoto] = useState(null);
-
   // Report modal state
   const [reportOpen, setReportOpen] = useState(false);
+  const [showSearchResults, setShowSearchResults] = useState(false);
   const [reportItems, setReportItems] = useState([]);
   const [reportLoading, setReportLoading] = useState(false);
   const [reportFilters, setReportFilters] = useState({
@@ -118,8 +115,29 @@ export default function AdminExpensesPage() {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [expenseToDelete, setExpenseToDelete] = useState(null);
 
-  // Modal view state
-  const [showSearchResults, setShowSearchResults] = useState(false);
+  // Photo viewer state
+  const [photoViewerOpen, setPhotoViewerOpen] = useState(false);
+  const [selectedPhoto, setSelectedPhoto] = useState(null);
+
+  // Approval state
+  const [approvalOpen, setApprovalOpen] = useState(false);
+  const [approvalItems, setApprovalItems] = useState([]);
+  const [approvalLoading, setApprovalLoading] = useState(false);
+  const [approvalProcessingId, setApprovalProcessingId] = useState("");
+
+  // Prevent background scrolling when modals are open
+  useEffect(() => {
+    if (reportOpen || editingExpense || deleteConfirmOpen || photoViewerOpen || approvalOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+
+    // Cleanup function to restore scrolling when component unmounts
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [reportOpen, editingExpense, deleteConfirmOpen, photoViewerOpen, approvalOpen]);
 
   // Access control: only admins
   useEffect(() => {
@@ -396,10 +414,6 @@ export default function AdminExpensesPage() {
   const amountFormatted = (amt) => new Intl.NumberFormat("he-IL", { style: "currency", currency: "ILS" }).format(amt || 0);
 
   // Report and approvals (kept minimal, unchanged)
-  const [approvalOpen, setApprovalOpen] = useState(false);
-  const [approvalItems, setApprovalItems] = useState([]);
-  const [approvalLoading, setApprovalLoading] = useState(false);
-  const [approvalProcessingId, setApprovalProcessingId] = useState("");
   const fetchPendingRequests = async () => {
     try { setApprovalLoading(true); const qReq = query(collection(db, 'approvalRequests'), where('status','==','pending')); const snap = await getDocs(qReq); setApprovalItems(snap.docs.map(d=>({ id:d.id, ...d.data() }))); } finally { setApprovalLoading(false); }
   };
@@ -739,18 +753,117 @@ export default function AdminExpensesPage() {
 
       {/* Comprehensive Report Modal */}
       {reportOpen && (
-        <div className="fixed inset-0 z-[55] bg-black/50 flex items-center justify-center p-4">
-          <div className="rounded-2xl w-full max-w-4xl mx-4 p-5 max-h-[90vh] flex flex-col" style={{ background: colors.surface }}>
-            <div className="flex items-center justify-between mb-4 border-b pb-3" style={{ borderColor: colors.gray400 }}>
-              <h3 className="text-2xl font-bold" style={{ color: colors.text }}>View Expenses</h3>
-              <button onClick={handleCloseReportModal} className="text-2xl font-bold transition-colors duration-200" style={{ color: colors.muted }} onMouseEnter={(e) => e.target.style.color = colors.text} onMouseLeave={(e) => e.target.style.color = colors.muted }>✕</button>
+        <div className="fixed inset-0 z-[55] bg-black/50 flex items-center justify-center p-2 sm:p-4 overflow-hidden">
+          <div className="rounded-2xl w-full h-full sm:h-auto sm:max-h-[90vh] mx-0 sm:mx-4 p-3 sm:p-5 flex flex-col overflow-hidden" style={{ background: colors.surface }}>
+            <div className="flex items-center justify-between mb-4 border-b pb-3 flex-shrink-0" style={{ borderColor: colors.gray400 }}>
+              <h3 className="text-xl sm:text-2xl font-bold" style={{ color: colors.text }}>View Expenses</h3>
+              <button onClick={handleCloseReportModal} className="text-xl sm:text-2xl font-bold transition-colors duration-200" style={{ color: colors.muted }} onMouseEnter={(e) => e.target.style.color = colors.text} onMouseLeave={(e) => e.target.style.color = colors.muted }>✕</button>
             </div>
+            
+            {/* Filters and Search Button - Only show when NOT displaying search results */}
+            {!showSearchResults && (
+              <>
+                {/* Filters */}
+                <div className="grid grid-cols-1 gap-3 sm:gap-4 mb-4 sm:mb-6 p-3 sm:p-4 rounded-lg" style={{ background: colors.background }}>
+                  <div>
+                    <label className="block text-sm font-medium mb-2" style={{ color: colors.text }}>Date Range</label>
+                    <select 
+                      className="w-full px-3 py-2 border rounded-lg text-base"
+                      style={{ borderColor: colors.gray400 }}
+                      value={reportFilters.dateRange}
+                      onChange={(e) => setReportFilters(prev => ({ ...prev, dateRange: e.target.value }))}
+                    >
+                      <option value="all">All Time</option>
+                      <option value="lastDay">Last Day</option>
+                      <option value="lastWeek">Last Week</option>
+                      <option value="lastMonth">Last Month</option>
+                      <option value="last3Months">Last 3 Months</option>
+                      <option value="lastYear">Last Year</option>
+                      <option value="custom">Custom Range</option>
+                    </select>
+                  </div>
+                  
+                  {reportFilters.dateRange === "custom" && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-sm font-medium mb-1" style={{ color: colors.text }}>From</label>
+                        <input 
+                          type="date" 
+                          className="w-full px-3 py-2 border rounded-lg text-base"
+                          style={{ borderColor: colors.gray400 }}
+                          value={reportFilters.customFrom}
+                          onChange={(e) => setReportFilters(prev => ({ ...prev, customFrom: e.target.value }))}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium mb-1" style={{ color: colors.text }}>To</label>
+                        <input 
+                          type="date" 
+                          className="w-full px-3 py-2 border rounded-lg text-base"
+                          style={{ borderColor: colors.gray400 }}
+                          value={reportFilters.customTo}
+                          onChange={(e) => setReportFilters(prev => ({ ...prev, customTo: e.target.value }))}
+                        />
+                      </div>
+                    </div>
+                  )}
+                  
+                  <div>
+                    <label className="block text-sm font-medium mb-2" style={{ color: colors.text }}>Category</label>
+                    <select 
+                      className="w-full px-3 py-2 border rounded-lg text-base"
+                      style={{ borderColor: colors.gray400 }}
+                      value={reportFilters.category}
+                      onChange={(e) => setReportFilters(prev => ({ ...prev, category: e.target.value }))}
+                    >
+                      <option value="">All Categories</option>
+                      {CATEGORIES.map(category => (
+                        <option key={category} value={category}>{category}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Search Button */}
+                <div className="flex justify-center mb-6 sm:mb-4 flex-shrink-0">
+                  <button 
+                    onClick={() => {
+                      console.log('Search button clicked');
+                      console.log('Current filters:', reportFilters);
+                      fetchReportData();
+                    }}
+                    disabled={reportLoading}
+                    className="w-full sm:w-auto px-6 py-3 border-2 font-bold text-base sm:text-lg rounded-lg transition-colors duration-200"
+                    style={{ 
+                      borderColor: colors.gold, 
+                      color: colors.gold,
+                      opacity: reportLoading ? 0.5 : 1
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!reportLoading) {
+                        e.target.style.background = colors.gold;
+                        e.target.style.color = 'white';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!reportLoading) {
+                        e.target.style.background = 'transparent';
+                        e.target.style.color = colors.gold;
+                      }
+                    }}
+                  >
+                    🔍 Search Expenses
+                  </button>
+                </div>
+              </>
+            )}
             
             {/* Recent Expenses Preview */}
             {!showSearchResults && (
-              <div className="mb-6 p-4 rounded-lg" style={{ background: colors.background }}>
-                <h4 className="text-lg font-semibold mb-3" style={{ color: colors.text }}>Recent Expenses</h4>
-                <div className="space-y-3 max-h-80 overflow-y-auto">
+              <div className="mb-4 sm:mb-6 p-3 sm:p-4 rounded-lg flex-1 overflow-hidden flex flex-col" style={{ background: colors.background }}>
+                <h4 className="text-base sm:text-lg font-semibold mb-3 flex-shrink-0" style={{ color: colors.text }}>Recent Expenses</h4>
+                
+                <div className="space-y-3 flex-1 overflow-y-auto min-h-0">
                   {loadingList ? (
                     <div className="text-center py-4" style={{ color: colors.muted }}>Loading expenses...</div>
                   ) : items.length === 0 ? (
@@ -758,34 +871,34 @@ export default function AdminExpensesPage() {
                   ) : (
                     <>
                       {items.slice(0, expandedId === 'recent' ? items.length : 3).map(expense => (
-                        <div key={expense.id} className="border rounded-lg p-4 hover:bg-white transition-colors duration-200" style={{ borderColor: colors.gray400 }}>
-                          <div className="flex justify-between items-start">
+                        <div key={expense.id} className="border rounded-lg p-3 sm:p-4 hover:bg-white transition-colors duration-200" style={{ borderColor: colors.gray400 }}>
+                          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
                             <div className="flex-1">
-                              <h5 className="text-xl font-bold mb-2" style={{ color: colors.text }}>{expense.title}</h5>
-                              <p className="text-base font-semibold mb-1" style={{ color: colors.primaryGreen }}>{expense.category}</p>
-                              <p className="text-lg font-bold mb-2" style={{ color: colors.text }}>{amountFormatted(expense.amount)}</p>
-                              <p className="text-sm font-medium" style={{ color: colors.muted }}>
+                              <h5 className="text-lg sm:text-xl font-bold mb-2" style={{ color: colors.text }}>{expense.title}</h5>
+                              <p className="text-sm sm:text-base font-semibold mb-1" style={{ color: colors.primaryGreen }}>{expense.category}</p>
+                              <p className="text-base sm:text-lg font-bold mb-2" style={{ color: colors.text }}>{amountFormatted(expense.amount)}</p>
+                              <p className="text-xs sm:text-sm font-medium" style={{ color: colors.muted }}>
                                 📅 {expense.expenseDate?.toDate?.()?.toLocaleDateString?.() || 'No date'}
                               </p>
                             </div>
-                            <div className="flex items-center gap-2 ml-3">
+                            <div className="flex items-center gap-2 sm:ml-3">
                               {expense.photoUrl && (
                                 <img
                                   src={expense.photoUrl}
                                   alt="Receipt"
-                                  className="w-12 h-12 object-cover rounded border cursor-pointer"
+                                  className="w-10 h-10 sm:w-12 sm:h-12 object-cover rounded border cursor-pointer"
                                   onClick={() => {
                                     setSelectedPhoto({ url: expense.photoUrl, title: expense.title });
                                     setPhotoViewerOpen(true);
-                                    setReportOpen(false);
+                                    // Don't close the report modal - user should return to where they were
                                   }}
                                   title="Click to view receipt"
                                 />
                               )}
-                              <div className="flex gap-2">
+                              <div className="flex flex-col sm:flex-row gap-2">
                                 <button
                                   onClick={() => handleEditExpense(expense)}
-                                  className="px-4 py-2 border-2 font-bold text-sm rounded-lg transition-colors duration-200"
+                                  className="px-3 sm:px-4 py-2 border-2 font-bold text-xs sm:text-sm rounded-lg transition-colors duration-200"
                                   style={{ borderColor: colors.primaryGreen, color: colors.primaryGreen }}
                                   onMouseEnter={(e) => {
                                     e.target.style.background = colors.primaryGreen;
@@ -801,7 +914,7 @@ export default function AdminExpensesPage() {
                                 </button>
                                 <button
                                   onClick={() => handleDeleteExpense(expense)}
-                                  className="px-4 py-2 border-2 font-bold text-sm rounded-lg transition-colors duration-200"
+                                  className="px-3 sm:px-4 py-2 border-2 font-bold text-xs sm:text-sm rounded-lg transition-colors duration-200"
                                   style={{ borderColor: colors.red, color: colors.red }}
                                   onMouseEnter={(e) => {
                                     e.target.style.background = colors.red;
@@ -819,14 +932,14 @@ export default function AdminExpensesPage() {
                             </div>
                           </div>
                           {expense.notes && (
-                            <p className="text-sm mt-3 p-2 rounded" style={{ color: colors.muted, background: colors.surface }}>{expense.notes}</p>
+                            <p className="text-xs sm:text-sm mt-3 p-2 rounded" style={{ color: colors.muted, background: colors.surface }}>{expense.notes}</p>
                           )}
                         </div>
                       ))}
                       
                       {/* Show More/Less Button */}
                       {items.length > 3 && (
-                        <div className="text-center pt-2">
+                        <div className="text-center pt-2 flex-shrink-0">
                           <button 
                             onClick={() => setExpandedId(expandedId === 'recent' ? null : 'recent')}
                             className="px-4 py-2 border-2 font-bold text-sm rounded-lg transition-colors duration-200"
@@ -855,9 +968,9 @@ export default function AdminExpensesPage() {
             
             {/* Search Results Dashboard */}
             {showSearchResults && reportItems.length > 0 && (
-              <div className="flex-1 overflow-auto">
-                {/* Summary Stats */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+              <div className="flex-1 overflow-hidden flex flex-col">
+                {/* Summary Stats - Fixed */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 flex-shrink-0">
                   <div className="p-4 rounded-lg text-center" style={{ background: colors.background }}>
                     <div className="text-2xl font-bold" style={{ color: colors.primaryGreen }}>{reportItems.length}</div>
                     <div className="text-sm" style={{ color: colors.muted }}>Total Expenses</div>
@@ -868,11 +981,11 @@ export default function AdminExpensesPage() {
                   </div>
                 </div>
                 
-                {/* Export Buttons - Above the expense list */}
-                <div className="flex justify-center gap-4 mb-6">
+                {/* Export Buttons - Fixed */}
+                <div className="flex flex-col sm:flex-row justify-center gap-3 sm:gap-4 mb-6 flex-shrink-0">
                   <button 
                     onClick={exportToPDF}
-                    className="px-6 py-3 border-2 font-bold text-lg rounded-lg transition-colors duration-200"
+                    className="px-4 sm:px-6 py-3 border-2 font-bold text-base sm:text-lg rounded-lg transition-colors duration-200"
                     style={{ borderColor: colors.primaryGreen, color: colors.primaryGreen }}
                     onMouseEnter={(e) => {
                       e.target.style.background = colors.primaryGreen;
@@ -887,7 +1000,7 @@ export default function AdminExpensesPage() {
                   </button>
                   <button 
                     onClick={exportToExcel}
-                    className="px-6 py-3 border-2 font-bold text-lg rounded-lg transition-colors duration-200"
+                    className="px-4 sm:px-6 py-3 border-2 font-bold text-base sm:text-lg rounded-lg transition-colors duration-200"
                     style={{ borderColor: colors.gold, color: colors.gold }}
                     onMouseEnter={(e) => {
                       e.target.style.background = colors.gold;
@@ -902,98 +1015,98 @@ export default function AdminExpensesPage() {
                   </button>
                 </div>
                 
-                {/* Category Breakdown */}
-                <div className="mb-6">
-                  <h4 className="text-lg font-semibold mb-3" style={{ color: colors.text }}>Category Breakdown</h4>
-                  <div className="space-y-2">
-                    {Object.entries(getCategoryBreakdown(reportItems))
-                      .sort(([,a], [,b]) => b - a)
-                      .map(([category, amount]) => (
-                        <div key={category} className="flex justify-between items-center p-3 rounded-lg" style={{ background: colors.background }}>
-                          <span className="font-medium" style={{ color: colors.text }}>{category}</span>
-                          <span className="font-bold" style={{ color: colors.text }}>{amountFormatted(amount)}</span>
-                        </div>
-                      ))}
-                  </div>
-                </div>
-                
-                {/* Detailed List */}
-                <div>
-                  <h4 className="text-lg font-semibold mb-3" style={{ color: colors.text }}>Expense Details</h4>
-                  <div className="space-y-3 max-h-96 overflow-auto">
-                    {reportItems.map(expense => (
-                      <div key={expense.id} className="border rounded-lg p-4 hover:bg-white transition-colors duration-200" style={{ borderColor: colors.gray400 }}>
-                        <div className="flex justify-between items-start">
-                          <div className="flex-1">
-                            <h5 className="text-xl font-bold mb-2" style={{ color: colors.text }}>{expense.title}</h5>
-                            <p className="text-base font-semibold mb-1" style={{ color: colors.primaryGreen }}>{expense.category}</p>
-                            <p className="text-sm font-medium mb-2" style={{ color: colors.muted }}>
-                              📅 {expense.expenseDate?.toDate?.()?.toLocaleDateString?.() || 'No date'}
-                            </p>
-                            {expense.notes && (
-                              <p className="text-sm mt-2 p-2 rounded" style={{ color: colors.muted, background: colors.surface }}>{expense.notes}</p>
-                            )}
+                {/* Scrollable Content */}
+                <div className="flex-1 overflow-y-auto min-h-0">
+                  {/* Category Breakdown */}
+                  <div className="mb-6">
+                    <h4 className="text-lg font-semibold mb-3" style={{ color: colors.text }}>Category Breakdown</h4>
+                    <div className="space-y-2">
+                      {Object.entries(getCategoryBreakdown(reportItems))
+                        .sort(([,a], [,b]) => b - a)
+                        .map(([category, amount]) => (
+                          <div key={category} className="flex justify-between items-center p-3 rounded-lg" style={{ background: colors.background }}>
+                            <span className="font-medium" style={{ color: colors.text }}>{category}</span>
+                            <span className="font-bold" style={{ color: colors.text }}>{amountFormatted(amount)}</span>
                           </div>
-                          <div className="text-right ml-4">
-                            <div className="text-xl font-bold mb-2" style={{ color: colors.text }}>{amountFormatted(expense.amount)}</div>
-                            <div className="flex items-center gap-2 mt-2">
-                              {expense.photoUrl && (
-                                <img
-                                  src={expense.photoUrl}
-                                  alt="Receipt"
-                                  className="w-12 h-12 object-cover rounded border cursor-pointer"
-                                  onClick={() => {
-                                    setSelectedPhoto({ url: expense.photoUrl, title: expense.title });
-                                    setPhotoViewerOpen(true);
-                                    setReportOpen(false);
-                                  }}
-                                  title="Click to view receipt"
-                                />
+                        ))}
+                    </div>
+                  </div>
+                  
+                  {/* Detailed List */}
+                  <div>
+                    <h4 className="text-lg font-semibold mb-3" style={{ color: colors.text }}>Expense Details</h4>
+                    <div className="space-y-3">
+                      {reportItems.map(expense => (
+                        <div key={expense.id} className="border rounded-lg p-4 hover:bg-white transition-colors duration-200" style={{ borderColor: colors.gray400 }}>
+                          <div className="flex justify-between items-start">
+                            <div className="flex-1">
+                              <h5 className="text-xl font-bold mb-2" style={{ color: colors.text }}>{expense.title}</h5>
+                              <p className="text-base font-semibold mb-1" style={{ color: colors.primaryGreen }}>{expense.category}</p>
+                              <p className="text-sm font-medium mb-2" style={{ color: colors.muted }}>
+                                📅 {expense.expenseDate?.toDate?.()?.toLocaleDateString?.() || 'No date'}
+                              </p>
+                              {expense.notes && (
+                                <p className="text-sm mt-2 p-2 rounded" style={{ color: colors.muted, background: colors.surface }}>{expense.notes}</p>
                               )}
-                              <div className="flex flex-col gap-1">
-                                <button
-                                  onClick={() => handleEditExpense(expense)}
-                                  className="px-4 py-2 border-2 font-bold text-sm rounded-lg transition-colors duration-200"
-                                  style={{ borderColor: colors.primaryGreen, color: colors.primaryGreen }}
-                                  onMouseEnter={(e) => {
-                                    e.target.style.background = colors.primaryGreen;
-                                    e.target.style.color = 'white';
-                                  }}
-                                  onMouseLeave={(e) => {
-                                    e.target.style.background = 'transparent';
-                                    e.target.style.color = colors.primaryGreen;
-                                  }}
-                                  title="Edit expense"
-                                >
-                                  Edit
-                                </button>
-                                <button
-                                  onClick={() => handleDeleteExpense(expense)}
-                                  className="px-4 py-2 border-2 font-bold text-sm rounded-lg transition-colors duration-200"
-                                  style={{ borderColor: colors.red, color: colors.red }}
-                                  onMouseEnter={(e) => {
-                                    e.target.style.background = colors.red;
-                                    e.target.style.color = 'white';
-                                  }}
-                                  onMouseLeave={(e) => {
-                                    e.target.style.background = 'transparent';
-                                    e.target.style.color = colors.red;
-                                  }}
-                                  title="Delete expense"
-                                >
-                                  Delete
-                                </button>
+                            </div>
+                            <div className="text-right ml-4">
+                              <div className="text-xl font-bold mb-2" style={{ color: colors.text }}>{amountFormatted(expense.amount)}</div>
+                              <div className="flex items-center gap-2 mt-2">
+                                {expense.photoUrl && (
+                                  <img
+                                    src={expense.photoUrl}
+                                    alt="Receipt"
+                                    className="w-12 h-12 object-cover rounded border cursor-pointer"
+                                    onClick={() => {
+                                      setSelectedPhoto({ url: expense.photoUrl, title: expense.title });
+                                      setPhotoViewerOpen(true);
+                                      // Don't close the report modal - user should return to where they were
+                                    }}
+                                    title="Click to view receipt"
+                                  />
+                                )}
+                                <div className="flex flex-col gap-1">
+                                  <button
+                                    onClick={() => handleEditExpense(expense)}
+                                    className="px-4 py-2 border-2 font-bold text-sm rounded-lg transition-colors duration-200"
+                                    style={{ borderColor: colors.primaryGreen, color: colors.primaryGreen }}
+                                    onMouseEnter={(e) => {
+                                      e.target.style.background = colors.primaryGreen;
+                                      e.target.style.color = 'white';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                      e.target.style.background = 'transparent';
+                                      e.target.style.color = colors.primaryGreen;
+                                    }}
+                                    title="Edit expense"
+                                  >
+                                    Edit
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteExpense(expense)}
+                                    className="px-4 py-2 border-2 font-bold text-sm rounded-lg transition-colors duration-200"
+                                    style={{ borderColor: colors.red, color: colors.red }}
+                                    onMouseEnter={(e) => {
+                                      e.target.style.background = colors.red;
+                                      e.target.style.color = 'white';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                      e.target.style.background = 'transparent';
+                                      e.target.style.color = colors.red;
+                                    }}
+                                    title="Delete expense"
+                                  >
+                                    Delete
+                                  </button>
+                                </div>
                               </div>
                             </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
                 </div>
-                
-                {/* Export Buttons - Only show when displaying search results */}
-                {/* This block is now moved above the expense list */}
               </div>
             )}
             
@@ -1007,110 +1120,12 @@ export default function AdminExpensesPage() {
               </div>
             )}
             
-            {/* Filters and Search Button - Only show when not displaying search results */}
-            {!showSearchResults && (
-              <>
-                {/* Filters */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 p-4 rounded-lg" style={{ background: colors.background }}>
-                  <div>
-                    <label className="block text-sm font-medium mb-2" style={{ color: colors.text }}>Date Range</label>
-                    <select 
-                      className="w-full px-3 py-2 border rounded-lg"
-                      style={{ borderColor: colors.gray400 }}
-                      value={reportFilters.dateRange}
-                      onChange={(e) => setReportFilters(prev => ({ ...prev, dateRange: e.target.value }))}
-                    >
-                      <option value="all">All Time</option>
-                      <option value="lastDay">Last Day</option>
-                      <option value="lastWeek">Last Week</option>
-                      <option value="lastMonth">Last Month</option>
-                      <option value="last3Months">Last 3 Months</option>
-                      <option value="lastYear">Last Year</option>
-                      <option value="custom">Custom Range</option>
-                    </select>
-                  </div>
-                  
-                  {reportFilters.dateRange === "custom" && (
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <label className="block text-sm font-medium mb-1" style={{ color: colors.text }}>From</label>
-                        <input 
-                          type="date" 
-                          className="w-full px-3 py-2 border rounded-lg"
-                          style={{ borderColor: colors.gray400 }}
-                          value={reportFilters.customFrom}
-                          onChange={(e) => setReportFilters(prev => ({ ...prev, customFrom: e.target.value }))}
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium mb-1" style={{ color: colors.text }}>To</label>
-                        <input 
-                          type="date" 
-                          className="w-full px-3 py-2 border rounded-lg"
-                          style={{ borderColor: colors.gray400 }}
-                          value={reportFilters.customTo}
-                          onChange={(e) => setReportFilters(prev => ({ ...prev, customTo: e.target.value }))}
-                        />
-                      </div>
-                    </div>
-                  )}
-                  
-                  <div>
-                    <label className="block text-sm font-medium mb-2" style={{ color: colors.text }}>Category</label>
-                    <select 
-                      className="w-full px-3 py-2 border rounded-lg"
-                      style={{ borderColor: colors.gray400 }}
-                      value={reportFilters.category}
-                      onChange={(e) => setReportFilters(prev => ({ ...prev, category: e.target.value }))}
-                    >
-                      <option value="">All Categories</option>
-                      {CATEGORIES.map(category => (
-                        <option key={category} value={category}>{category}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-                
-                {/* Search Button */}
-                <div className="flex justify-center mb-6">
-                  <button 
-                    onClick={() => {
-                      console.log('Search button clicked');
-                      console.log('Current filters:', reportFilters);
-                      fetchReportData();
-                    }}
-                    disabled={reportLoading}
-                    className="px-8 py-3 border-2 font-bold text-lg rounded-lg transition-colors duration-200"
-                    style={{ 
-                      borderColor: colors.gold, 
-                      color: colors.gold,
-                      opacity: reportLoading ? 0.5 : 1
-                    }}
-                    onMouseEnter={(e) => {
-                      if (!reportLoading) {
-                        e.target.style.background = colors.gold;
-                        e.target.style.color = 'white';
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (!reportLoading) {
-                        e.target.style.background = 'transparent';
-                        e.target.style.color = colors.gold;
-                      }
-                    }}
-                  >
-                    {reportLoading ? 'Searching...' : 'Search Expenses'}
-                  </button>
-                </div>
-              </>
-            )}
-            
             {/* Back to Recent Button - Only show when displaying search results */}
             {showSearchResults && (
-              <div className="flex justify-center mb-6">
+              <div className="flex justify-center mb-4 sm:mb-6">
                 <button 
                   onClick={() => setShowSearchResults(false)}
-                  className="px-6 py-3 border-2 font-bold text-lg rounded-lg transition-colors duration-200"
+                  className="px-4 sm:px-6 py-3 border-2 font-bold text-base sm:text-lg rounded-lg transition-colors duration-200"
                   style={{ borderColor: colors.primaryGreen, color: colors.primaryGreen }}
                   onMouseEnter={(e) => {
                     e.target.style.background = colors.primaryGreen;
@@ -1131,18 +1146,18 @@ export default function AdminExpensesPage() {
 
       {/* Photo Viewer Modal */}
       {photoViewerOpen && selectedPhoto && (
-        <div className="fixed inset-0 z-[60] bg-black/80 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col">
-            <div className="flex items-center justify-between p-4 border-b">
-              <h3 className="text-xl font-bold text-gray-800">Receipt: {selectedPhoto.title}</h3>
+        <div className="fixed inset-0 z-[60] bg-black/80 flex items-center justify-center p-2 sm:p-4">
+          <div className="bg-white rounded-2xl w-full h-full sm:h-auto sm:max-w-4xl sm:max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between p-3 sm:p-4 border-b">
+              <h3 className="text-lg sm:text-xl font-bold text-gray-800">Receipt: {selectedPhoto.title}</h3>
               <button 
                 onClick={() => setPhotoViewerOpen(false)}
-                className="text-gray-600 hover:text-gray-800 text-2xl font-bold"
+                className="text-gray-600 hover:text-gray-800 text-xl sm:text-2xl font-bold"
               >
                 ✕
               </button>
             </div>
-            <div className="flex-1 overflow-auto p-4">
+            <div className="flex-1 overflow-auto p-2 sm:p-4">
               <img
                 src={selectedPhoto.url}
                 alt="Receipt"
@@ -1157,48 +1172,59 @@ export default function AdminExpensesPage() {
 
       {/* Approval Requests Modal */}
       {approvalOpen && (
-        <div className="fixed inset-0 z-[56] bg-black/50 flex items-center justify-center"><div className="bg-white rounded-2xl w-full max-w-2xl mx-4 p-5 max-h-[80vh] flex flex-col"><div className="flex items-center justify-between mb-3"><h3 className="text-xl font-bold">Approval requests</h3><div className="flex items-center gap-2"><button onClick={fetchPendingRequests} className="px-3 py-1 rounded-full border text-sm" style={{ borderColor: colors.primaryGreen, color: colors.primaryGreen }}>Refresh</button><button onClick={()=>setApprovalOpen(false)} className="text-gray-600">✕</button></div></div><ApprovalRequestsBody items={approvalItems} loading={approvalLoading} onApprove={async (req)=>{ try { setApprovalProcessingId(req.id); await updateDoc(doc(db,'users', req.userId), { userType: 'admin', approvedAt: new Date(), approvedBy: auth.currentUser.uid }); await deleteDoc(doc(db,'approvalRequests', req.id)); await fetchPendingRequests(); } finally { setApprovalProcessingId(""); } }} onReject={async (req)=>{ try { setApprovalProcessingId(req.id); await updateDoc(doc(db,'users', req.userId), { userType: 'user', rejectedAt: new Date(), rejectedBy: auth.currentUser.uid }); await deleteDoc(doc(db,'approvalRequests', req.id)); await fetchPendingRequests(); } finally { setApprovalProcessingId(""); } }} processingId={approvalProcessingId} /></div></div>
+        <div className="fixed inset-0 z-[56] bg-black/50 flex items-center justify-center p-2 sm:p-4">
+          <div className="bg-white rounded-2xl w-full h-full sm:h-auto sm:max-w-2xl mx-0 sm:mx-4 p-3 sm:p-5 max-h-[80vh] flex flex-col">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-lg sm:text-xl font-bold">Approval requests</h3>
+              <div className="flex items-center gap-2">
+                <button onClick={fetchPendingRequests} className="px-3 py-1 rounded-full border text-sm" style={{ borderColor: colors.primaryGreen, color: colors.primaryGreen }}>Refresh</button>
+                <button onClick={()=>setApprovalOpen(false)} className="text-gray-600">✕</button>
+              </div>
+            </div>
+            <ApprovalRequestsBody items={approvalItems} loading={approvalLoading} onApprove={async (req)=>{ try { setApprovalProcessingId(req.id); await updateDoc(doc(db,'users', req.userId), { userType: 'admin', approvedAt: new Date(), approvedBy: auth.currentUser.uid }); await deleteDoc(doc(db,'approvalRequests', req.id)); await fetchPendingRequests(); } finally { setApprovalProcessingId(""); } }} onReject={async (req)=>{ try { setApprovalProcessingId(req.id); await updateDoc(doc(db,'users', req.userId), { userType: 'user', rejectedAt: new Date(), rejectedBy: auth.currentUser.uid }); await deleteDoc(doc(db,'approvalRequests', req.id)); await fetchPendingRequests(); } finally { setApprovalProcessingId(""); } }} processingId={approvalProcessingId} />
+          </div>
+        </div>
       )}
 
       {/* Edit Expense Modal */}
       {editingExpense && (
-        <div className="fixed inset-0 z-[57] bg-black/50 flex items-center justify-center p-4">
-          <div className="rounded-2xl w-full max-w-2xl mx-4 flex flex-col" style={{ background: colors.surface, maxHeight: '90vh' }}>
+        <div className="fixed inset-0 z-[57] bg-black/50 flex items-center justify-center p-2 sm:p-4">
+          <div className="rounded-2xl w-full h-full sm:h-auto sm:max-w-2xl mx-0 sm:mx-4 flex flex-col" style={{ background: colors.surface, maxHeight: '90vh' }}>
             {/* Header - Fixed */}
-            <div className="flex items-center justify-between p-5 pb-4 border-b" style={{ borderColor: colors.gray400 }}>
-              <h3 className="text-2xl font-bold" style={{ color: colors.text }}>Edit Expense</h3>
-              <button onClick={() => setEditingExpense(null)} className="text-2xl font-bold transition-colors duration-200" style={{ color: colors.muted }} onMouseEnter={(e) => e.target.style.color = colors.text} onMouseLeave={(e) => e.target.style.color = colors.muted }>✕</button>
+            <div className="flex items-center justify-between p-3 sm:p-5 pb-4 border-b" style={{ borderColor: colors.gray400 }}>
+              <h3 className="text-xl sm:text-2xl font-bold" style={{ color: colors.text }}>Edit Expense</h3>
+              <button onClick={() => setEditingExpense(null)} className="text-xl sm:text-2xl font-bold transition-colors duration-200" style={{ color: colors.muted }} onMouseEnter={(e) => e.target.style.color = colors.text} onMouseLeave={(e) => e.target.style.color = colors.muted }>✕</button>
             </div>
             
             {/* Scrollable Content */}
-            <div className="flex-1 overflow-y-auto p-5 pt-0">
-              <div className="grid grid-cols-1 gap-4">
-                <input className="w-full px-4 py-3 rounded-xl border text-lg" placeholder="Title" value={form.title} onChange={(e)=>setForm(f=>({...f,title:e.target.value}))} />
-                <input className="w-full px-4 py-3 rounded-xl border text-lg" placeholder="Amount (₪)" inputMode="decimal" value={form.amount} onChange={(e)=>setForm(f=>({...f,amount:e.target.value}))} />
-                <div className="grid grid-cols-2 gap-3">
-                  <select className="w-full px-4 py-3 rounded-xl border text-lg" value={form.category} onChange={(e)=>setForm(f=>({...f,category:e.target.value}))}>
+            <div className="flex-1 overflow-y-auto p-3 sm:p-5 pt-0">
+              <div className="grid grid-cols-1 gap-3 sm:gap-4">
+                <input className="w-full px-3 sm:px-4 py-3 rounded-xl border text-base sm:text-lg" placeholder="Title" value={form.title} onChange={(e)=>setForm(f=>({...f,title:e.target.value}))} />
+                <input className="w-full px-3 sm:px-4 py-3 rounded-xl border text-base sm:text-lg" placeholder="Amount (₪)" inputMode="decimal" value={form.amount} onChange={(e)=>setForm(f=>({...f,amount:e.target.value}))} />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <select className="w-full px-3 sm:px-4 py-3 rounded-xl border text-base sm:text-lg" value={form.category} onChange={(e)=>setForm(f=>({...f,category:e.target.value}))}>
                     {CATEGORIES.map(c=> <option key={c} value={c}>{c}</option>)}
                   </select>
                   {form.category === "Other" && (
-                    <input className="w-full px-4 py-3 rounded-xl border text-lg" placeholder="Other category" value={form.categoryOther} onChange={(e)=>setForm(f=>({...f,categoryOther:e.target.value}))} />
+                    <input className="w-full px-3 sm:px-4 py-3 rounded-xl border text-base sm:text-lg" placeholder="Other category" value={form.categoryOther} onChange={(e)=>setForm(f=>({...f,categoryOther:e.target.value}))} />
                   )}
                 </div>
-                <select className="w-full px-4 py-3 rounded-xl border text-lg" value={form.reimbursementMethod} onChange={(e)=>setForm(f=>({...f,reimbursementMethod:e.target.value}))}>
+                <select className="w-full px-3 sm:px-4 py-3 rounded-xl border text-base sm:text-lg" value={form.reimbursementMethod} onChange={(e)=>setForm(f=>({...f,reimbursementMethod:e.target.value}))}>
                   {REIMBURSEMENT_METHODS.map(m=> <option key={m} value={m}>{m}</option>)}
                 </select>
                 <div>
-                  <div className="flex gap-2 items-center">
-                    <button onClick={()=>setForm(f=>({...f,expenseDate:new Date().toISOString().slice(0,16)}))} className="px-4 py-2 rounded-full text-sm font-semibold text-white" style={{ background: colors.gold }}>Today</button>
-                    <button onClick={()=>setDatePickerOpen(true)} className="px-4 py-2 rounded-full text-sm font-semibold border" style={{ borderColor: colors.primaryGreen, color: colors.primaryGreen }}>Other date</button>
+                  <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center">
+                    <button onClick={()=>setForm(f=>({...f,expenseDate:new Date().toISOString().slice(0,16)}))} className="w-full sm:w-auto px-4 py-2 rounded-full text-sm font-semibold text-white" style={{ background: colors.gold }}>Today</button>
+                    <button onClick={()=>setDatePickerOpen(true)} className="w-full sm:w-auto px-4 py-2 rounded-full text-sm font-semibold border" style={{ borderColor: colors.primaryGreen, color: colors.primaryGreen }}>Other date</button>
                   </div>
                   {form.expenseDate && (
                     <div className="mt-2 text-sm" style={{ color: colors.text }}>Selected: {new Date(form.expenseDate).toLocaleDateString()}</div>
                   )}
                 </div>
-                <textarea className="w-full px-4 py-3 rounded-xl border text-lg" placeholder="Notes (optional)" value={form.notes} onChange={(e)=>setForm(f=>({...f,notes:e.target.value}))} />
+                <textarea className="w-full px-3 sm:px-4 py-3 rounded-xl border text-base sm:text-lg" placeholder="Notes (optional)" value={form.notes} onChange={(e)=>setForm(f=>({...f,notes:e.target.value}))} />
                 
                 {/* Photo Upload Section */}
-                <div className="rounded-xl p-4" style={{ background: colors.background }}>
+                <div className="rounded-xl p-3 sm:p-4" style={{ background: colors.background }}>
                   <h3 className="font-semibold mb-3 text-center" style={{ color: colors.text }}>Receipt Photo</h3>
                   <PhotoUpload
                     key={`photo-${form.photoUrl}-${Date.now()}`}
@@ -1212,11 +1238,11 @@ export default function AdminExpensesPage() {
             </div>
             
             {/* Footer - Fixed */}
-            <div className="flex justify-end gap-3 p-5 pt-4 border-t" style={{ borderColor: colors.gray400 }}>
-              <button onClick={handleUpdateExpense} disabled={saving} className="px-6 py-3 rounded-lg font-semibold text-white" style={{ background: colors.primaryGreen }}>
+            <div className="flex flex-col sm:flex-row justify-end gap-3 p-3 sm:p-5 pt-4 border-t" style={{ borderColor: colors.gray400 }}>
+              <button onClick={handleUpdateExpense} disabled={saving} className="w-full sm:w-auto px-4 sm:px-6 py-3 rounded-lg font-semibold text-white" style={{ background: colors.primaryGreen }}>
                 {saving ? 'Updating...' : 'Update Expense'}
               </button>
-              <button onClick={() => setEditingExpense(null)} className="px-6 py-3 rounded-lg font-semibold text-white" style={{ background: colors.red }}>
+              <button onClick={() => setEditingExpense(null)} className="w-full sm:w-auto px-4 sm:px-6 py-3 rounded-lg font-semibold text-white" style={{ background: colors.red }}>
                 Cancel
               </button>
             </div>
@@ -1226,16 +1252,16 @@ export default function AdminExpensesPage() {
 
       {/* Delete Confirmation Modal */}
       {deleteConfirmOpen && expenseToDelete && (
-        <div className="fixed inset-0 z-[58] bg-black/50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl w-full max-w-md p-6 text-center">
-            <h3 className="text-xl font-bold text-gray-800 mb-4">Confirm Deletion</h3>
-            <p className="text-gray-700 mb-4">Are you sure you want to delete this expense?</p>
-            <p className="text-red-600 font-semibold mb-4">This action cannot be undone.</p>
-            <div className="flex justify-center gap-3">
-              <button onClick={confirmDeleteExpense} className="px-6 py-3 rounded-lg font-semibold text-white" style={{ background: colors.red }}>
+        <div className="fixed inset-0 z-[58] bg-black/50 flex items-center justify-center p-2 sm:p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md mx-2 sm:mx-0 p-4 sm:p-6 text-center">
+            <h3 className="text-lg sm:text-xl font-bold text-gray-800 mb-3 sm:mb-4">Confirm Deletion</h3>
+            <p className="text-sm sm:text-base text-gray-700 mb-3 sm:mb-4">Are you sure you want to delete this expense?</p>
+            <p className="text-red-600 font-semibold mb-4 text-sm sm:text-base">This action cannot be undone.</p>
+            <div className="flex flex-col sm:flex-row justify-center gap-3">
+              <button onClick={confirmDeleteExpense} className="w-full sm:w-auto px-4 sm:px-6 py-3 rounded-lg font-semibold text-white" style={{ background: colors.red }}>
                 Delete
               </button>
-              <button onClick={() => setDeleteConfirmOpen(false)} className="px-6 py-3 rounded-lg font-semibold text-white" style={{ background: colors.primaryGreen }}>
+              <button onClick={() => setDeleteConfirmOpen(false)} className="w-full sm:w-auto px-4 sm:px-6 py-3 rounded-lg font-semibold text-white" style={{ background: colors.primaryGreen }}>
                 Cancel
               </button>
             </div>
