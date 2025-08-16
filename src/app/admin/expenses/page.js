@@ -968,7 +968,7 @@ export default function AdminExpensesPage() {
             
             {/* Search Results Dashboard */}
             {showSearchResults && reportItems.length > 0 && (
-              <div className="flex-1 overflow-hidden flex flex-col">
+              <div className="flex-1 overflow-y-auto min-h-0">
                 {/* Summary Stats - Fixed */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 flex-shrink-0">
                   <div className="p-4 rounded-lg text-center" style={{ background: colors.background }}>
@@ -1015,96 +1015,93 @@ export default function AdminExpensesPage() {
                   </button>
                 </div>
                 
-                {/* Scrollable Content */}
-                <div className="flex-1 overflow-y-auto min-h-0">
-                  {/* Category Breakdown */}
-                  <div className="mb-6">
-                    <h4 className="text-lg font-semibold mb-3" style={{ color: colors.text }}>Category Breakdown</h4>
-                    <div className="space-y-2">
-                      {Object.entries(getCategoryBreakdown(reportItems))
-                        .sort(([,a], [,b]) => b - a)
-                        .map(([category, amount]) => (
-                          <div key={category} className="flex justify-between items-center p-3 rounded-lg" style={{ background: colors.background }}>
-                            <span className="font-medium" style={{ color: colors.text }}>{category}</span>
-                            <span className="font-bold" style={{ color: colors.text }}>{amountFormatted(amount)}</span>
-                          </div>
-                        ))}
-                    </div>
+                {/* Category Breakdown */}
+                <div className="mb-6">
+                  <h4 className="text-lg font-semibold mb-3" style={{ color: colors.text }}>Category Breakdown</h4>
+                  <div className="space-y-2">
+                    {Object.entries(getCategoryBreakdown(reportItems))
+                      .sort(([,a], [,b]) => b - a)
+                      .map(([category, amount]) => (
+                        <div key={category} className="flex justify-between items-center p-3 rounded-lg" style={{ background: colors.background }}>
+                          <span className="font-medium" style={{ color: colors.text }}>{category}</span>
+                          <span className="font-bold" style={{ color: colors.text }}>{amountFormatted(amount)}</span>
+                        </div>
+                      ))}
                   </div>
-                  
-                  {/* Detailed List */}
-                  <div>
-                    <h4 className="text-lg font-semibold mb-3" style={{ color: colors.text }}>Expense Details</h4>
-                    <div className="space-y-3">
-                      {reportItems.map(expense => (
-                        <div key={expense.id} className="border rounded-lg p-4 hover:bg-white transition-colors duration-200" style={{ borderColor: colors.gray400 }}>
-                          <div className="flex justify-between items-start">
-                            <div className="flex-1">
-                              <h5 className="text-xl font-bold mb-2" style={{ color: colors.text }}>{expense.title}</h5>
-                              <p className="text-base font-semibold mb-1" style={{ color: colors.primaryGreen }}>{expense.category}</p>
-                              <p className="text-sm font-medium mb-2" style={{ color: colors.muted }}>
-                                📅 {expense.expenseDate?.toDate?.()?.toLocaleDateString?.() || 'No date'}
-                              </p>
-                              {expense.notes && (
-                                <p className="text-sm mt-2 p-2 rounded" style={{ color: colors.muted, background: colors.surface }}>{expense.notes}</p>
+                </div>
+                
+                {/* Detailed List */}
+                <div>
+                  <h4 className="text-lg font-semibold mb-3" style={{ color: colors.text }}>Expense Details</h4>
+                  <div className="space-y-3">
+                    {reportItems.map(expense => (
+                      <div key={expense.id} className="border rounded-lg p-4 hover:bg-white transition-colors duration-200" style={{ borderColor: colors.gray400 }}>
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1">
+                            <h5 className="text-xl font-bold mb-2" style={{ color: colors.text }}>{expense.title}</h5>
+                            <p className="text-base font-semibold mb-1" style={{ color: colors.primaryGreen }}>{expense.category}</p>
+                            <p className="text-sm font-medium mb-2" style={{ color: colors.muted }}>
+                              📅 {expense.expenseDate?.toDate?.()?.toLocaleDateString?.() || 'No date'}
+                            </p>
+                            {expense.notes && (
+                              <p className="text-sm mt-2 p-2 rounded" style={{ color: colors.muted, background: colors.surface }}>{expense.notes}</p>
+                            )}
+                          </div>
+                          <div className="text-right ml-4">
+                            <div className="text-xl font-bold mb-2" style={{ color: colors.text }}>{amountFormatted(expense.amount)}</div>
+                            <div className="flex items-center gap-2 mt-2">
+                              {expense.photoUrl && (
+                                <img
+                                  src={expense.photoUrl}
+                                  alt="Receipt"
+                                  className="w-12 h-12 object-cover rounded border cursor-pointer"
+                                  onClick={() => {
+                                    setSelectedPhoto({ url: expense.photoUrl, title: expense.title });
+                                    setPhotoViewerOpen(true);
+                                    // Don't close the report modal - user should return to where they were
+                                  }}
+                                  title="Click to view receipt"
+                                />
                               )}
-                            </div>
-                            <div className="text-right ml-4">
-                              <div className="text-xl font-bold mb-2" style={{ color: colors.text }}>{amountFormatted(expense.amount)}</div>
-                              <div className="flex items-center gap-2 mt-2">
-                                {expense.photoUrl && (
-                                  <img
-                                    src={expense.photoUrl}
-                                    alt="Receipt"
-                                    className="w-12 h-12 object-cover rounded border cursor-pointer"
-                                    onClick={() => {
-                                      setSelectedPhoto({ url: expense.photoUrl, title: expense.title });
-                                      setPhotoViewerOpen(true);
-                                      // Don't close the report modal - user should return to where they were
-                                    }}
-                                    title="Click to view receipt"
-                                  />
-                                )}
-                                <div className="flex flex-col gap-1">
-                                  <button
-                                    onClick={() => handleEditExpense(expense)}
-                                    className="px-4 py-2 border-2 font-bold text-sm rounded-lg transition-colors duration-200"
-                                    style={{ borderColor: colors.primaryGreen, color: colors.primaryGreen }}
-                                    onMouseEnter={(e) => {
-                                      e.target.style.background = colors.primaryGreen;
-                                      e.target.style.color = 'white';
-                                    }}
-                                    onMouseLeave={(e) => {
-                                      e.target.style.background = 'transparent';
-                                      e.target.style.color = colors.primaryGreen;
-                                    }}
-                                    title="Edit expense"
-                                  >
-                                    Edit
-                                  </button>
-                                  <button
-                                    onClick={() => handleDeleteExpense(expense)}
-                                    className="px-4 py-2 border-2 font-bold text-sm rounded-lg transition-colors duration-200"
-                                    style={{ borderColor: colors.red, color: colors.red }}
-                                    onMouseEnter={(e) => {
-                                      e.target.style.background = colors.red;
-                                      e.target.style.color = 'white';
-                                    }}
-                                    onMouseLeave={(e) => {
-                                      e.target.style.background = 'transparent';
-                                      e.target.style.color = colors.red;
-                                    }}
-                                    title="Delete expense"
-                                  >
-                                    Delete
-                                  </button>
-                                </div>
+                              <div className="flex flex-col gap-1">
+                                <button
+                                  onClick={() => handleEditExpense(expense)}
+                                  className="px-4 py-2 border-2 font-bold text-sm rounded-lg transition-colors duration-200"
+                                  style={{ borderColor: colors.primaryGreen, color: colors.primaryGreen }}
+                                  onMouseEnter={(e) => {
+                                    e.target.style.background = colors.primaryGreen;
+                                    e.target.style.color = 'white';
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    e.target.style.background = 'transparent';
+                                    e.target.style.color = colors.primaryGreen;
+                                  }}
+                                  title="Edit expense"
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteExpense(expense)}
+                                  className="px-4 py-2 border-2 font-bold text-sm rounded-lg transition-colors duration-200"
+                                  style={{ borderColor: colors.red, color: colors.red }}
+                                  onMouseEnter={(e) => {
+                                    e.target.style.background = colors.red;
+                                    e.target.style.color = 'white';
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    e.target.style.background = 'transparent';
+                                    e.target.style.color = colors.red;
+                                  }}
+                                  title="Delete expense"
+                                >
+                                  Delete
+                                </button>
                               </div>
                             </div>
                           </div>
                         </div>
-                      ))}
-                    </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
               </div>
