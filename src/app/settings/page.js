@@ -16,7 +16,6 @@ export default function SettingsPage() {
   const [fields, setFields] = useState({
     name: '',
     room: '',
-    bank: '',
     email: '',
   });
   const [loading, setLoading] = useState(true);
@@ -42,7 +41,6 @@ export default function SettingsPage() {
           setFields({
             name: data.fullName || '',
             room: data.roomNumber || '',
-            bank: data.bankDetails || '',
             email: data.email || '',
           });
         }
@@ -63,7 +61,6 @@ export default function SettingsPage() {
         let updateObj = {};
         if (field === 'name') updateObj.fullName = value;
         if (field === 'room') updateObj.roomNumber = value;
-        if (field === 'bank') updateObj.bankDetails = value;
         if (field === 'email') updateObj.email = value;
         await updateDoc(userRef, updateObj);
         setFields(prev => ({ ...prev, [field]: value }));
@@ -79,7 +76,6 @@ export default function SettingsPage() {
   const fieldLabels = {
     name: t('name'),
     room: t('room'),
-    bank: t('bank_details'),
     email: t('email'),
   };
 

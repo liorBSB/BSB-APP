@@ -119,6 +119,24 @@ export const QUESTIONNAIRE_STRUCTURE = [
         text: 'What is your cleanliness level from 1-10?',
         type: QUESTION_TYPES.NUMBER,
         field: 'cleanlinessLevel'
+      },
+      {
+        id: 'bankName',
+        text: 'Which bank are you with?',
+        type: QUESTION_TYPES.TEXT,
+        field: 'bankName'
+      },
+      {
+        id: 'bankBranch',
+        text: 'What is the branch number?',
+        type: QUESTION_TYPES.TEXT,
+        field: 'bankBranch'
+      },
+      {
+        id: 'bankAccount',
+        text: 'What is your account number?',
+        type: QUESTION_TYPES.TEXT,
+        field: 'bankAccount'
       }
     ]
   },
