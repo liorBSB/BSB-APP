@@ -58,6 +58,17 @@ export default function SoldierSearch({ onSelectSoldier }) {
   const renderSearchResult = (soldier) => {
     const { searchMatch, profileData } = soldier;
     
+    // Helper function to get display name
+    const getDisplayName = () => {
+      if (soldier.basicInfo && soldier.basicInfo.fullName) {
+        return soldier.basicInfo.fullName;
+      }
+      if (profileData && profileData.personalInfo && profileData.personalInfo.firstName && profileData.personalInfo.lastName) {
+        return profileData.personalInfo.firstName + ' ' + profileData.personalInfo.lastName;
+      }
+      return 'Unknown Name';
+    };
+    
     return (
       <div 
         key={soldier.id}
@@ -72,7 +83,7 @@ export default function SoldierSearch({ onSelectSoldier }) {
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
               <h4 className="font-semibold text-gray-800 truncate">
-                {soldier.basicInfo?.fullName || profileData?.personalInfo?.firstName + ' ' + profileData?.personalInfo?.lastName}
+                {getDisplayName()}
               </h4>
               <span className={`px-2 py-1 text-xs rounded-full ${
                 searchMatch === 'current' ? 'bg-green-100 text-green-700' :
@@ -88,7 +99,7 @@ export default function SoldierSearch({ onSelectSoldier }) {
             {soldier.currentStatus && (
               <div className="text-sm text-gray-600 mb-1">
                 <span>חדר: {soldier.currentStatus.roomNumber}{soldier.currentStatus.roomLetter}</span>
-                {soldier.basicInfo?.email && (
+                {soldier.basicInfo && soldier.basicInfo.email && (
                   <span className="mx-2">•</span>
                   <span>{soldier.basicInfo.email}</span>
                 )}
@@ -98,16 +109,16 @@ export default function SoldierSearch({ onSelectSoldier }) {
             {/* Profile Info */}
             {profileData && (
               <div className="text-sm text-gray-500 space-y-1">
-                {profileData.personalInfo?.idNumber && (
+                {profileData.personalInfo && profileData.personalInfo.idNumber && (
                   <div>ת.ז: {profileData.personalInfo.idNumber}</div>
                 )}
-                {profileData.militaryInfo?.unit && (
+                {profileData.militaryInfo && profileData.militaryInfo.unit && (
                   <div>יחידה: {profileData.militaryInfo.unit}</div>
                 )}
-                {profileData.militaryInfo?.mashakitTash && (
+                {profileData.militaryInfo && profileData.militaryInfo.mashakitTash && (
                   <div>משקית תש: {profileData.militaryInfo.mashakitTash}</div>
                 )}
-                {profileData.emergencyContact?.name && (
+                {profileData.emergencyContact && profileData.emergencyContact.name && (
                   <div>איש קשר: {profileData.emergencyContact.name}</div>
                 )}
               </div>
