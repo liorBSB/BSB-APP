@@ -149,7 +149,7 @@ export default function SoldierManagement() {
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold text-gray-800">ניהול חיילים</h2>
         <div className="text-sm text-gray-600">
-          סה"כ חיילים: {soldiers.length}
+          סה&quot;כ חיילים: {soldiers.length}
         </div>
       </div>
 
