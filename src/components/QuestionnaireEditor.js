@@ -4,37 +4,48 @@ import { db, auth } from '@/lib/firebase';
 import { QUESTIONNAIRE_STRUCTURE, QUESTION_TYPES } from '@/lib/questionnaire';
 import colors from '@/app/colors';
 
-export default function QuestionnaireEditor({ isOpen, onClose, userData, onUpdate }) {
+export default function QuestionnaireEditor({ isOpen, onClose, userData, onUpdate, isAdmin, soldierId, onMarkAsLeft }) {
   const [answers, setAnswers] = useState({});
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState('');
   const [error, setError] = useState('');
 
   useEffect(() => {
-    if (isOpen && auth.currentUser) {
-      // Fetch full user data from database
-      const fetchUserData = async () => {
-        try {
-          const userRef = doc(db, 'users', auth.currentUser.uid);
-          const userSnap = await getDoc(userRef);
-          if (userSnap.exists()) {
-            const data = userSnap.data();
-            const initialAnswers = {};
-            QUESTIONNAIRE_STRUCTURE.forEach(category => {
-              category.questions.forEach(question => {
-                initialAnswers[question.id] = data[question.id] || '';
+    if (isOpen) {
+      // If admin editing soldier, use soldier data; otherwise use current user data
+      if (isAdmin && userData) {
+        const initialAnswers = {};
+        QUESTIONNAIRE_STRUCTURE.forEach(category => {
+          category.questions.forEach(question => {
+            initialAnswers[question.id] = userData[question.id] || '';
+          });
+        });
+        setAnswers(initialAnswers);
+      } else if (auth.currentUser) {
+        // Fetch full user data from database
+        const fetchUserData = async () => {
+          try {
+            const userRef = doc(db, 'users', auth.currentUser.uid);
+            const userSnap = await getDoc(userRef);
+            if (userSnap.exists()) {
+              const data = userSnap.data();
+              const initialAnswers = {};
+              QUESTIONNAIRE_STRUCTURE.forEach(category => {
+                category.questions.forEach(question => {
+                  initialAnswers[question.id] = data[question.id] || '';
+                });
               });
-            });
-            setAnswers(initialAnswers);
+              setAnswers(initialAnswers);
+            }
+          } catch (err) {
+            console.error('Error fetching user data:', err);
           }
-        } catch (err) {
-          console.error('Error fetching user data:', err);
-        }
-      };
-      
-      fetchUserData();
+        };
+        
+        fetchUserData();
+      }
     }
-  }, [isOpen]);
+  }, [isOpen, isAdmin, userData]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -42,9 +53,10 @@ export default function QuestionnaireEditor({ isOpen, onClose, userData, onUpdat
     setError('');
     
     try {
-      const user = auth.currentUser;
-      if (user) {
-        const userRef = doc(db, 'users', user.uid);
+      // If admin editing soldier, use soldier ID; otherwise use current user ID
+      const userId = isAdmin ? soldierId : auth.currentUser?.uid;
+      if (userId) {
+        const userRef = doc(db, 'users', userId);
         await updateDoc(userRef, answers);
         setSuccess('Profile updated successfully!');
         onUpdate(answers);
@@ -216,6 +228,21 @@ export default function QuestionnaireEditor({ isOpen, onClose, userData, onUpdat
             </button>
           </div>
         </div>
+
+        {/* Admin Actions - Soldier Left Button */}
+        {isAdmin && onMarkAsLeft && (
+          <div className="bg-red-50 border-b border-red-200 px-4 sm:px-6 py-3">
+            <div className="flex justify-between items-center">
+              <span className="text-red-800 font-medium text-sm">Admin Action:</span>
+              <button
+                onClick={onMarkAsLeft}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors"
+              >
+                Mark Soldier as Left
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Content */}
         <div className="overflow-y-auto max-h-[calc(90vh-140px)] p-4 sm:p-6">

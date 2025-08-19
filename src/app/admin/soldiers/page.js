@@ -63,8 +63,8 @@ export default function AdminSoldiersPage() {
       <div className="w-full max-w-6xl">
         {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">ניהול חיילים</h1>
-          <p className="text-gray-600">צפייה, חיפוש וניהול חיילים בבית</p>
+          <h1 className="text-3xl font-bold text-gray-800 mb-2">Soldier Management</h1>
+          <p className="text-gray-600">View, search, and manage soldiers at home</p>
         </div>
 
         {/* Soldier Management Component */}

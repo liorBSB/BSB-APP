@@ -7,7 +7,7 @@ import colors from '../../colors';
 import AdminBottomNavBar from '@/components/AdminBottomNavBar';
 import PencilIcon from '@/components/PencilIcon';
 import { doc, updateDoc } from 'firebase/firestore';
-import { getActiveSoldiers, updateSoldierStatus } from '@/lib/database';
+import { getActiveUsers, updateUserStatus } from '@/lib/database';
 
 export default function SoldiersHomePage() {
   const [search, setSearch] = useState("");
@@ -19,7 +19,7 @@ export default function SoldiersHomePage() {
   useEffect(() => {
     const fetchSoldiers = async () => {
       try {
-        const activeSoldiers = await getActiveSoldiers();
+        const activeSoldiers = await getActiveUsers();
         setSoldiers(activeSoldiers);
         setLoading(false);
       } catch (error) {
@@ -35,10 +35,10 @@ export default function SoldiersHomePage() {
       open: true,
       soldier,
       form: {
-        fullName: soldier.basicInfo?.fullName || '',
-        room: soldier.currentStatus?.roomNumber || '',
-        status: soldier.currentStatus?.isPresent ? 'home' : 'away',
-        email: soldier.basicInfo?.email || '',
+        fullName: soldier.fullName || '',
+        room: soldier.roomNumber || '',
+        status: soldier.status === 'home' ? 'home' : 'away',
+        email: soldier.email || '',
       }
     });
   };
@@ -53,18 +53,20 @@ export default function SoldiersHomePage() {
   const handleEditSave = async () => {
     const { soldier, form } = editModal;
     try {
-      await updateSoldierStatus(soldier.id, {
-        'basicInfo.fullName': form.fullName,
-        'currentStatus.roomNumber': form.room,
-        'currentStatus.isPresent': form.status === 'home',
-        'basicInfo.email': form.email
-      });
-      
-      setSoldiers(soldiers => soldiers.map(s => s.id === soldier.id ? { 
-        ...s, 
-        basicInfo: { ...s.basicInfo, fullName: form.fullName, email: form.email },
-        currentStatus: { ...s.currentStatus, roomNumber: form.room, isPresent: form.status === 'home' }
-      } : s));
+                      await updateUserStatus(soldier.id, {
+          fullName: form.fullName,
+          roomNumber: form.room,
+          status: form.status === 'home' ? 'home' : 'away',
+          email: form.email
+        });
+        
+        setSoldiers(soldiers => soldiers.map(s => s.id === soldier.id ? { 
+          ...s, 
+          fullName: form.fullName,
+          roomNumber: form.room,
+          status: form.status === 'home' ? 'home' : 'away',
+          email: form.email
+        } : s));
       
       setEditModal({ open: false, soldier: null, form: { fullName: '', room: '', status: '', email: '' } });
     } catch (error) {
@@ -78,8 +80,8 @@ export default function SoldiersHomePage() {
   };
 
   const filteredSoldiers = soldiers.filter(soldier =>
-    soldier.basicInfo?.fullName?.toLowerCase().includes(search.toLowerCase()) ||
-    soldier.currentStatus?.roomNumber?.toLowerCase().includes(search.toLowerCase())
+    soldier.fullName?.toLowerCase().includes(search.toLowerCase()) ||
+    soldier.roomNumber?.toLowerCase().includes(search.toLowerCase())
   );
 
   return (
@@ -113,10 +115,10 @@ export default function SoldiersHomePage() {
                 >
                   <span className="text-2xl">🪖</span>
                   <div className="flex-1">
-                    <div className="font-bold text-lg text-white">{soldier.basicInfo?.fullName || 'ללא שם'}</div>
-                    {soldier.currentStatus?.roomNumber && (
+                    <div className="font-bold text-lg text-white">{soldier.fullName || 'ללא שם'}</div>
+                    {soldier.roomNumber && (
                       <div className="text-sm text-white/80">
-                        Room: {soldier.currentStatus.roomNumber}{soldier.currentStatus.roomLetter || ''}
+                        Room: {soldier.roomNumber}
                       </div>
                     )}
                   </div>
@@ -131,10 +133,10 @@ export default function SoldiersHomePage() {
                 {isOpen && (
                   <div className="rounded-b-lg shadow px-6 py-4 mb-3" style={{ background: 'rgba(0,0,0,0.18)' }}>
                     <ul className="space-y-2">
-                      <li className="text-white text-base">Full name: {soldier.basicInfo?.fullName || '-'}</li>
-                      <li className="text-white text-base">Room number: {soldier.currentStatus?.roomNumber || '-'}{soldier.currentStatus?.roomLetter || ''}</li>
-                      <li className="text-white text-base">Status: {soldier.currentStatus?.isPresent ? 'נוכח' : 'לא נוכח'}</li>
-                      <li className="text-white text-base">Email: {soldier.basicInfo?.email || '-'}</li>
+                      <li className="text-white text-base">Full name: {soldier.fullName || '-'}</li>
+                      <li className="text-white text-base">Room number: {soldier.roomNumber || '-'}</li>
+                      <li className="text-white text-base">Status: {soldier.status === 'home' ? 'נוכח' : 'לא נוכח'}</li>
+                      <li className="text-white text-base">Email: {soldier.email || '-'}</li>
                       <li className="text-white text-base">Profile Complete: {soldier.profileComplete ? 'כן' : 'לא'}</li>
                       <li className="text-white text-base">Questions: {soldier.answeredQuestions || 0}/{soldier.totalQuestions || 0}</li>
                     </ul>

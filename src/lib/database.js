@@ -15,7 +15,7 @@ import {
   Timestamp
 } from 'firebase/firestore';
 import { db } from './firebase';
-import { exportSoldierToSheets, archiveSoldierData } from './googleSheets';
+import { exportSoldierToSheets } from './googleSheets';
 
 // ============================================================================
 // DATABASE STRUCTURE & CONSTANTS
@@ -23,17 +23,7 @@ import { exportSoldierToSheets, archiveSoldierData } from './googleSheets';
 
 // Collection names
 export const COLLECTIONS = {
-  SOLDIERS: 'soldiers',
-  SOLDIER_PROFILES: 'soldierProfiles',
-  ARCHIVED_SOLDIERS: 'archivedSoldiers',
-  USERS: 'users' // Added for questionnaire fields
-};
-
-// Soldier status constants
-export const SOLDIER_STATUS = {
-  ACTIVE: 'active',
-  LEFT: 'left',
-  ARCHIVED: 'archived'
+  USERS: 'users' // Main collection for all user/soldier data
 };
 
 // Question categories for the questionnaire
@@ -47,96 +37,45 @@ export const QUESTION_CATEGORIES = {
 };
 
 // ============================================================================
-// SOLDIERS COLLECTION (Current daily data)
+// USERS COLLECTION (All user/soldier data)
 // ============================================================================
 
 /**
- * Create a new soldier record
+ * Update user's current status
  */
-export const createSoldier = async (uid, basicData) => {
-  const soldierData = {
-    uid,
-    basicInfo: {
-      fullName: basicData.fullName || '',
-      email: basicData.email || '',
-      phone: basicData.phone || ''
-    },
-    currentStatus: {
-      roomNumber: basicData.roomNumber || '',
-      roomLetter: basicData.roomLetter || '',
-      bedNumber: basicData.bedNumber || '',
-      isPresent: true,
-      lastSeen: Timestamp.now()
-    },
-    dailyInfo: {
-      lastMeal: null,
-      notes: ''
-    },
-    profilePhoto: basicData.profilePhoto || '',
-    profileComplete: false,
-    answeredQuestions: 0,
-    totalQuestions: 0, // Will be calculated
-    status: SOLDIER_STATUS.ACTIVE,
-    createdAt: Timestamp.now(),
-    updatedAt: Timestamp.now()
-  };
-
-  await setDoc(doc(db, COLLECTIONS.SOLDIERS, uid), soldierData);
-  return soldierData;
-};
-
-/**
- * Update soldier's current status
- */
-export const updateSoldierStatus = async (uid, statusData) => {
-  const soldierRef = doc(db, COLLECTIONS.SOLDIERS, uid);
-  await updateDoc(soldierRef, {
+export const updateUserStatus = async (uid, statusData) => {
+  const userRef = doc(db, COLLECTIONS.USERS, uid);
+  await updateDoc(userRef, {
     ...statusData,
     updatedAt: Timestamp.now()
   });
 };
 
 /**
- * Mark soldier as left (admin only)
+ * Mark user as left (admin only)
  */
-export const markSoldierAsLeft = async (uid, adminUid) => {
+export const markUserAsLeft = async (uid, adminUid) => {
   try {
-    // Get soldier data before marking as left
-    const soldierData = await getSoldier(uid);
-    const profileData = await getSoldierProfile(uid);
+    // Get user data before marking as left
+    const userData = await getDoc(doc(db, COLLECTIONS.USERS, uid));
     
-    if (!soldierData) {
-      throw new Error('Soldier not found');
+    if (!userData.exists()) {
+      throw new Error('User not found');
     }
     
     // Export to Google Sheets
-    const exportResult = await exportSoldierToSheets(soldierData, profileData);
+    const exportResult = await exportSoldierToSheets(userData.data());
     
     if (!exportResult.success) {
       throw new Error(`Export failed: ${exportResult.message}`);
     }
     
-    // Archive the data
-    await archiveSoldierData(uid, soldierData, profileData, exportResult);
-    
-    // Mark soldier as left in the database
-    const soldierRef = doc(db, COLLECTIONS.SOLDIERS, uid);
-    await updateDoc(soldierRef, {
-      status: SOLDIER_STATUS.LEFT,
-      leftAt: Timestamp.now(),
-      leftBy: adminUid,
-      updatedAt: Timestamp.now()
-    });
-    
-    // Delete profile data (optional - you might want to keep it for audit)
-    if (profileData) {
-      const profileRef = doc(db, COLLECTIONS.SOLDIER_PROFILES, uid);
-      await deleteDoc(profileRef);
-    }
+    // Delete the user data
+    await deleteDoc(doc(db, COLLECTIONS.USERS, uid));
     
     return {
       success: true,
-      message: 'Soldier marked as left and data exported successfully',
+      message: 'User marked as left and data exported successfully',
       exportResult
     };
     
@@ -147,108 +86,34 @@ export const markSoldierAsLeft = async (uid, adminUid) => {
 };
 
 /**
- * Get soldier by UID
+ * Get user by UID
  */
-export const getSoldier = async (uid) => {
-  const soldierRef = doc(db, COLLECTIONS.SOLDIERS, uid);
-  const soldierSnap = await getDoc(soldierRef);
+export const getUser = async (uid) => {
+  const userRef = doc(db, COLLECTIONS.USERS, uid);
+  const userSnap = await getDoc(userRef);
   
-  if (soldierSnap.exists()) {
-    return { id: soldierSnap.id, ...soldierSnap.data() };
+  if (userSnap.exists()) {
+    return { id: userSnap.id, ...userSnap.data() };
   }
   return null;
 };
 
 /**
- * Get all active soldiers
+ * Get all users (soldiers)
  */
-export const getActiveSoldiers = async () => {
-  const soldiersQuery = query(
-    collection(db, COLLECTIONS.SOLDIERS),
-    where('status', '==', SOLDIER_STATUS.ACTIVE),
-    orderBy('basicInfo.fullName')
+export const getActiveUsers = async () => {
+  const usersQuery = query(
+    collection(db, COLLECTIONS.USERS),
+    where('userType', '==', 'user'),
+    orderBy('fullName')
   );
   
-  const soldiersSnap = await getDocs(soldiersQuery);
-  return soldiersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  const usersSnap = await getDocs(usersQuery);
+  return usersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 };
 
-// ============================================================================
-// SOLDIER PROFILES COLLECTION (Long-term questionnaire data)
-// ============================================================================
 
-/**
- * Create or update soldier profile
- */
-export const createSoldierProfile = async (uid, profileData) => {
-  const profileRef = doc(db, COLLECTIONS.SOLDIER_PROFILES, uid);
-  
-  const profile = {
-    soldierId: uid,
-    personalInfo: {
-      firstName: profileData.firstName || '',
-      lastName: profileData.lastName || '',
-      dateOfBirth: profileData.dateOfBirth || null,
-      gender: profileData.gender || '',
-      idNumber: profileData.idNumber || '',
-      idType: profileData.idType || '',
-      countryOfOrigin: profileData.countryOfOrigin || '',
-      arrivalDate: profileData.arrivalDate || null,
-      previousAddress: profileData.previousAddress || '',
-      education: profileData.education || '',
-      license: profileData.license || ''
-    },
-    familyInfo: {
-      familyInIsrael: profileData.familyInIsrael || false,
-      fatherName: profileData.fatherName || '',
-      fatherPhone: profileData.fatherPhone || '',
-      motherName: profileData.motherName || '',
-      motherPhone: profileData.motherPhone || '',
-      parentsStatus: profileData.parentsStatus || '',
-      parentsAddress: profileData.parentsAddress || '',
-      parentsEmail: profileData.parentsEmail || '',
-      contactWithParents: profileData.contactWithParents || ''
-    },
-    emergencyContact: {
-      name: profileData.emergencyContactName || '',
-      phone: profileData.emergencyContactPhone || '',
-      address: profileData.emergencyContactAddress || '',
-      email: profileData.emergencyContactEmail || ''
-    },
-    militaryInfo: {
-      personalNumber: profileData.personalNumber || '',
-      enlistmentDate: profileData.enlistmentDate || null,
-      releaseDate: profileData.releaseDate || null,
-      unit: profileData.unit || '',
-      battalion: profileData.battalion || '',
-      mashakitTash: profileData.mashakitTash || '',
-      mashakitPhone: profileData.mashakitPhone || '',
-      officerName: profileData.officerName || '',
-      officerPhone: profileData.officerPhone || '',
-      disciplinaryRecord: profileData.disciplinaryRecord || ''
-    },
-    medicalInfo: {
-      healthFund: profileData.healthFund || '',
-      medicalProblems: profileData.medicalProblems || '',
-      allergies: profileData.allergies || '',
-      hospitalizations: profileData.hospitalizations || '',
-      psychiatricTreatment: profileData.psychiatricTreatment || '',
-      regularMedication: profileData.regularMedication || ''
-    },
-    additionalInfo: {
-      cleanlinessLevel: profileData.cleanlinessLevel || '',
-      contributions: profileData.contributions || '',
-      notes: profileData.notes || ''
-    },
-    answers: profileData.answers || {},
-    status: 'active',
-    createdAt: Timestamp.now(),
-    updatedAt: Timestamp.now()
-  };
 
-  await setDoc(profileRef, profile);
-  return profile;
-};
 
 /**
  * Update specific answer in profile
@@ -268,18 +133,7 @@ export const updateProfileAnswer = async (uid, questionId, answer) => {
   }
 };
 
-/**
- * Get soldier profile by UID
- */
-export const getSoldierProfile = async (uid) => {
-  const profileRef = doc(db, COLLECTIONS.SOLDIER_PROFILES, uid);
-  const profileSnap = await getDoc(profileRef);
-  
-  if (profileSnap.exists()) {
-    return { id: profileSnap.id, ...profileSnap.data() };
-  }
-  return null;
-};
+
 
 /**
  * Create all questionnaire fields for a new soldier user
@@ -324,13 +178,69 @@ export const createQuestionnaireFields = async (userId) => {
       });
     });
     
-    // Update the user document with all questionnaire fields
-    await updateDoc(userRef, questionnaireFields);
+    // Add all questionnaire fields to the user document
+    // Use setDoc with merge: true to ensure all fields are added
+    await setDoc(userRef, questionnaireFields, { merge: true });
     
     console.log('Questionnaire fields created successfully for user:', userId);
+    console.log('Fields created:', Object.keys(questionnaireFields));
     return true;
   } catch (error) {
     console.error('Error creating questionnaire fields:', error);
+    return false;
+  }
+};
+
+/**
+ * Verify that all required fields exist for a user
+ */
+export const verifyUserFields = async (userId) => {
+  try {
+    const userRef = doc(db, COLLECTIONS.USERS, userId);
+    const userSnap = await getDoc(userRef);
+    
+    if (!userSnap.exists()) {
+      console.error('User document does not exist');
+      return false;
+    }
+    
+    const userData = userSnap.data();
+    const { QUESTIONNAIRE_STRUCTURE } = await import('./questionnaire.js');
+    
+    // Check registration fields
+    const requiredRegistrationFields = [
+      'uid', 'email', 'userType', 'isAdmin', 'status', 'roomNumber', 'roomLetter', 
+      'questionnaireComplete', 'createdAt'
+    ];
+    
+    const missingRegistrationFields = requiredRegistrationFields.filter(field => 
+      !(field in userData)
+    );
+    
+    if (missingRegistrationFields.length > 0) {
+      console.warn('Missing registration fields:', missingRegistrationFields);
+    }
+    
+    // Check questionnaire fields
+    const missingQuestionnaireFields = [];
+    QUESTIONNAIRE_STRUCTURE.forEach(category => {
+      category.questions.forEach(question => {
+        if (!(question.id in userData)) {
+          missingQuestionnaireFields.push(question.id);
+        }
+      });
+    });
+    
+    if (missingQuestionnaireFields.length > 0) {
+      console.warn('Missing questionnaire fields:', missingQuestionnaireFields);
+      // Try to create missing fields
+      await createQuestionnaireFields(userId);
+    }
+    
+    console.log('User fields verification complete');
+    return true;
+  } catch (error) {
+    console.error('Error verifying user fields:', error);
     return false;
   }
 };
@@ -340,68 +250,59 @@ export const createQuestionnaireFields = async (userId) => {
 // ============================================================================
 
 /**
- * Search soldiers across all collections
+ * Search users (soldiers) in the users collection
+ * Supports both text search and date range search
  */
-export const searchSoldiers = async (searchTerm) => {
-  if (!searchTerm || searchTerm.trim().length < 2) {
-    return [];
-  }
-
-  const term = searchTerm.trim().toLowerCase();
+export const searchUsers = async (searchTerm, options = {}) => {
   const results = [];
 
   try {
-    // Search in soldiers collection (current data)
-    const soldiersQuery = query(
-      collection(db, COLLECTIONS.SOLDIERS),
-      where('status', '==', SOLDIER_STATUS.ACTIVE)
+    // Get all users (no complex queries to avoid index issues)
+    const usersQuery = query(
+      collection(db, COLLECTIONS.USERS),
+      where('userType', '==', 'user')
     );
-    const soldiersSnap = await getDocs(soldiersQuery);
+    const usersSnap = await getDocs(usersQuery);
     
-    soldiersSnap.docs.forEach(doc => {
+    usersSnap.docs.forEach(doc => {
       const data = doc.data();
-      if (
-        data.basicInfo.fullName?.toLowerCase().includes(term) ||
-        data.currentStatus.roomNumber?.includes(term) ||
-        data.basicInfo.email?.toLowerCase().includes(term)
-      ) {
+      let shouldInclude = false;
+      
+      // Date range search
+      if (options.startDate && options.endDate) {
+        if (data.entryDate) {
+          const entryDate = new Date(data.entryDate.seconds * 1000);
+          const startDate = new Date(options.startDate);
+          const endDate = new Date(options.endDate);
+          
+          if (entryDate >= startDate && entryDate <= endDate) {
+            shouldInclude = true;
+          }
+        }
+      }
+      // Text search
+      else if (searchTerm && searchTerm.trim().length >= 2) {
+        const term = searchTerm.trim().toLowerCase();
+        if (
+          data.fullName?.toLowerCase().includes(term) ||
+          data.roomNumber?.includes(term) ||
+          data.email?.toLowerCase().includes(term) ||
+          data.personalNumber?.includes(term) ||
+          data.unit?.toLowerCase().includes(term) ||
+          data.battalion?.toLowerCase().includes(term) ||
+          data.mashakitTash?.toLowerCase().includes(term) ||
+          data.officerName?.toLowerCase().includes(term) ||
+          data.emergencyContactName?.toLowerCase().includes(term)
+        ) {
+          shouldInclude = true;
+        }
+      }
+      
+      if (shouldInclude) {
         results.push({
           id: doc.id,
-          collection: COLLECTIONS.SOLDIERS,
-          ...data,
-          searchMatch: 'current'
+          ...data
         });
-      }
-    });
-
-    // Search in soldier profiles collection (long-term data)
-    const profilesQuery = query(
-      collection(db, COLLECTIONS.SOLDIER_PROFILES),
-      where('status', '==', 'active')
-    );
-    const profilesSnap = await getDocs(profilesQuery);
-    
-    profilesSnap.docs.forEach(doc => {
-      const data = doc.data();
-      if (
-        data.personalInfo.idNumber?.includes(term) ||
-        data.militaryInfo.mashakitTash?.toLowerCase().includes(term) ||
-        data.militaryInfo.officerName?.toLowerCase().includes(term) ||
-        data.emergencyContact.name?.toLowerCase().includes(term)
-      ) {
-        // Check if we already have this soldier in results
-        const existingIndex = results.findIndex(r => r.id === doc.id);
-        if (existingIndex >= 0) {
-          results[existingIndex].searchMatch = 'both';
-          results[existingIndex].profileData = data;
-        } else {
-          results.push({
-            id: doc.id,
-            collection: COLLECTIONS.SOLDIER_PROFILES,
-            profileData: data,
-            searchMatch: 'profile'
-          });
-        }
       }
     });
 
@@ -464,16 +365,15 @@ export const getTotalQuestionsCount = async () => {
 
 export default {
   COLLECTIONS,
-  SOLDIER_STATUS,
   QUESTION_CATEGORIES,
-  createSoldier,
-  createSoldierProfile,
-  updateSoldierStatus,
-  markSoldierAsLeft,
-  getSoldier,
-  getActiveSoldiers,
-  searchSoldiers,
+  updateUserStatus,
+  markUserAsLeft,
+  getUser,
+  getActiveUsers,
+  searchUsers,
+  updateProfileAnswer,
   isProfileComplete,
   getTotalQuestionsCount,
-  createQuestionnaireFields
+  createQuestionnaireFields,
+  verifyUserFields
 };

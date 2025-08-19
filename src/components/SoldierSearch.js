@@ -1,150 +1,220 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { searchSoldiers } from '@/lib/database';
+import { searchUsers } from '@/lib/database';
 import { debounce } from 'lodash';
+import colors from '../app/colors';
 
-export default function SoldierSearch({ onSelectSoldier }) {
+export default function SoldierSearch({ onSelectSoldier, onSearchResults }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
   const [showResults, setShowResults] = useState(false);
+  const [searchType, setSearchType] = useState('text'); // 'text' or 'date'
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
 
-  // Debounced search function
-  const debouncedSearch = debounce(async (term) => {
+  // Simple text search
+  const handleTextSearch = async (term) => {
     if (!term || term.trim().length < 2) {
       setSearchResults([]);
-      setIsSearching(false);
+      if (onSearchResults) onSearchResults([]);
       return;
     }
 
     setIsSearching(true);
     try {
-      const results = await searchSoldiers(term);
+      const results = await searchUsers(term);
       setSearchResults(results);
+      if (onSearchResults) onSearchResults(results);
     } catch (error) {
       console.error('Search error:', error);
       setSearchResults([]);
+      if (onSearchResults) onSearchResults([]);
     } finally {
       setIsSearching(false);
     }
-  }, 300);
+  };
+
+  // Date range search
+  const handleDateSearch = async () => {
+    if (!startDate || !endDate) {
+      alert('Please select both start and end dates');
+      return;
+    }
+
+    setIsSearching(true);
+    try {
+      const results = await searchUsers('', { startDate, endDate });
+      setSearchResults(results);
+      if (onSearchResults) onSearchResults(results);
+    } catch (error) {
+      console.error('Date search error:', error);
+      setSearchResults([]);
+      if (onSearchResults) onSearchResults([]);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  // Debounced text search
+  const debouncedSearch = debounce(handleTextSearch, 300);
 
   useEffect(() => {
-    debouncedSearch(searchTerm);
+    if (searchType === 'text') {
+      debouncedSearch(searchTerm);
+    }
     return () => debouncedSearch.cancel();
-  }, [searchTerm]);
+  }, [searchTerm, searchType]);
 
   const handleSearchChange = (e) => {
     const value = e.target.value;
     setSearchTerm(value);
     setShowResults(value.length > 0);
-  };
-
-  const handleResultClick = (soldier) => {
-    if (onSelectSoldier) {
-      onSelectSoldier(soldier);
+    if (value.length === 0) {
+      setSearchResults([]);
+      if (onSearchResults) onSearchResults([]);
     }
-    setShowResults(false);
-    setSearchTerm('');
   };
 
   const handleClearSearch = () => {
     setSearchTerm('');
+    setStartDate('');
+    setEndDate('');
     setSearchResults([]);
     setShowResults(false);
-  };
-
-  const renderSearchResult = (soldier) => {
-    return (
-      <div 
-        key={soldier.id}
-        onClick={() => handleResultClick(soldier)}
-        className="p-4 border-b border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors"
-      >
-        <div className="flex items-start gap-3">
-          <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-            <span className="text-blue-600 text-lg">👤</span>
-          </div>
-          
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1">
-              <h4 className="font-semibold text-gray-800 truncate">
-                {soldier.basicInfo && soldier.basicInfo.fullName ? soldier.basicInfo.fullName : 'Unknown Name'}
-              </h4>
-              <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-700">
-                Soldier
-              </span>
-            </div>
-            
-            <div className="text-sm text-gray-600 mb-1">
-              <span>ID: {soldier.id}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
+    if (onSearchResults) onSearchResults([]);
   };
 
   return (
     <div className="relative">
-      {/* Search Input */}
-      <div className="relative">
-        <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-          <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
-        </div>
-        
-        <input
-          type="text"
-          value={searchTerm}
-          onChange={handleSearchChange}
-          placeholder="Search soldiers..."
-          className="w-full pl-4 pr-10 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-        />
-        
-        {searchTerm && (
-          <button
-            onClick={handleClearSearch}
-            className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400 hover:text-gray-600"
-          >
-            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        )}
+      {/* Search Type Toggle */}
+      <div className="flex gap-2 mb-4">
+        <button
+          onClick={() => setSearchType('text')}
+          className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-200 hover:scale-105 ${
+            searchType === 'text' 
+              ? 'text-white' 
+              : 'text-gray-700'
+          }`}
+          style={{ 
+            background: searchType === 'text' ? colors.primaryGreen : 'transparent',
+            border: searchType === 'text' ? 'none' : `2px solid ${colors.primaryGreen}`,
+            color: searchType === 'text' ? colors.white : colors.primaryGreen,
+            boxShadow: searchType === 'text' ? '0 4px 12px rgba(7, 99, 50, 0.3)' : 'none'
+          }}
+        >
+          Text Search
+        </button>
+        <button
+          onClick={() => setSearchType('date')}
+          className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-200 hover:scale-105 ${
+            searchType === 'date' 
+              ? 'text-white' 
+              : 'text-gray-700'
+          }`}
+          style={{ 
+            background: searchType === 'date' ? colors.primaryGreen : 'transparent',
+            border: searchType === 'date' ? 'none' : `2px solid ${colors.primaryGreen}`,
+            color: searchType === 'date' ? colors.white : colors.primaryGreen,
+            boxShadow: searchType === 'date' ? '0 4px 12px rgba(7, 99, 50, 0.3)' : 'none'
+          }}
+        >
+          Date Range
+        </button>
       </div>
 
-      {/* Search Results */}
-      {showResults && (
-        <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg max-h-96 overflow-y-auto z-50">
-          {isSearching ? (
-            <div className="p-4 text-center text-gray-500">
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto mb-2"></div>
-              Searching...
-            </div>
-          ) : searchResults.length > 0 ? (
+      {/* Text Search */}
+      {searchType === 'text' && (
+        <div className="relative mb-4">
+          <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+            <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
+          
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={handleSearchChange}
+            placeholder="Search by name, room, ID, unit..."
+            className="w-full pl-4 pr-10 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+          />
+          
+          {searchTerm && (
+            <button
+              onClick={handleClearSearch}
+              className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400 hover:text-gray-600"
+            >
+              ✕
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Date Range Search */}
+      {searchType === 'date' && (
+        <div className="mb-4 space-y-3">
+          <div className="grid grid-cols-2 gap-3">
             <div>
-              <div className="px-4 py-2 bg-gray-50 border-b border-gray-200 text-sm text-gray-600">
-                Found {searchResults.length} results
-              </div>
-              {searchResults.map(renderSearchResult)}
+              <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+              />
             </div>
-          ) : searchTerm.length >= 2 ? (
-            <div className="p-4 text-center text-gray-500">
-              No results found for &quot;{searchTerm}&quot;
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+              />
             </div>
-          ) : null}
+          </div>
+          <button
+            onClick={handleDateSearch}
+            disabled={!startDate || !endDate || isSearching}
+            className="w-full py-3 px-4 rounded-xl font-semibold transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+            style={{ 
+              background: colors.primaryGreen, 
+              color: colors.white,
+              boxShadow: '0 4px 12px rgba(7, 99, 50, 0.3)'
+            }}
+          >
+            {isSearching ? 'Searching...' : 'Search by Date Range'}
+          </button>
+        </div>
+      )}
+
+      {/* Quick Search Results Preview */}
+      {showResults && searchResults.length > 0 && (
+        <div className="mt-2 p-3 rounded-xl border" style={{ background: colors.gold, color: colors.black, borderColor: colors.goldHover }}>
+          <div className="text-sm">
+            Found {searchResults.length} soldier(s). Click on a result to view details.
+          </div>
+        </div>
+      )}
+
+      {/* No Results */}
+      {showResults && searchResults.length === 0 && !isSearching && searchTerm.length >= 2 && (
+        <div className="mt-2 p-3 rounded-xl border" style={{ background: colors.yellow, color: colors.black, borderColor: colors.yellow }}>
+          <div className="text-sm">
+            No soldiers found matching your search.
+          </div>
         </div>
       )}
 
       {/* Search Tips */}
-      {!searchTerm && (
-        <div className="mt-2 text-xs text-gray-500">
-          💡 Tip: Search by name, room number, ID, or other details
+      <div className="mt-3 text-sm text-gray-600">
+        <div className="flex items-center gap-2">
+          <span>📍</span>
+          <span>Tip: Search by name, room number, ID, unit, or entry date range</span>
         </div>
-      )}
+      </div>
     </div>
   );
 }

@@ -6,7 +6,7 @@ import { auth, googleProvider, db } from '../../lib/firebase';
 import colors from '../colors';
 import Image from 'next/image';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { createQuestionnaireFields } from '@/lib/database';
+import { createQuestionnaireFields, verifyUserFields } from '@/lib/database';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -33,6 +33,7 @@ export default function RegisterPage() {
       await setDoc(doc(db, 'users', user.uid), {
         uid: user.uid,
         email: user.email,
+        userType: 'user', // This identifies them as a soldier
         isAdmin: false,
         status: 'home',
         roomNumber: '',
@@ -43,6 +44,9 @@ export default function RegisterPage() {
       
       // Create all questionnaire fields
       await createQuestionnaireFields(user.uid);
+      
+      // Verify all fields were created correctly
+      await verifyUserFields(user.uid);
       
       router.push('/register/selection');
     } catch (err) {
@@ -61,6 +65,7 @@ export default function RegisterPage() {
           uid: user.uid,
           email: user.email,
           fullName: user.displayName,
+          userType: 'user', // This identifies them as a soldier
           status: 'home',
           roomNumber: '',
           roomLetter: '',
@@ -71,6 +76,9 @@ export default function RegisterPage() {
         
         // Create all questionnaire fields
         await createQuestionnaireFields(user.uid);
+        
+        // Verify all fields were created correctly
+        await verifyUserFields(user.uid);
         
         router.push('/register/selection');
       } else {
