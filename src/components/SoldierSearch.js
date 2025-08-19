@@ -56,19 +56,6 @@ export default function SoldierSearch({ onSelectSoldier }) {
   };
 
   const renderSearchResult = (soldier) => {
-    const { searchMatch, profileData } = soldier;
-    
-    // Helper function to get display name
-    const getDisplayName = () => {
-      if (soldier.basicInfo && soldier.basicInfo.fullName) {
-        return soldier.basicInfo.fullName;
-      }
-      if (profileData && profileData.personalInfo && profileData.personalInfo.firstName && profileData.personalInfo.lastName) {
-        return profileData.personalInfo.firstName + ' ' + profileData.personalInfo.lastName;
-      }
-      return 'Unknown Name';
-    };
-    
     return (
       <div 
         key={soldier.id}
@@ -83,46 +70,16 @@ export default function SoldierSearch({ onSelectSoldier }) {
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
               <h4 className="font-semibold text-gray-800 truncate">
-                {getDisplayName()}
+                {soldier.basicInfo && soldier.basicInfo.fullName ? soldier.basicInfo.fullName : 'Unknown Name'}
               </h4>
-              <span className={`px-2 py-1 text-xs rounded-full ${
-                searchMatch === 'current' ? 'bg-green-100 text-green-700' :
-                searchMatch === 'profile' ? 'bg-blue-100 text-blue-700' :
-                'bg-purple-100 text-purple-700'
-              }`}>
-                {searchMatch === 'current' ? 'נוכח' : 
-                 searchMatch === 'profile' ? 'פרופיל' : 'שניהם'}
+              <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-700">
+                Soldier
               </span>
             </div>
             
-            {/* Current Info */}
-            {soldier.currentStatus && (
-              <div className="text-sm text-gray-600 mb-1">
-                <span>חדר: {soldier.currentStatus.roomNumber}{soldier.currentStatus.roomLetter}</span>
-                {soldier.basicInfo && soldier.basicInfo.email && (
-                  <span className="mx-2">•</span>
-                  <span>{soldier.basicInfo.email}</span>
-                )}
-              </div>
-            )}
-            
-            {/* Profile Info */}
-            {profileData && (
-              <div className="text-sm text-gray-500 space-y-1">
-                {profileData.personalInfo && profileData.personalInfo.idNumber && (
-                  <div>ת.ז: {profileData.personalInfo.idNumber}</div>
-                )}
-                {profileData.militaryInfo && profileData.militaryInfo.unit && (
-                  <div>יחידה: {profileData.militaryInfo.unit}</div>
-                )}
-                {profileData.militaryInfo && profileData.militaryInfo.mashakitTash && (
-                  <div>משקית תש: {profileData.militaryInfo.mashakitTash}</div>
-                )}
-                {profileData.emergencyContact && profileData.emergencyContact.name && (
-                  <div>איש קשר: {profileData.emergencyContact.name}</div>
-                )}
-              </div>
-            )}
+            <div className="text-sm text-gray-600 mb-1">
+              <span>ID: {soldier.id}</span>
+            </div>
           </div>
         </div>
       </div>
@@ -143,8 +100,8 @@ export default function SoldierSearch({ onSelectSoldier }) {
           type="text"
           value={searchTerm}
           onChange={handleSearchChange}
-          placeholder="חיפוש חיילים... (שם, חדר, ת.ז, משקית תש, קצין)"
-          className="w-full pl-4 pr-10 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-right"
+          placeholder="Search soldiers..."
+          className="w-full pl-4 pr-10 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         />
         
         {searchTerm && (
@@ -165,18 +122,18 @@ export default function SoldierSearch({ onSelectSoldier }) {
           {isSearching ? (
             <div className="p-4 text-center text-gray-500">
               <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto mb-2"></div>
-              מחפש...
+              Searching...
             </div>
           ) : searchResults.length > 0 ? (
             <div>
               <div className="px-4 py-2 bg-gray-50 border-b border-gray-200 text-sm text-gray-600">
-                נמצאו {searchResults.length} תוצאות
+                Found {searchResults.length} results
               </div>
               {searchResults.map(renderSearchResult)}
             </div>
           ) : searchTerm.length >= 2 ? (
             <div className="p-4 text-center text-gray-500">
-              לא נמצאו תוצאות עבור "{searchTerm}"
+              No results found for "{searchTerm}"
             </div>
           ) : null}
         </div>
@@ -184,8 +141,8 @@ export default function SoldierSearch({ onSelectSoldier }) {
 
       {/* Search Tips */}
       {!searchTerm && (
-        <div className="mt-2 text-xs text-gray-500 text-right">
-          💡 טיפ: חפש לפי שם, מספר חדר, ת.ז, משקית תש או קצין
+        <div className="mt-2 text-xs text-gray-500">
+          💡 Tip: Search by name, room number, ID, or other details
         </div>
       )}
     </div>
