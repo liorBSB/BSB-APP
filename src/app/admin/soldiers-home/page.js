@@ -5,9 +5,9 @@ import { collection, getDocs, query, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import colors from '../../colors';
 import AdminBottomNavBar from '@/components/AdminBottomNavBar';
-import EventCard from '@/components/EventCard';
 import PencilIcon from '@/components/PencilIcon';
 import { doc, updateDoc } from 'firebase/firestore';
+import { getActiveSoldiers, updateSoldierStatus } from '@/lib/database';
 
 export default function SoldiersHomePage() {
   const [search, setSearch] = useState("");
@@ -19,11 +19,11 @@ export default function SoldiersHomePage() {
   useEffect(() => {
     const fetchSoldiers = async () => {
       try {
-        const usersQuery = query(collection(db, 'users'), orderBy('fullName'));
-        const usersSnapshot = await getDocs(usersQuery);
-        setSoldiers(usersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        const activeSoldiers = await getActiveSoldiers();
+        setSoldiers(activeSoldiers);
         setLoading(false);
       } catch (error) {
+        console.error('Error fetching soldiers:', error);
         setLoading(false);
       }
     };
@@ -35,10 +35,10 @@ export default function SoldiersHomePage() {
       open: true,
       soldier,
       form: {
-        fullName: soldier.fullName || '',
-        room: soldier.room || '',
-        status: soldier.status || '',
-        email: soldier.email || '',
+        fullName: soldier.basicInfo?.fullName || '',
+        room: soldier.currentStatus?.roomNumber || '',
+        status: soldier.currentStatus?.isPresent ? 'home' : 'away',
+        email: soldier.basicInfo?.email || '',
       }
     });
   };
@@ -53,11 +53,22 @@ export default function SoldiersHomePage() {
   const handleEditSave = async () => {
     const { soldier, form } = editModal;
     try {
-      const userRef = doc(db, 'users', soldier.id);
-      await updateDoc(userRef, form);
-      setSoldiers(soldiers => soldiers.map(s => s.id === soldier.id ? { ...s, ...form } : s));
+      await updateSoldierStatus(soldier.id, {
+        'basicInfo.fullName': form.fullName,
+        'currentStatus.roomNumber': form.room,
+        'currentStatus.isPresent': form.status === 'home',
+        'basicInfo.email': form.email
+      });
+      
+      setSoldiers(soldiers => soldiers.map(s => s.id === soldier.id ? { 
+        ...s, 
+        basicInfo: { ...s.basicInfo, fullName: form.fullName, email: form.email },
+        currentStatus: { ...s.currentStatus, roomNumber: form.room, isPresent: form.status === 'home' }
+      } : s));
+      
       setEditModal({ open: false, soldier: null, form: { fullName: '', room: '', status: '', email: '' } });
     } catch (error) {
+      console.error('Error updating soldier:', error);
       alert('Failed to update soldier');
     }
   };
@@ -67,8 +78,8 @@ export default function SoldiersHomePage() {
   };
 
   const filteredSoldiers = soldiers.filter(soldier =>
-    soldier.fullName?.toLowerCase().includes(search.toLowerCase()) ||
-    soldier.room?.toLowerCase().includes(search.toLowerCase())
+    soldier.basicInfo?.fullName?.toLowerCase().includes(search.toLowerCase()) ||
+    soldier.currentStatus?.roomNumber?.toLowerCase().includes(search.toLowerCase())
   );
 
   return (
@@ -102,8 +113,12 @@ export default function SoldiersHomePage() {
                 >
                   <span className="text-2xl">🪖</span>
                   <div className="flex-1">
-                    <div className="font-bold text-lg text-white">{soldier.fullName}</div>
-                    {soldier.room && <div className="text-sm text-white/80">Room: {soldier.room}</div>}
+                    <div className="font-bold text-lg text-white">{soldier.basicInfo?.fullName || 'ללא שם'}</div>
+                    {soldier.currentStatus?.roomNumber && (
+                      <div className="text-sm text-white/80">
+                        Room: {soldier.currentStatus.roomNumber}{soldier.currentStatus.roomLetter || ''}
+                      </div>
+                    )}
                   </div>
                   <button
                     className="ml-2 p-2 rounded-full hover:bg-gray-100"
@@ -116,10 +131,12 @@ export default function SoldiersHomePage() {
                 {isOpen && (
                   <div className="rounded-b-lg shadow px-6 py-4 mb-3" style={{ background: 'rgba(0,0,0,0.18)' }}>
                     <ul className="space-y-2">
-                      <li className="text-white text-base">Full name: {soldier.fullName || '-'}</li>
-                      <li className="text-white text-base">Room number: {soldier.room || '-'}</li>
-                      <li className="text-white text-base">Status: {soldier.status || '-'}</li>
-                      <li className="text-white text-base">Email: {soldier.email || '-'}</li>
+                      <li className="text-white text-base">Full name: {soldier.basicInfo?.fullName || '-'}</li>
+                      <li className="text-white text-base">Room number: {soldier.currentStatus?.roomNumber || '-'}{soldier.currentStatus?.roomLetter || ''}</li>
+                      <li className="text-white text-base">Status: {soldier.currentStatus?.isPresent ? 'נוכח' : 'לא נוכח'}</li>
+                      <li className="text-white text-base">Email: {soldier.basicInfo?.email || '-'}</li>
+                      <li className="text-white text-base">Profile Complete: {soldier.profileComplete ? 'כן' : 'לא'}</li>
+                      <li className="text-white text-base">Questions: {soldier.answeredQuestions || 0}/{soldier.totalQuestions || 0}</li>
                     </ul>
                   </div>
                 )}

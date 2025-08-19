@@ -6,6 +6,7 @@ import { auth, googleProvider, db } from '../../lib/firebase';
 import colors from '../colors';
 import Image from 'next/image';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { createQuestionnaireFields } from '@/lib/database';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -36,8 +37,12 @@ export default function RegisterPage() {
         status: 'home',
         roomNumber: '',
         roomLetter: '',
+        questionnaireComplete: false,
         createdAt: new Date()
       });
+      
+      // Create all questionnaire fields
+      await createQuestionnaireFields(user.uid);
       
       router.push('/register/selection');
     } catch (err) {
@@ -60,8 +65,13 @@ export default function RegisterPage() {
           roomNumber: '',
           roomLetter: '',
           isAdmin: false,
+          questionnaireComplete: false,
           createdAt: new Date()
         });
+        
+        // Create all questionnaire fields
+        await createQuestionnaireFields(user.uid);
+        
         router.push('/register/selection');
       } else {
         router.push('/home');

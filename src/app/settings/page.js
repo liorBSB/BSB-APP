@@ -7,6 +7,7 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import BottomNavBar from '@/components/BottomNavBar';
 import EditFieldModal from '@/components/EditFieldModal';
+import QuestionnaireEditor from '@/components/QuestionnaireEditor';
 import colors from '../colors';
 
 export default function SettingsPage() {
@@ -23,6 +24,7 @@ export default function SettingsPage() {
   const [success, setSuccess] = useState('');
   const [error, setError] = useState('');
   const [editField, setEditField] = useState(null); // 'name', 'room', 'bank', 'email'
+  const [questionnaireEditorOpen, setQuestionnaireEditorOpen] = useState(false);
 
   useEffect(() => {
     // On mount, set language from localStorage if available
@@ -88,6 +90,13 @@ export default function SettingsPage() {
     document.documentElement.dir = nextLang === 'he' ? 'rtl' : 'ltr';
   };
 
+  const handleProfileUpdate = (updatedAnswers) => {
+    // Update local fields with the new answers if they match our basic fields
+    if (updatedAnswers.fullName !== undefined) setFields(prev => ({ ...prev, name: updatedAnswers.fullName }));
+    if (updatedAnswers.roomNumber !== undefined) setFields(prev => ({ ...prev, room: updatedAnswers.roomNumber }));
+    if (updatedAnswers.email !== undefined) setFields(prev => ({ ...prev, email: updatedAnswers.email }));
+  };
+
   return (
     <main className="min-h-screen bg-gradient-to-br from-blue-200/60 to-green-100/60 font-body flex flex-col items-center pt-10 pb-32 px-2 phone-sm:px-2 phone-md:px-4 phone-lg:px-6">
       <button
@@ -118,6 +127,17 @@ export default function SettingsPage() {
                   </button>
                 </div>
               ))}
+              
+              {/* Edit Profile Button */}
+              <div className="w-full mt-6">
+                <button
+                  onClick={() => setQuestionnaireEditorOpen(true)}
+                  className="w-full py-4 px-6 bg-transparent text-white font-bold text-lg border-2 border-white rounded-xl hover:bg-white/10 transition-colors"
+                >
+                  Edit Full Profile
+                </button>
+              </div>
+              
               {success && <div className="text-green-300 text-lg mb-2">{success}</div>}
               {error && <div className="text-red-300 text-lg mb-2">{error}</div>}
             </>
@@ -136,6 +156,12 @@ export default function SettingsPage() {
         onSave={(val) => handleSaveField(editField, val)}
         label={editField ? fieldLabels[editField] : ''}
         value={editField ? fields[editField] : ''}
+      />
+      <QuestionnaireEditor
+        isOpen={questionnaireEditorOpen}
+        onClose={() => setQuestionnaireEditorOpen(false)}
+        userData={fields}
+        onUpdate={handleProfileUpdate}
       />
       <BottomNavBar active="settings" />
     </main>

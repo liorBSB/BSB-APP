@@ -31,7 +31,7 @@ export default function AdminBottomNavBar({ active }) {
     { key: 'report', label: 'Reports', path: '/admin/report', icon: icons.report },
     { key: 'expenses', label: 'Expenses', path: '/admin/expenses', icon: icons.expenses },
     { key: 'home', label: 'Home', path: '/admin/home', icon: icons.home },
-    { key: 'soldiers', label: 'Soldiers', path: '/admin/soldiers-home', icon: icons.soldiers },
+    { key: 'soldiers', label: 'Soldiers', path: '/admin/soldiers', icon: icons.soldiers },
     { key: 'settings', label: 'Settings', path: '/admin/settings', icon: icons.settings },
   ];
 

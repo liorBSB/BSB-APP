@@ -1,4 +1,5 @@
 import './globals.css';
+
 export const metadata = {
   title: 'House Efficiency',
   description: 'Smart Living, Streamlined',

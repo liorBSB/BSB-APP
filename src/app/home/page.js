@@ -12,9 +12,12 @@ import ListItem from '@/components/home/ListItem';
 import { onAuthStateChanged } from 'firebase/auth';
 import EventResponseModal from '@/components/home/EventResponseModal';
 import BottomNavBar from '@/components/BottomNavBar';
+import QuestionnaireModal from '@/components/QuestionnaireModal';
 import colors from '../colors';
 import useAuthRedirect from '@/hooks/useAuthRedirect';
 import { useRouter } from 'next/navigation';
+import { createSoldier, createSoldierProfile } from '@/lib/database';
+import { QUESTIONNAIRE_STRUCTURE } from '@/lib/questionnaire';
 
 export default function HomePage() {
   const router = useRouter();
@@ -38,12 +41,42 @@ export default function HomePage() {
   const [changeSheets, setChangeSheets] = useState(null);
   const [surveyModalOpen, setSurveyModalOpen] = useState(false);
   const [selectedSurvey, setSelectedSurvey] = useState(null);
+  const [questionnaireOpen, setQuestionnaireOpen] = useState(false);
   const isRTL = i18n.language === 'he';
 
   // Check if user profile is complete
   const checkUserProfileComplete = (userData) => {
     if (!userData) return false;
     return !!(userData.fullName && userData.roomNumber);
+  };
+
+  // Check if questionnaire is complete
+  const isQuestionnaireComplete = (userData) => {
+    if (!userData) return false;
+    
+    // Import questionnaire structure
+    // const { QUESTIONNAIRE_STRUCTURE } = require('@/lib/questionnaire');
+    
+    // Check all questionnaire fields
+    for (const category of QUESTIONNAIRE_STRUCTURE) {
+      for (const question of category.questions) {
+        const value = userData[question.id];
+        
+        // Check if field is empty
+        if (value === undefined || value === null || value === '') {
+          // Check for arrays (multi_select)
+          if (Array.isArray(value)) {
+            if (value.length === 0) {
+              return false; // Field is empty
+            }
+          } else {
+            return false; // Field is empty
+          }
+        }
+      }
+    }
+    
+    return true; // All fields are filled
   };
 
   useEffect(() => {
@@ -64,6 +97,25 @@ export default function HomePage() {
             router.push('/profile-setup');
             return;
           }
+          
+          // Create soldier documents if they don't exist
+          try {
+            await createSoldier(user.uid, {
+              fullName: data.fullName || '',
+              email: data.email || '',
+              roomNumber: data.roomNumber || '',
+              roomLetter: data.roomLetter || ''
+            });
+            
+            await createSoldierProfile(user.uid, {
+              uid: user.uid,
+              answers: {},
+              progress: 0,
+              createdAt: new Date()
+            });
+          } catch (error) {
+            console.log('Soldier documents already exist or error creating them:', error);
+          }
         } else {
           router.push('/profile-setup');
           return;
@@ -78,6 +130,26 @@ export default function HomePage() {
   useEffect(() => {
     // Only fetch data if profile is complete
     if (!profileComplete) return;
+
+    // Temporarily disabled until new system is ready
+    // const fetchSoldierData = async () => {
+    //   try {
+    //     const user = auth.currentUser;
+    //     if (user) {
+    //       const soldier = await getSoldier(user.uid);
+    //       const profile = await getSoldierProfile(user.uid);
+    //       
+    //       setSoldierData(soldier);
+    //       setProfileData(profile);
+    //       
+    //       if (profile?.answers) {
+    //         setAnsweredQuestions(Object.keys(profile.answers));
+    //       }
+    //     }
+    //   } catch (error) {
+    //     console.error('Error loading soldier data:', error);
+    //   }
+    // };
 
     const fetchEvents = async () => {
       setLoadingEvents(true);
@@ -109,6 +181,7 @@ export default function HomePage() {
       setLoadingMessages(false);
     };
 
+    // fetchSoldierData(); // Temporarily disabled
     fetchEvents();
     fetchSurveys();
     fetchMessages();
@@ -128,6 +201,26 @@ export default function HomePage() {
     i18n.changeLanguage(nextLang);
     document.documentElement.dir = nextLang === 'he' ? 'rtl' : 'ltr';
   };
+
+  // const handleQuestionnaireComplete = async () => { // Temporarily disabled
+  //   try {
+  //     // Reload soldier data to get updated progress
+  //     const user = auth.currentUser;
+  //     if (user) {
+  //         const soldier = await getSoldier(user.uid);
+  //         const profile = await getSoldierProfile(user.uid);
+  //         
+  //         setSoldierData(soldier);
+  //         setProfileData(profile);
+  //         
+  //         if (profile?.answers) {
+  //             setAnsweredQuestions(Object.keys(profile.answers));
+  //         }
+  //     }
+  //   } catch (error) {
+  //     console.error('Error reloading soldier data:', error);
+  //   }
+  // };
 
   // Filter and sort events to only show future events, sorted by endTime ascending
   const now = new Date();
@@ -191,6 +284,82 @@ export default function HomePage() {
           <div className="text-center text-muted py-4">Loading...</div>
         ) : (
           <WelcomeHeader status={status} userData={userData} />
+        )}
+
+        {/* Questionnaire Prompt */}
+        {userData && !isQuestionnaireComplete(userData) && (
+          <div className="rounded-2xl p-6 mb-6 shadow-sm" style={{ background: colors.sectionBg, color: colors.white }}>
+            <div className="text-center">
+              <h3 className="text-xl font-bold mb-3">
+                Personal Information Questionnaire
+              </h3>
+              <p className="text-sm mb-6 opacity-90">
+                {(() => {
+                  // Calculate how many questions are answered
+                  let answered = 0;
+                  // const { QUESTIONNAIRE_STRUCTURE } = require('@/lib/questionnaire');
+                  const totalQuestions = QUESTIONNAIRE_STRUCTURE.reduce((total, category) => {
+                    return total + category.questions.length;
+                  }, 0);
+                  
+                  for (const category of QUESTIONNAIRE_STRUCTURE) {
+                    for (const question of category.questions) {
+                      const value = userData[question.id];
+                      if (value !== undefined && value !== null && value !== '') {
+                        if (Array.isArray(value)) {
+                          if (value.length > 0) {
+                            answered++;
+                          }
+                        } else {
+                          answered++;
+                        }
+                      }
+                    }
+                  }
+                  
+                  const remaining = totalQuestions - answered;
+                  
+                  if (answered === 0) {
+                    return "Please complete the new questionnaire to complete your profile";
+                  } else {
+                    return `You have ${remaining} questions remaining to complete your profile`;
+                  }
+                })()}
+              </p>
+              <button
+                onClick={() => setQuestionnaireOpen(true)}
+                className="px-8 py-3 rounded-xl font-semibold transition-all duration-200 hover:scale-105"
+                style={{ 
+                  background: colors.gold, 
+                  color: colors.black,
+                  boxShadow: '0 4px 12px rgba(237, 195, 129, 0.3)'
+                }}
+              >
+                {(() => {
+                  // Calculate how many questions are answered
+                  let answered = 0;
+                  // const { QUESTIONNAIRE_STRUCTURE } = require('@/lib/questionnaire');
+                  
+                  for (const category of QUESTIONNAIRE_STRUCTURE) {
+                    for (const question of category.questions) {
+                      const value = userData[question.id];
+                      if (value !== undefined && value !== null && value !== '') {
+                        if (Array.isArray(value)) {
+                          if (value.length > 0) {
+                            answered++;
+                          }
+                        } else {
+                          answered++;
+                        }
+                      }
+                    }
+                  }
+                  
+                  return answered === 0 ? "Start Questionnaire" : "Continue Questionnaire";
+                })()}
+              </button>
+            </div>
+          </div>
         )}
 
         {/* Home/Away Switcher */}
@@ -471,6 +640,21 @@ export default function HomePage() {
           </div>
         </div>
       )}
+      
+      {/* Questionnaire Modal */}
+      <QuestionnaireModal
+        isOpen={questionnaireOpen}
+        onClose={() => setQuestionnaireOpen(false)}
+        onComplete={(wasLastQuestionAnswered) => {
+          // Questionnaire completed
+          setQuestionnaireOpen(false);
+          
+          // Only refresh if the last question was actually answered
+          if (wasLastQuestionAnswered) {
+            window.location.reload();
+          }
+        }}
+      />
     </main>
   );
 }

@@ -73,5 +73,27 @@ service cloud.firestore {
       allow read: if isSignedIn() && isAdmin(request.auth.uid);
       allow update, delete: if isSignedIn() && isAdmin(request.auth.uid);
     }
+
+    // Soldiers collection (current daily data)
+    match /soldiers/{soldierId} {
+      // Soldiers can read and update their own data
+      allow read, write: if isSignedIn() && isOwner(soldierId);
+      // Admins can read and manage all soldier data
+      allow read, write: if isSignedIn() && isAdmin(request.auth.uid);
+    }
+
+    // Soldier profiles collection (long-term questionnaire data)
+    match /soldierProfiles/{profileId} {
+      // Soldiers can read and update their own profile
+      allow read, write: if isSignedIn() && isOwner(profileId);
+      // Admins can read and manage all profiles
+      allow read, write: if isSignedIn() && isAdmin(request.auth.uid);
+    }
+
+    // Archived soldiers collection (for export purposes)
+    match /archivedSoldiers/{archivedId} {
+      // Only admins can access archived data
+      allow read, write: if isSignedIn() && isAdmin(request.auth.uid);
+    }
   }
 }

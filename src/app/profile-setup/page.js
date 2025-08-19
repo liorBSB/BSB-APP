@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { auth, db } from '../../lib/firebase';
 import { doc, setDoc } from 'firebase/firestore';
+import { createQuestionnaireFields } from '@/lib/database';
 import { signOut } from 'firebase/auth';
 import { useTranslation } from 'react-i18next';
 import colors from '../colors';
@@ -39,8 +40,12 @@ export default function ProfileSetup() {
         roomLetter,
         email: auth.currentUser.email,
         userType: 'user',
+        questionnaireComplete: false,
         createdAt: new Date()
       });
+
+      // Create all questionnaire fields for soldiers
+      await createQuestionnaireFields(uid);
 
       router.push('/home');
     } catch (err) {
