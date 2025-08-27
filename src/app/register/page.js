@@ -6,7 +6,6 @@ import { auth, googleProvider, db } from '../../lib/firebase';
 import colors from '../colors';
 import Image from 'next/image';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { createQuestionnaireFields, verifyUserFields } from '@/lib/database';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -15,9 +14,20 @@ export default function RegisterPage() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        router.push('/home');
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (!user) return;
+      try {
+        const ref = doc(db, 'users', user.uid);
+        const snap = await getDoc(ref);
+        if (snap.exists()) {
+          // Existing account → go to app
+          router.push('/home');
+        } else {
+          // No Firestore user yet → stay on signup; prefill email if available
+          if (user.email) setEmail(user.email);
+        }
+      } catch (_) {
+        // On error, stay on signup
       }
     });
     return () => unsubscribe();
@@ -33,7 +43,7 @@ export default function RegisterPage() {
       await setDoc(doc(db, 'users', user.uid), {
         uid: user.uid,
         email: user.email,
-        userType: 'user', // This identifies them as a soldier
+        userType: 'user', // Will be updated if choosing worker flow
         isAdmin: false,
         status: 'home',
         roomNumber: '',
@@ -41,12 +51,6 @@ export default function RegisterPage() {
         questionnaireComplete: false,
         createdAt: new Date()
       });
-      
-      // Create all questionnaire fields
-      await createQuestionnaireFields(user.uid);
-      
-      // Verify all fields were created correctly
-      await verifyUserFields(user.uid);
       
       router.push('/register/selection');
     } catch (err) {
@@ -65,7 +69,7 @@ export default function RegisterPage() {
           uid: user.uid,
           email: user.email,
           fullName: user.displayName,
-          userType: 'user', // This identifies them as a soldier
+          userType: 'user', // Will be updated if choosing worker flow
           status: 'home',
           roomNumber: '',
           roomLetter: '',
@@ -73,13 +77,6 @@ export default function RegisterPage() {
           questionnaireComplete: false,
           createdAt: new Date()
         });
-        
-        // Create all questionnaire fields
-        await createQuestionnaireFields(user.uid);
-        
-        // Verify all fields were created correctly
-        await verifyUserFields(user.uid);
-        
         router.push('/register/selection');
       } else {
         router.push('/home');

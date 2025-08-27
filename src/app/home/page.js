@@ -4,7 +4,7 @@ import '@/i18n';
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import i18n from '@/i18n';
-import { doc, updateDoc, collection, getDoc, getDocs, query, where, orderBy } from 'firebase/firestore';
+import { doc, updateDoc, collection, getDoc, getDocs, query, where, orderBy, onSnapshot } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import WelcomeHeader from '@/components/home/WelcomeHeader';
 import CollapsibleSection from '@/components/home/CollapsibleSection';
@@ -53,34 +53,56 @@ export default function HomePage() {
 
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+    const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
+      let unsubscribeUser = null;
       if (user) {
         const userRef = doc(db, 'users', user.uid);
+
+        // Initial fetch (optional)
         const userSnap = await getDoc(userRef);
-        
         if (userSnap.exists()) {
           const data = userSnap.data();
           setUserData(data);
-          
-          // Check if user profile is complete
           const isComplete = checkUserProfileComplete(data);
           setProfileComplete(isComplete);
-          
           if (!isComplete) {
             router.push('/profile-setup');
+            setLoadingUser(false);
+            setIsCheckingProfile(false);
             return;
           }
-          
-
         } else {
           router.push('/profile-setup');
+          setLoadingUser(false);
+          setIsCheckingProfile(false);
           return;
         }
+
+        // Live updates for user data (progress bar updates in real-time)
+        unsubscribeUser = onSnapshot(
+          userRef,
+          (snap) => {
+            if (snap.exists()) {
+              setUserData(snap.data());
+            }
+          },
+          (error) => {
+            // Handle permission errors gracefully and keep page functional
+            console.error('User onSnapshot error:', error);
+          }
+        );
       }
       setLoadingUser(false);
       setIsCheckingProfile(false);
+
+      // Cleanup previous user listener when auth changes
+      return () => {
+        if (unsubscribeUser) unsubscribeUser();
+      };
     });
-    return () => unsubscribe();
+    return () => {
+      if (typeof unsubscribeAuth === 'function') unsubscribeAuth();
+    };
   }, [router]);
 
   useEffect(() => {
@@ -697,8 +719,8 @@ export default function HomePage() {
         isOpen={questionnaireOpen}
         onClose={() => setQuestionnaireOpen(false)}
         onComplete={() => {
+          // No full page reload; onSnapshot keeps home progress in sync
           setQuestionnaireOpen(false);
-          window.location.reload();
         }}
       />
     </main>

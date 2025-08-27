@@ -63,19 +63,32 @@ export const markUserAsLeft = async (uid, adminUid) => {
       throw new Error('User not found');
     }
     
-    // Export to Google Sheets
+    // Create archived data structure with timestamps
+    const archivedData = {
+      ...userData.data(),
+      archivedAt: Timestamp.now(),
+      archivedBy: adminUid,
+      originalUid: uid,
+      leftDate: Timestamp.now()
+    };
+    
+    // Export to Google Sheets before archiving
     const exportResult = await exportSoldierToSheets(userData.data());
     
     if (!exportResult.success) {
       throw new Error(`Export failed: ${exportResult.message}`);
     }
     
-    // Delete the user data
+    // Move data to archivedUsers collection
+    const archivedUserRef = doc(db, 'archivedUsers', uid);
+    await setDoc(archivedUserRef, archivedData);
+    
+    // Hard delete from main users collection
     await deleteDoc(doc(db, COLLECTIONS.USERS, uid));
     
     return {
       success: true,
-      message: 'User marked as left and data exported successfully',
+      message: 'User archived and data exported successfully',
       exportResult
     };
     
@@ -96,6 +109,29 @@ export const getUser = async (uid) => {
     return { id: userSnap.id, ...userSnap.data() };
   }
   return null;
+};
+
+/**
+ * Get archived users (admin only)
+ */
+export const getArchivedUsers = async () => {
+  try {
+    const archivedUsersRef = collection(db, 'archivedUsers');
+    const querySnapshot = await getDocs(archivedUsersRef);
+    
+    const archivedUsers = [];
+    querySnapshot.forEach((doc) => {
+      archivedUsers.push({
+        id: doc.id,
+        ...doc.data()
+      });
+    });
+    
+    return archivedUsers;
+  } catch (error) {
+    console.error('Error getting archived users:', error);
+    throw error;
+  }
 };
 
 /**
@@ -369,6 +405,7 @@ export default {
   updateUserStatus,
   markUserAsLeft,
   getUser,
+  getArchivedUsers,
   getActiveUsers,
   searchUsers,
   updateProfileAnswer,

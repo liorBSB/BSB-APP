@@ -23,8 +23,7 @@ export default function QuestionnaireModal({ isOpen, onClose, onComplete }) {
   const [showIntro, setShowIntro] = useState(true);
 
   const handleClose = () => {
-    // Refresh the page when closing the questionnaire
-    window.location.reload();
+    // Do not refresh the page; simply close the modal
     onClose();
   };
 
@@ -141,8 +140,12 @@ export default function QuestionnaireModal({ isOpen, onClose, onComplete }) {
       // Save "Not Relevant" to the database
       await updateProfileAnswer(auth.currentUser.uid, currentQuestion.id, 'Not Relevant');
       
-      // Move to next question
-      const nextQuestion = getNextQuestion(currentQuestion.id, profileData);
+      // Merge answer locally so progress updates live
+      const updatedProfile = { ...(profileData || {}), [currentQuestion.id]: 'Not Relevant' };
+      setProfileData(updatedProfile);
+
+      // Move to next question using updated profile
+      const nextQuestion = getNextQuestion(currentQuestion.id, updatedProfile);
       
       if (nextQuestion) {
         // Move to next question
@@ -159,9 +162,9 @@ export default function QuestionnaireModal({ isOpen, onClose, onComplete }) {
           setCurrentAnswer('');
         }
       } else {
-        // Questionnaire completed - refresh the page
-        window.location.reload();
-        onComplete();
+        // Questionnaire completed - no refresh
+        onComplete && onComplete();
+        onClose();
       }
       
     } catch (error) {
@@ -195,9 +198,9 @@ export default function QuestionnaireModal({ isOpen, onClose, onComplete }) {
           setCurrentAnswer('');
         }
       } else {
-        // Questionnaire completed - refresh the page
-        window.location.reload();
-        onComplete();
+        // Questionnaire completed - no refresh
+        onComplete && onComplete();
+        onClose();
       }
       
     } catch (error) {
@@ -216,8 +219,12 @@ export default function QuestionnaireModal({ isOpen, onClose, onComplete }) {
       // Save answer to database
       await updateProfileAnswer(auth.currentUser.uid, currentQuestion.id, currentAnswer);
       
-      // Move to next question
-      const nextQuestion = getNextQuestion(currentQuestion.id, profileData);
+      // Merge answer locally so progress updates live
+      const updatedProfile = { ...(profileData || {}), [currentQuestion.id]: currentAnswer };
+      setProfileData(updatedProfile);
+
+      // Move to next question using updated profile
+      const nextQuestion = getNextQuestion(currentQuestion.id, updatedProfile);
       
       if (nextQuestion) {
         // Move to next question
@@ -234,9 +241,9 @@ export default function QuestionnaireModal({ isOpen, onClose, onComplete }) {
           setCurrentAnswer('');
         }
       } else {
-        // Questionnaire completed - refresh the page
-        window.location.reload();
-        onComplete();
+        // Questionnaire completed - no refresh
+        onComplete && onComplete();
+        onClose();
       }
       
     } catch (error) {

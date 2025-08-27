@@ -95,5 +95,11 @@ service cloud.firestore {
       // Only admins can access archived data
       allow read, write: if isSignedIn() && isAdmin(request.auth.uid);
     }
+
+    // Archived users collection (for export purposes)
+    match /archivedUsers/{archivedId} {
+      // Only admins can access archived data
+      allow read, write: if isSignedIn() && isAdmin(request.auth.uid);
+    }
   }
 }

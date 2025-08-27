@@ -47,7 +47,8 @@ export default function ProfileSetup() {
       // Create all questionnaire fields for soldiers
       await createQuestionnaireFields(uid);
 
-      router.push('/home');
+      // After profile setup, go to consent step 1 for soldiers
+      router.push('/register/consent/1?role=soldier');
     } catch (err) {
       setError('Failed to save profile: ' + err.message);
     }

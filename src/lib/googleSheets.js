@@ -12,78 +12,76 @@
 
 /**
  * Export soldier data to Google Sheets when they leave
- * This is a placeholder function - implement based on your Google Sheets setup
+ * Updated to work with current users collection structure
  */
-export const exportSoldierToSheets = async (soldierData, profileData) => {
+export const exportSoldierToSheets = async (soldierData) => {
   try {
-    // This is where you would implement the actual Google Sheets export
-    // For now, we'll just log the data structure
-    
+    // Map fields from the flat structure to export format
     const exportData = {
-      // Basic soldier info
-      fullName: soldierData.basicInfo?.fullName || '',
-      email: soldierData.basicInfo?.email || '',
-      phone: soldierData.basicInfo?.phone || '',
-      roomNumber: soldierData.currentStatus?.roomNumber || '',
-      roomLetter: soldierData.currentStatus?.roomLetter || '',
-      bedNumber: soldierData.currentStatus?.bedNumber || '',
+      // Basic soldier info - map from flat structure
+      fullName: soldierData.fullName || '',
+      email: soldierData.email || '',
+      phone: soldierData.phone || '',
+      roomNumber: soldierData.roomNumber || '',
+      roomLetter: soldierData.roomLetter || '',
+      bedNumber: soldierData.bedNumber || '',
       checkInDate: soldierData.createdAt || '',
-      leftDate: soldierData.leftAt || '',
+      leftDate: new Date().toISOString(),
       
-      // Profile data (if available)
-      firstName: profileData?.personalInfo?.firstName || '',
-      lastName: profileData?.personalInfo?.lastName || '',
-      dateOfBirth: profileData?.personalInfo?.dateOfBirth || '',
-      gender: profileData?.personalInfo?.gender || '',
-      idNumber: profileData?.personalInfo?.idNumber || '',
-      idType: profileData?.personalInfo?.idType || '',
-      countryOfOrigin: profileData?.personalInfo?.countryOfOrigin || '',
-      arrivalDate: profileData?.personalInfo?.arrivalDate || '',
-      previousAddress: profileData?.personalInfo?.previousAddress || '',
-      education: profileData?.personalInfo?.education || '',
-      license: profileData?.personalInfo?.license || '',
+      // Personal info - map from flat structure
+      firstName: soldierData.firstName || '',
+      lastName: soldierData.lastName || '',
+      dateOfBirth: soldierData.dateOfBirth || '',
+      gender: soldierData.gender || '',
+      idNumber: soldierData.idNumber || '',
+      idType: soldierData.idType || '',
+      countryOfOrigin: soldierData.countryOfOrigin || '',
+      arrivalDate: soldierData.arrivalDate || '',
+      previousAddress: soldierData.previousAddress || '',
+      education: soldierData.education || '',
+      license: soldierData.license || '',
       
-      // Family info
-      familyInIsrael: profileData?.familyInfo?.familyInIsrael || false,
-      fatherName: profileData?.familyInfo?.fatherName || '',
-      fatherPhone: profileData?.familyInfo?.fatherPhone || '',
-      motherName: profileData?.familyInfo?.motherName || '',
-      motherPhone: profileData?.familyInfo?.motherPhone || '',
-      parentsStatus: profileData?.familyInfo?.parentsStatus || '',
-      parentsAddress: profileData?.familyInfo?.parentsAddress || '',
-      parentsEmail: profileData?.familyInfo?.parentsEmail || '',
-      contactWithParents: profileData?.familyInfo?.contactWithParents || '',
+      // Family info - map from flat structure
+      familyInIsrael: soldierData.familyInIsrael || false,
+      fatherName: soldierData.fatherName || '',
+      fatherPhone: soldierData.fatherPhone || '',
+      motherName: soldierData.motherName || '',
+      motherPhone: soldierData.motherPhone || '',
+      parentsStatus: soldierData.parentsStatus || '',
+      parentsAddress: soldierData.parentsAddress || '',
+      parentsEmail: soldierData.parentsEmail || '',
+      contactWithParents: soldierData.contactWithParents || '',
       
-      // Emergency contact
-      emergencyContactName: profileData?.emergencyContact?.name || '',
-      emergencyContactPhone: profileData?.emergencyContact?.phone || '',
-      emergencyContactAddress: profileData?.emergencyContact?.address || '',
-      emergencyContactEmail: profileData?.emergencyContact?.email || '',
+      // Emergency contact - map from flat structure
+      emergencyContactName: soldierData.emergencyContactName || '',
+      emergencyContactPhone: soldierData.emergencyContactPhone || '',
+      emergencyContactAddress: soldierData.emergencyContactAddress || '',
+      emergencyContactEmail: soldierData.emergencyContactEmail || '',
       
-      // Military info
-      personalNumber: profileData?.militaryInfo?.personalNumber || '',
-      enlistmentDate: profileData?.militaryInfo?.enlistmentDate || '',
-      releaseDate: profileData?.militaryInfo?.releaseDate || '',
-      unit: profileData?.militaryInfo?.unit || '',
-      battalion: profileData?.militaryInfo?.battalion || '',
-      mashakitTash: profileData?.militaryInfo?.mashakitTash || '',
-      mashakitPhone: profileData?.militaryInfo?.mashakitPhone || '',
-      officerName: profileData?.militaryInfo?.officerName || '',
-      officerPhone: profileData?.militaryInfo?.officerPhone || '',
-      disciplinaryRecord: profileData?.militaryInfo?.disciplinaryRecord || '',
+      // Military info - map from flat structure
+      personalNumber: soldierData.personalNumber || '',
+      enlistmentDate: soldierData.enlistmentDate || '',
+      releaseDate: soldierData.releaseDate || '',
+      unit: soldierData.unit || '',
+      battalion: soldierData.battalion || '',
+      mashakitTash: soldierData.mashakitTash || '',
+      mashakitPhone: soldierData.mashakitPhone || '',
+      officerName: soldierData.officerName || '',
+      officerPhone: soldierData.officerPhone || '',
+      disciplinaryRecord: soldierData.disciplinaryRecord || '',
       
-      // Medical info
-      healthFund: profileData?.medicalInfo?.healthFund || '',
-      medicalProblems: profileData?.medicalInfo?.medicalProblems || '',
-      allergies: profileData?.medicalInfo?.allergies || '',
-      hospitalizations: profileData?.medicalInfo?.hospitalizations || '',
-      psychiatricTreatment: profileData?.medicalInfo?.psychiatricTreatment || '',
-      regularMedication: profileData?.medicalInfo?.regularMedication || '',
+      // Medical info - map from flat structure
+      healthFund: soldierData.healthFund || '',
+      medicalProblems: soldierData.medicalProblems || '',
+      allergies: soldierData.allergies || '',
+      hospitalizations: soldierData.hospitalizations || '',
+      psychiatricTreatment: soldierData.psychiatricTreatment || '',
+      regularMedication: soldierData.regularMedication || '',
       
-      // Additional info
-      cleanlinessLevel: profileData?.additionalInfo?.cleanlinessLevel || '',
-      contributions: profileData?.additionalInfo?.contributions || '',
-      notes: profileData?.additionalInfo?.notes || '',
+      // Additional info - map from flat structure
+      cleanlinessLevel: soldierData.cleanlinessLevel || '',
+      contributions: soldierData.contributions || '',
+      notes: soldierData.notes || '',
       
       // Export metadata
       exportedAt: new Date().toISOString(),
@@ -92,19 +90,10 @@ export const exportSoldierToSheets = async (soldierData, profileData) => {
 
     console.log('Exporting soldier data to Google Sheets:', exportData);
     
-    // TODO: Implement actual Google Sheets export
-    // This could be:
-    // 1. Google Sheets API call
-    // 2. Google Apps Script webhook
-    // 3. Google Forms submission
-    // 4. Email to specific Google Sheets email
+    // Try to export to Google Sheets using Google Apps Script
+    const exportResult = await exportToGoogleSheets(exportData);
     
-    // For now, return success
-    return {
-      success: true,
-      message: 'Data prepared for export',
-      data: exportData
-    };
+    return exportResult;
     
   } catch (error) {
     console.error('Error exporting to Google Sheets:', error);
@@ -117,13 +106,87 @@ export const exportSoldierToSheets = async (soldierData, profileData) => {
 };
 
 /**
+ * Export data to Google Sheets using Google Apps Script
+ */
+async function exportToGoogleSheets(exportData) {
+  try {
+    // Get configuration
+    const config = getSheetsConfig();
+    
+    console.log('=== CONFIGURATION CHECK ===');
+    console.log('Config object:', config);
+    console.log('Spreadsheet ID:', config.spreadsheetId);
+    console.log('Sheet Name:', config.sheetName);
+    console.log('==========================');
+    
+    if (!config.spreadsheetId) {
+      throw new Error('Google Sheets ID missing. Please check your .env.local file.');
+    }
+    
+    // Use GET request with query parameters to avoid CORS issues entirely
+    const scriptUrl = 'https://script.google.com/macros/s/AKfycbyCZUFM_qyeA_SwdlTUJGmfmQSmJZgvmIzQlAuCYz-NZQdLpJTlUxqgLOfpQerZXXPdSQ/exec';
+    
+    // Build URL with query parameters
+    const params = new URLSearchParams();
+    params.append('spreadsheetId', config.spreadsheetId);
+    params.append('sheetName', config.sheetName);
+    params.append('data', JSON.stringify(exportData));
+    
+    const fullUrl = `${scriptUrl}?${params.toString()}`;
+    console.log('=== GOOGLE SHEETS EXPORT DEBUG ===');
+    console.log('Script URL:', scriptUrl);
+    console.log('Spreadsheet ID:', config.spreadsheetId);
+    console.log('Sheet Name:', config.sheetName);
+    console.log('Full URL being called:', fullUrl);
+    console.log('Data being sent:', exportData);
+    console.log('================================');
+    
+    const response = await fetch(fullUrl, {
+      method: 'GET'
+    });
+
+    console.log('Response status:', response.status);
+    console.log('Response headers:', response.headers);
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Google Apps Script response error:', errorText);
+      throw new Error(`Export failed: HTTP ${response.status} - ${errorText}`);
+    }
+
+    const result = await response.text();
+    console.log('Google Apps Script response:', result);
+    
+    try {
+      const parsedResult = JSON.parse(result);
+      if (!parsedResult.success) {
+        throw new Error(`Script error: ${parsedResult.error || 'Unknown error'}`);
+      }
+      return parsedResult;
+    } catch (e) {
+      // If it's not JSON, return the text response
+      return { success: true, message: result };
+    }
+    
+
+
+  } catch (error) {
+    console.error('Error exporting to Google Sheets:', error);
+    return {
+      success: false,
+      message: `Failed to export to Google Sheets: ${error.message}`,
+      error: error.message
+    };
+  }
+}
+
+/**
  * Get Google Sheets configuration
  * This would contain your API credentials and sheet IDs
  */
 export const getSheetsConfig = () => {
   return {
     // These would be environment variables in production
-    apiKey: process.env.NEXT_PUBLIC_GOOGLE_SHEETS_API_KEY,
     spreadsheetId: process.env.NEXT_PUBLIC_GOOGLE_SHEETS_ID,
     sheetName: 'Soldiers Data',
     // Add other configuration as needed
@@ -137,7 +200,7 @@ export const validateSheetsConnection = async () => {
   try {
     const config = getSheetsConfig();
     
-    if (!config.apiKey || !config.spreadsheetId) {
+    if (!config.spreadsheetId) {
       return {
         valid: false,
         message: 'Google Sheets configuration missing'

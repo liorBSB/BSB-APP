@@ -16,6 +16,8 @@ export default function SoldierManagement() {
   const [processingId, setProcessingId] = useState(null);
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
+  const [soldierToDelete, setSoldierToDelete] = useState(null);
 
   useEffect(() => {
     loadSoldiers();
@@ -43,6 +45,11 @@ export default function SoldierManagement() {
     setShowQuestionnaireEditor(true);
   };
 
+  const showDeleteConfirmationDialog = (soldier) => {
+    setSoldierToDelete(soldier);
+    setShowDeleteConfirmation(true);
+  };
+
   const handleMarkAsLeft = async (soldierId) => {
     if (!auth.currentUser) return;
     
@@ -59,12 +66,21 @@ export default function SoldierManagement() {
         setShowSoldierDetails(false);
         setSelectedSoldier(null);
       }
+      
+      // Close confirmation dialog
+      setShowDeleteConfirmation(false);
+      setSoldierToDelete(null);
     } catch (error) {
       console.error('Error marking soldier as left:', error);
       alert('Error marking soldier as left');
     } finally {
       setProcessingId(null);
     }
+  };
+
+  const cancelDelete = () => {
+    setShowDeleteConfirmation(false);
+    setSoldierToDelete(null);
   };
 
   const handleSearchResults = (results) => {
@@ -124,7 +140,7 @@ export default function SoldierManagement() {
             
             {showMarkAsLeft && (
               <button
-                onClick={() => handleMarkAsLeft(soldier.id)}
+                onClick={() => showDeleteConfirmationDialog(soldier)}
                 disabled={isProcessing}
                 className="px-4 py-2 rounded-xl font-semibold transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{ 
@@ -270,7 +286,7 @@ export default function SoldierManagement() {
                     Close
                   </button>
                   <button
-                    onClick={() => handleMarkAsLeft(selectedSoldier.id)}
+                    onClick={() => showDeleteConfirmationDialog(selectedSoldier)}
                     disabled={processingId === selectedSoldier.id}
                     className="px-6 py-3 rounded-xl font-semibold transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
                     style={{ 
@@ -319,8 +335,73 @@ export default function SoldierManagement() {
                 }}
                 isAdmin={true}
                 soldierId={selectedSoldier.id}
-                onMarkAsLeft={() => handleMarkAsLeft(selectedSoldier.id)}
+                onMarkAsLeft={() => showDeleteConfirmationDialog(selectedSoldier)}
               />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirmation && soldierToDelete && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full">
+            {/* Header */}
+            <div className="p-6" style={{ background: colors.red, color: colors.white }}>
+              <h3 className="text-xl font-bold text-center">
+                Confirm Soldier Removal
+              </h3>
+            </div>
+
+            {/* Content */}
+            <div className="p-6 text-center">
+              <div className="mb-6">
+                <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background: colors.red }}>
+                  <span className="text-2xl">⚠️</span>
+                </div>
+                <h4 className="text-lg font-semibold text-gray-800 mb-2">
+                  Remove {soldierToDelete.fullName}?
+                </h4>
+                <p className="text-gray-600 text-sm">
+                  This action will:
+                </p>
+                <ul className="text-gray-600 text-sm mt-2 space-y-1">
+                  <li>• Export their data to Google Sheets</li>
+                  <li>• Archive their profile</li>
+                  <li>• Remove them from active soldiers</li>
+                </ul>
+                <p className="text-red-600 text-sm font-medium mt-3">
+                  This action cannot be undone.
+                </p>
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-3 justify-center">
+                <button
+                  onClick={cancelDelete}
+                  className="px-6 py-3 rounded-xl font-semibold transition-all duration-200 hover:scale-105"
+                  style={{ 
+                    background: 'transparent', 
+                    color: colors.primaryGreen,
+                    border: `2px solid ${colors.primaryGreen}`,
+                    boxShadow: '0 4px 12px rgba(7, 99, 50, 0.1)'
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => handleMarkAsLeft(soldierToDelete.id)}
+                  disabled={processingId === soldierToDelete.id}
+                  className="px-6 py-3 rounded-xl font-semibold transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                  style={{ 
+                    background: colors.red, 
+                    color: colors.white,
+                    boxShadow: '0 4px 12px rgba(255, 82, 82, 0.3)'
+                  }}
+                >
+                  {processingId === soldierToDelete.id ? 'Processing...' : 'Remove Soldier'}
+                </button>
+              </div>
             </div>
           </div>
         </div>
