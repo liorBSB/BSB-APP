@@ -14,7 +14,7 @@ export default function ReportPage() {
   const [refundSaving, setRefundSaving] = useState(false);
   const [refundError, setRefundError] = useState('');
   const [refundSuccess, setRefundSuccess] = useState('');
-  const [refundForm, setRefundForm] = useState({ title: '', amount: '', method: 'rent_deduction', expenseDate: '' });
+  const [refundForm, setRefundForm] = useState({ title: '', amount: '', category: 'transportation', method: 'bit', expenseDate: '' });
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadError, setUploadError] = useState('');
@@ -92,6 +92,7 @@ export default function ReportPage() {
   const validateRefund = () => {
     if (!refundForm.title.trim()) return 'Please enter what for';
     if (!refundForm.amount || isNaN(Number(refundForm.amount))) return 'Please enter a valid amount';
+    if (!refundForm.category) return 'Please choose an expense category';
     if (!refundForm.method) return 'Please choose a repayment method';
     if (!refundForm.expenseDate) return 'Please choose the expense date';
     return '';
@@ -111,6 +112,7 @@ export default function ReportPage() {
         ownerRoomNumber: userData.roomNumber || '',
         title: refundForm.title.trim(),
         amount: Number(refundForm.amount),
+        category: refundForm.category,
         repaymentMethod: refundForm.method,
         expenseDate: new Date(refundForm.expenseDate),
         status: 'waiting',
@@ -119,8 +121,8 @@ export default function ReportPage() {
         softDeleted: false,
       };
       await addDoc(collection(db, 'refundRequests'), payload);
-      setRefundSuccess('Request submitted');
-      setRefundForm({ title: '', amount: '', method: 'rent_deduction', expenseDate: '' });
+      setRefundSuccess(t('request_submitted'));
+      setRefundForm({ title: '', amount: '', category: 'transportation', method: 'bit', expenseDate: '' });
     } catch (e) { setRefundError('Failed to submit request'); }
     finally { setRefundSaving(false); }
   };
@@ -155,20 +157,28 @@ export default function ReportPage() {
       {refundOpen && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
           <div className="bg-white rounded-2xl w-full max-w-md mx-4 p-5">
-            <div className="flex items-center justify-between mb-3"><h3 className="text-lg font-bold">Request refund</h3><button onClick={()=>setRefundOpen(false)} className="text-gray-600">✕</button></div>
+            <div className="flex items-center justify-between mb-3"><h3 className="text-lg font-bold">{t('request_refund')}</h3><button onClick={()=>setRefundOpen(false)} className="text-gray-600">✕</button></div>
             {refundError && <div className="mb-3 text-red-600 text-sm bg-red-50 rounded px-3 py-2">{refundError}</div>}
             {refundSuccess && <div className="mb-3 text-green-700 text-sm bg-green-50 rounded px-3 py-2">{refundSuccess}</div>}
             <div className="grid grid-cols-1 gap-3">
-              <input className="w-full px-4 py-3 rounded-xl border" placeholder="What for?" value={refundForm.title} onChange={(e)=>setRefundForm(f=>({...f,title:e.target.value}))} />
-              <input className="w-full px-4 py-3 rounded-xl border" placeholder="Amount (₪)" value={refundForm.amount} inputMode="decimal" onChange={(e)=>setRefundForm(f=>({...f,amount:e.target.value}))} />
+              <input className="w-full px-4 py-3 rounded-xl border" placeholder={t('what_for')} value={refundForm.title} onChange={(e)=>setRefundForm(f=>({...f,title:e.target.value}))} />
+              <input className="w-full px-4 py-3 rounded-xl border" placeholder={t('amount')} value={refundForm.amount} inputMode="decimal" onChange={(e)=>setRefundForm(f=>({...f,amount:e.target.value}))} />
+              <select className="w-full px-4 py-3 rounded-xl border" value={refundForm.category} onChange={(e)=>setRefundForm(f=>({...f,category:e.target.value}))}>
+                <option value="transportation">{t('categories.transportation')}</option>
+                <option value="food">{t('categories.food')}</option>
+                <option value="shopping">{t('categories.shopping')}</option>
+                <option value="utilities">{t('categories.utilities')}</option>
+                <option value="medical">{t('categories.medical')}</option>
+                <option value="entertainment">{t('categories.entertainment')}</option>
+                <option value="other">{t('categories.other')}</option>
+              </select>
               <select className="w-full px-4 py-3 rounded-xl border" value={refundForm.method} onChange={(e)=>setRefundForm(f=>({...f,method:e.target.value}))}>
-                <option value="rent_deduction">Deduct from rent</option>
-                <option value="bit">Bit</option>
-                <option value="cash">Cash</option>
+                <option value="bit">{t('methods.bit')}</option>
+                <option value="cash">{t('methods.cash')}</option>
               </select>
               <input type="date" className="w-full px-4 py-3 rounded-xl border" value={refundForm.expenseDate} onChange={(e)=>setRefundForm(f=>({...f,expenseDate:e.target.value}))} />
               <button onClick={handleRefundSave} disabled={refundSaving} className="w-full px-4 py-3 rounded-xl text-white font-semibold disabled:opacity-70 text-lg" style={{ background: colors.gold }}>
-                {refundSaving?"Submitting...":"Submit request"}
+                {refundSaving ? t('submitting') : t('submit_request')}
               </button>
             </div>
           </div>

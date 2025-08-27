@@ -2,5 +2,27 @@
   "report_a_problem": "Report a Problem",
   "describe_problem": "Describe the problem",
   "add_photo": "Add photo",
-  "submit": "Submit"
+  "submit": "Submit",
+  "request_refund": "Request Refund",
+  "what_for": "What for?",
+  "amount": "Amount (₪)",
+  "expense_category": "Expense Category",
+  "repayment_method": "Repayment Method",
+  "expense_date": "Expense Date",
+  "submit_request": "Submit Request",
+  "submitting": "Submitting...",
+  "request_submitted": "Request submitted",
+  "categories": {
+    "transportation": "🚗 Transportation",
+    "food": "🍽️ Food & Dining",
+    "shopping": "🛍️ Shopping",
+    "utilities": "⚡ Utilities",
+    "medical": "🏥 Medical",
+    "entertainment": "🎮 Entertainment",
+    "other": "📋 Other"
+  },
+  "methods": {
+    "bit": "💳 Bit",
+    "cash": "💰 Cash"
+  }
 } 

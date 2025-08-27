@@ -2,5 +2,27 @@
   "report_a_problem": "דווח על תקלה",
   "describe_problem": "תאר את הבעיה",
   "add_photo": "הוסף תמונה",
-  "submit": "שלח"
+  "submit": "שלח",
+  "request_refund": "בקש החזר כספי",
+  "what_for": "בשביל מה?",
+  "amount": "סכום (₪)",
+  "expense_category": "קטגוריית הוצאה",
+  "repayment_method": "שיטת החזר",
+  "expense_date": "תאריך הוצאה",
+  "submit_request": "שלח בקשה",
+  "submitting": "שולח...",
+  "request_submitted": "הבקשה נשלחה",
+  "categories": {
+    "transportation": "🚗 תחבורה",
+    "food": "🍽️ מזון ואוכל",
+    "shopping": "🛍️ קניות",
+    "utilities": "⚡ חשבונות",
+    "medical": "🏥 רפואי",
+    "entertainment": "🎮 בידור",
+    "other": "📋 אחר"
+  },
+  "methods": {
+    "bit": "💳 ביט",
+    "cash": "💰 מזומן"
+  }
 } 

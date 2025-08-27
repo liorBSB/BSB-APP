@@ -70,9 +70,13 @@ export default function SoldierManagement() {
       // Close confirmation dialog
       setShowDeleteConfirmation(false);
       setSoldierToDelete(null);
+      
+      // Show success message
+      alert(`✅ Soldier "${soldierToDelete?.fullName || 'Unknown'}" has been successfully marked as left and archived.`);
+      
     } catch (error) {
       console.error('Error marking soldier as left:', error);
-      alert('Error marking soldier as left');
+      alert('❌ Error marking soldier as left');
     } finally {
       setProcessingId(null);
     }

@@ -113,11 +113,7 @@ async function exportToGoogleSheets(exportData) {
     // Get configuration
     const config = getSheetsConfig();
     
-    console.log('=== CONFIGURATION CHECK ===');
-    console.log('Config object:', config);
-    console.log('Spreadsheet ID:', config.spreadsheetId);
-    console.log('Sheet Name:', config.sheetName);
-    console.log('==========================');
+
     
     if (!config.spreadsheetId) {
       throw new Error('Google Sheets ID missing. Please check your .env.local file.');
@@ -133,20 +129,12 @@ async function exportToGoogleSheets(exportData) {
     params.append('data', JSON.stringify(exportData));
     
     const fullUrl = `${scriptUrl}?${params.toString()}`;
-    console.log('=== GOOGLE SHEETS EXPORT DEBUG ===');
-    console.log('Script URL:', scriptUrl);
-    console.log('Spreadsheet ID:', config.spreadsheetId);
-    console.log('Sheet Name:', config.sheetName);
-    console.log('Full URL being called:', fullUrl);
-    console.log('Data being sent:', exportData);
-    console.log('================================');
     
     const response = await fetch(fullUrl, {
       method: 'GET'
     });
 
-    console.log('Response status:', response.status);
-    console.log('Response headers:', response.headers);
+
     
     if (!response.ok) {
       const errorText = await response.text();
@@ -155,7 +143,6 @@ async function exportToGoogleSheets(exportData) {
     }
 
     const result = await response.text();
-    console.log('Google Apps Script response:', result);
     
     try {
       const parsedResult = JSON.parse(result);

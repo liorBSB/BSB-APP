@@ -38,7 +38,7 @@ service firebase.storage {
     // Refunds path: refunds/{ownerUid}/{requestId}
     match /refunds/{ownerUid}/{fileId} {
       allow read: if isSignedIn() && (request.auth.uid == ownerUid || isAdmin(request.auth.uid));
-      allow write: if isSignedIn() && request.auth.uid == ownerUid;
+      allow write: if isSignedIn() && (request.auth.uid == ownerUid || isAdmin(request.auth.uid));
       allow delete: if isSignedIn() && (request.auth.uid == ownerUid || isAdmin(request.auth.uid));
     }
   }

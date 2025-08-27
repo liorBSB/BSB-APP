@@ -22,6 +22,117 @@ import DatePickerModal from "@/components/DatePickerModal";
 import PhotoUpload from "@/components/PhotoUpload";
 import colors from "@/app/colors";
 
+// PDF generation function for refund requests
+const generatePDF = (refundRequests, dateRange, customFrom, customTo) => {
+  // Create HTML content for PDF
+  const htmlContent = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <title>Refund Requests Report</title>
+        <style>
+          body { font-family: Arial, sans-serif; margin: 20px; }
+          .header { text-align: center; margin-bottom: 30px; }
+          .title { font-size: 24px; font-weight: bold; color: #333; margin-bottom: 10px; }
+          .subtitle { font-size: 14px; color: #666; margin-bottom: 5px; }
+          .summary { display: flex; justify-content: space-around; margin: 30px 0; }
+          .summary-item { text-align: center; }
+          .summary-value { font-size: 20px; font-weight: bold; color: #2563eb; }
+          .summary-label { font-size: 12px; color: #666; margin-top: 5px; }
+          table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+          th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+          th { background-color: #f8f9fa; font-weight: bold; }
+          .amount { text-align: right; }
+          .status-approved { color: #28a745; font-weight: bold; }
+          .status-denied { color: #dc3545; font-weight: bold; }
+          .status-waiting { color: #ffc107; font-weight: bold; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div class="title">Refund Requests Report</div>
+          <div class="subtitle">Generated on: ${new Date().toLocaleDateString()}</div>
+          <div class="subtitle">Date Range: ${getDateRangeText(dateRange, customFrom, customTo)}</div>
+        </div>
+        
+        <div class="summary">
+          <div class="summary-item">
+            <div class="summary-value">${refundRequests.filter(r => r.status === 'approved').length}</div>
+            <div class="summary-label">Approved</div>
+          </div>
+          <div class="summary-item">
+            <div class="summary-value">${refundRequests.filter(r => r.status === 'denied').length}</div>
+            <div class="summary-label">Denied</div>
+          </div>
+          <div class="summary-item">
+            <div class="summary-value">${refundRequests.filter(r => r.status === 'waiting').length}</div>
+            <div class="summary-label">Pending</div>
+          </div>
+          <div class="summary-item">
+            <div class="summary-value">₪${refundRequests.reduce((sum, r) => sum + (parseFloat(r.amount) || 0), 0).toFixed(2)}</div>
+            <div class="summary-label">Total Amount</div>
+          </div>
+        </div>
+        
+        <table>
+          <thead>
+            <tr>
+              <th>Title</th>
+              <th>Amount</th>
+              <th>Method</th>
+              <th>From</th>
+              <th>Date</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${refundRequests.map(request => `
+              <tr>
+                <td>${request.title || 'N/A'}</td>
+                <td class="amount">₪${request.amount || '0'}</td>
+                <td>${request.repaymentMethod || 'N/A'}</td>
+                <td>${request.ownerName || 'N/A'} (Room ${request.ownerRoomNumber || 'N/A'})</td>
+                <td>${request.expenseDate?.toDate?.()?.toLocaleDateString?.() || request.createdAt?.toDate?.()?.toLocaleDateString?.() || 'No date'}</td>
+                <td class="status-${request.status}">${request.status}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </body>
+    </html>
+  `;
+
+  // Create and download the HTML file (can be opened in browser and printed to PDF)
+  const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8;' });
+  const link = document.createElement('a');
+  const url = URL.createObjectURL(blob);
+  link.setAttribute('href', url);
+  link.setAttribute('download', `refund_requests_${getDateRangeText(dateRange, customFrom, customTo).replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().slice(0, 10)}.html`);
+  link.style.visibility = 'hidden';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  
+  // Show success message
+  alert('PDF report downloaded! Open the HTML file in your browser and use Print → Save as PDF');
+};
+
+// Helper function to get date range text
+const getDateRangeText = (dateRange, customFrom, customTo) => {
+  switch (dateRange) {
+    case 'pastDay':
+      return 'Past Day (Last 24 hours)';
+    case 'pastWeek':
+      return 'Past Week (Last 7 days)';
+    case 'pastMonth':
+      return 'Past Month (Last 30 days)';
+    case 'custom':
+      return `Custom Range: ${customFrom ? new Date(customFrom).toLocaleDateString() : 'N/A'} to ${customTo ? new Date(customTo).toLocaleDateString() : 'N/A'}`;
+    default:
+      return 'All Time';
+  }
+};
+
 function ApprovalRequestsBody({ items, loading, onApprove, onReject, processingId }) {
   return (
     <div className="flex-1 overflow-auto">
@@ -97,6 +208,29 @@ export default function AdminExpensesPage() {
   const [loadingList, setLoadingList] = useState(true);
   const [filters, setFilters] = useState({ from: "", to: "", category: "" });
   const [expandedId, setExpandedId] = useState(null);
+  
+  // Refund requests state
+  const [refundRequests, setRefundRequests] = useState([]);
+  const [refundLoading, setRefundLoading] = useState(true);
+  const [refundExpandedId, setRefundExpandedId] = useState(null);
+  
+  // Refund modals state
+  const [allRefundsOpen, setAllRefundsOpen] = useState(false);
+  const [pastRefundsOpen, setPastRefundsOpen] = useState(false);
+  const [refundSortOrder, setRefundSortOrder] = useState('latest'); // 'latest' or 'earliest'
+  const [refundSearchTerm, setRefundSearchTerm] = useState('');
+  
+  // Approve modal state
+  const [approveModalOpen, setApproveModalOpen] = useState(false);
+  const [approvingRefundId, setApprovingRefundId] = useState(null);
+  const [approvingRefundData, setApprovingRefundData] = useState(null);
+  const [receiptPhoto, setReceiptPhoto] = useState(null);
+
+  // Export modal state
+  const [exportModalOpen, setExportModalOpen] = useState(false);
+  const [exportDateRange, setExportDateRange] = useState('pastMonth');
+  const [exportCustomFrom, setExportCustomFrom] = useState('');
+  const [exportCustomTo, setExportCustomTo] = useState('');
 
   // Report modal state
   const [reportOpen, setReportOpen] = useState(false);
@@ -127,7 +261,7 @@ export default function AdminExpensesPage() {
 
   // Prevent background scrolling when modals are open
   useEffect(() => {
-    if (reportOpen || editingExpense || deleteConfirmOpen || photoViewerOpen || approvalOpen) {
+    if (reportOpen || editingExpense || deleteConfirmOpen || photoViewerOpen || approvalOpen || exportModalOpen) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = 'unset';
@@ -137,7 +271,7 @@ export default function AdminExpensesPage() {
     return () => {
       document.body.style.overflow = 'unset';
     };
-  }, [reportOpen, editingExpense, deleteConfirmOpen, photoViewerOpen, approvalOpen]);
+  }, [reportOpen, editingExpense, deleteConfirmOpen, photoViewerOpen, approvalOpen, exportModalOpen]);
 
   // Access control: only admins
   useEffect(() => {
@@ -409,7 +543,90 @@ export default function AdminExpensesPage() {
     } finally { setLoadingList(false); }
   };
 
+  const fetchRefundRequests = async () => {
+    try {
+      setRefundLoading(true);
+      const q = query(collection(db, "refundRequests"), orderBy("createdAt", "desc"), limit(100));
+      const snap = await getDocs(q);
+      const data = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      setRefundRequests(data);
+    } finally { setRefundLoading(false); }
+  };
+
+  const handleApproveRefund = async (requestId) => {
+    const request = refundRequests.find(r => r.id === requestId);
+    if (request) {
+      setApprovingRefundId(requestId);
+      setApprovingRefundData(request);
+      setApproveModalOpen(true);
+    }
+  };
+
+  const confirmApproveRefund = async (receiptPhotoUrl) => {
+    try {
+      await updateDoc(doc(db, "refundRequests", approvingRefundId), {
+        status: 'approved',
+        approvedAt: serverTimestamp(),
+        approvedBy: auth.currentUser.uid,
+        receiptPhotoUrl: receiptPhotoUrl
+      });
+      await fetchRefundRequests(); // Refresh the list
+      setApproveModalOpen(false);
+      setApprovingRefundId(null);
+      setApprovingRefundData(null);
+      setReceiptPhoto(null);
+    } catch (error) {
+      console.error('Error approving refund:', error);
+    }
+  };
+
+  const handleStatusChange = async (newStatus, receiptPhotoUrl) => {
+    try {
+      const updateData = {
+        status: newStatus,
+        receiptPhotoUrl: receiptPhotoUrl || approvingRefundData.receiptPhotoUrl || ''
+      };
+
+      if (newStatus === 'approved') {
+        updateData.approvedAt = serverTimestamp();
+        updateData.approvedBy = auth.currentUser.uid;
+        // Clear denied fields if they exist
+        updateData.deniedAt = null;
+        updateData.deniedBy = null;
+      } else if (newStatus === 'denied') {
+        updateData.deniedAt = serverTimestamp();
+        updateData.deniedBy = auth.currentUser.uid;
+        // Clear approved fields if they exist
+        updateData.approvedAt = null;
+        updateData.approvedBy = null;
+      }
+
+      await updateDoc(doc(db, "refundRequests", approvingRefundId), updateData);
+      await fetchRefundRequests(); // Refresh the list
+      setApproveModalOpen(false);
+      setApprovingRefundId(null);
+      setApprovingRefundData(null);
+      setReceiptPhoto(null);
+    } catch (error) {
+      console.error('Error changing refund status:', error);
+    }
+  };
+
+  const handleDenyRefund = async (requestId) => {
+    try {
+      await updateDoc(doc(db, "refundRequests", requestId), {
+        status: 'denied',
+        deniedAt: serverTimestamp(),
+        deniedBy: auth.currentUser.uid
+      });
+      await fetchRefundRequests(); // Refresh the list
+    } catch (error) {
+      console.error('Error denying refund:', error);
+    }
+  };
+
   useEffect(() => { fetchList(); }, []);
+  useEffect(() => { fetchRefundRequests(); }, []);
 
   const amountFormatted = (amt) => new Intl.NumberFormat("he-IL", { style: "currency", currency: "ILS" }).format(amt || 0);
 
@@ -748,6 +965,94 @@ export default function AdminExpensesPage() {
           <button onClick={()=>{ fetchPendingRequests(); setApprovalOpen(true); }} className={`w-full mt-3 px-6 py-4 rounded-full font-bold text-lg flex items-center justify-center gap-2 ${approvalItems.length>0 ? 'text-white' : ''}`} style={approvalItems.length>0 ? { background: colors.primaryGreen } : { borderColor: colors.primaryGreen, color: colors.white, borderWidth: 2, borderStyle: 'solid' }}>
             <span>{`Pending (${approvalItems.length})`}</span>
           </button>
+        </div>
+
+        {/* Refund Requests Section */}
+        <div className="mb-3 rounded-2xl p-5 shadow-xl" style={{ background: "rgba(0,0,0,0.22)" }}>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <h3 className="text-white font-extrabold text-xl">Refund Requests</h3>
+              {refundRequests.filter(r => r.status === 'waiting').length > 3 && (
+                <button 
+                  onClick={() => setAllRefundsOpen(true)}
+                  className="px-3 py-1 rounded-full border text-sm text-white border-white/30 hover:bg-white/10"
+                >
+                  See All ({refundRequests.filter(r => r.status === 'waiting').length})
+                </button>
+              )}
+            </div>
+            <button onClick={fetchRefundRequests} className="px-3 py-1 rounded-full border text-sm text-white border-white/30 hover:bg-white/10">Refresh</button>
+          </div>
+          
+          {refundLoading ? (
+            <div className="text-center py-4 text-white/70 text-lg">Loading refund requests...</div>
+          ) : refundRequests.filter(r => r.status === 'waiting').length === 0 ? (
+            <div className="text-center py-4 text-white/70 text-lg">No pending refund requests</div>
+          ) : (
+            <div className="space-y-3">
+              {/* Show only waiting requests (max 3) */}
+              {refundRequests
+                .filter(request => request.status === 'waiting')
+                .slice(0, 3)
+                .map(request => (
+                  <div key={request.id} className="bg-white/10 rounded-lg p-4 border border-white/20">
+                    <div className="flex flex-col gap-3">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <h5 className="text-white font-bold text-xl mb-2">{request.title}</h5>
+                          <p className="text-white/90 text-lg font-semibold mb-1">Amount: ₪{request.amount}</p>
+                          <p className="text-white/80 text-base font-medium mb-1">Method: {request.repaymentMethod}</p>
+                          <p className="text-white/80 text-base font-medium mb-1">From: {request.ownerName} (Room {request.ownerRoomNumber})</p>
+                          <p className="text-white/70 text-base">Date: {request.expenseDate?.toDate?.()?.toLocaleDateString?.() || 'No date'}</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="px-3 py-1 rounded-full text-sm font-bold bg-yellow-500 text-white">
+                            Waiting
+                          </span>
+                        </div>
+                      </div>
+                      
+                      {/* Action buttons for waiting requests */}
+                      <div className="flex gap-3 mt-3">
+                        <button
+                          onClick={() => handleApproveRefund(request.id)}
+                          className="flex-1 px-4 py-3 rounded-lg font-bold text-lg border-2"
+                          style={{ 
+                            borderColor: colors.primaryGreen, 
+                            color: colors.primaryGreen,
+                            background: 'transparent'
+                          }}
+                        >
+                          ✅ Approve
+                        </button>
+                        <button
+                          onClick={() => handleDenyRefund(request.id)}
+                          className="flex-1 px-4 py-3 rounded-lg font-bold text-lg border-2"
+                          style={{ 
+                            borderColor: colors.red, 
+                            color: colors.red,
+                            background: 'transparent'
+                          }}
+                        >
+                          ❌ Deny
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+            </div>
+          )}
+          
+          {/* Show Past button - Always visible */}
+          <div className="pt-4">
+            <button 
+              onClick={() => setPastRefundsOpen(true)}
+              className="w-full px-6 py-3 rounded-full text-white font-bold text-lg"
+              style={{ background: colors.gold }}
+            >
+              Show Past Requests
+            </button>
+          </div>
         </div>
       </div>
 
@@ -1143,7 +1448,7 @@ export default function AdminExpensesPage() {
 
       {/* Photo Viewer Modal */}
       {photoViewerOpen && selectedPhoto && (
-        <div className="fixed inset-0 z-[60] bg-black/80 flex items-center justify-center p-2 sm:p-4">
+        <div className="fixed inset-0 z-[80] bg-black/80 flex items-center justify-center p-2 sm:p-4">
           <div className="bg-white rounded-2xl w-full h-full sm:h-auto sm:max-w-4xl sm:max-h-[90vh] flex flex-col">
             <div className="flex items-center justify-between p-3 sm:p-4 border-b">
               <h3 className="text-lg sm:text-xl font-bold text-gray-800">Receipt: {selectedPhoto.title}</h3>
@@ -1260,6 +1565,460 @@ export default function AdminExpensesPage() {
               </button>
               <button onClick={() => setDeleteConfirmOpen(false)} className="w-full sm:w-auto px-4 sm:px-6 py-3 rounded-lg font-semibold text-white" style={{ background: colors.primaryGreen }}>
                 Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* See All Refunds Modal */}
+      {allRefundsOpen && (
+        <div className="fixed inset-0 z-[60] bg-black/50 flex items-center justify-center p-2 sm:p-4">
+          <div className="bg-white rounded-2xl w-full h-full sm:h-auto sm:max-w-4xl mx-0 sm:mx-4 p-3 sm:p-5 max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between mb-4 border-b pb-3">
+              <h3 className="text-xl sm:text-2xl font-bold text-gray-800">All Refund Requests</h3>
+              <button onClick={() => setAllRefundsOpen(false)} className="text-gray-600 text-2xl">✕</button>
+            </div>
+            
+            {/* Sort controls */}
+            <div className="flex items-center gap-3 mb-4">
+              <label className="text-sm font-medium text-gray-700">Sort by:</label>
+              <select 
+                value={refundSortOrder} 
+                onChange={(e) => setRefundSortOrder(e.target.value)}
+                className="px-3 py-2 border rounded-lg text-sm"
+              >
+                <option value="latest">Latest First</option>
+                <option value="earliest">Earliest First</option>
+              </select>
+            </div>
+            
+            {/* Refunds list */}
+            <div className="flex-1 overflow-y-auto space-y-3">
+              {refundRequests
+                .sort((a, b) => {
+                  const dateA = a.createdAt?.toDate?.() || new Date(a.createdAt);
+                  const dateB = b.createdAt?.toDate?.() || new Date(b.createdAt);
+                  return refundSortOrder === 'latest' ? dateB - dateA : dateA - dateB;
+                })
+                .map(request => (
+                  <div key={request.id} className="border rounded-lg p-4 hover:bg-gray-50">
+                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                                             <div className="flex-1">
+                         <h5 className="font-bold text-xl text-gray-800 mb-2">{request.title}</h5>
+                         <p className="text-gray-700 text-lg font-semibold mb-1">Amount: ₪{request.amount}</p>
+                         <p className="text-gray-600 text-base font-medium mb-1">Method: {request.repaymentMethod}</p>
+                         <p className="text-gray-600 text-base font-medium mb-1">From: {request.ownerName} (Room {request.ownerRoomNumber})</p>
+                         <p className="text-gray-500 text-base">Date: {request.expenseDate?.toDate?.()?.toLocaleDateString?.() || 'No date'}</p>
+                       </div>
+                      <div className="flex flex-col gap-2">
+                        <span className={`px-3 py-1 rounded-full text-xs font-semibold text-center ${
+                          request.status === 'waiting' ? 'bg-yellow-100 text-yellow-800' : 
+                          request.status === 'approved' ? 'bg-green-100 text-green-800' : 
+                          'bg-red-100 text-red-800'
+                        }`}>
+                          {request.status}
+                        </span>
+                        
+                        {/* Action buttons for waiting requests */}
+                        {request.status === 'waiting' && (
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => handleApproveRefund(request.id)}
+                              className="px-3 py-1 rounded text-xs font-semibold border-2"
+                              style={{ 
+                                borderColor: colors.primaryGreen, 
+                                color: colors.primaryGreen,
+                                background: 'transparent'
+                              }}
+                            >
+                              ✅ Approve
+                            </button>
+                            <button
+                              onClick={() => handleDenyRefund(request.id)}
+                              className="px-3 py-1 rounded text-xs font-semibold border-2"
+                              style={{ 
+                                borderColor: colors.red, 
+                                color: colors.red,
+                                background: 'transparent'
+                              }}
+                            >
+                              ❌ Deny
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+            </div>
+            
+            <div className="flex justify-end pt-4 border-t">
+              <button 
+                onClick={() => setAllRefundsOpen(false)}
+                className="px-6 py-2 rounded-lg font-semibold text-white"
+                style={{ background: colors.gold }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Past Refunds Modal */}
+      {pastRefundsOpen && (
+        <div className="fixed inset-0 z-[60] bg-black/50 flex items-center justify-center p-2 sm:p-4">
+          <div className="bg-white rounded-2xl w-full h-full sm:h-auto sm:max-w-4xl mx-0 sm:mx-4 p-3 sm:p-5 max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between mb-4 border-b pb-3">
+              <h3 className="text-xl sm:text-2xl font-bold text-gray-800">Past Refund Requests</h3>
+              <button onClick={() => setPastRefundsOpen(false)} className="text-gray-600 text-2xl">✕</button>
+            </div>
+            
+            {/* Statistics */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6 p-4 bg-gray-50 rounded-lg">
+              <div className="text-center">
+                <div className="text-2xl font-bold text-green-600">
+                  {refundRequests.filter(r => r.status === 'approved').length}
+                </div>
+                <div className="text-sm text-gray-600">Approved</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-red-600">
+                  {refundRequests.filter(r => r.status === 'denied').length}
+                </div>
+                <div className="text-sm text-gray-600">Denied</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-blue-600">
+                  {refundRequests.filter(r => r.status === 'waiting').length}
+                </div>
+                <div className="text-sm text-gray-600">Pending</div>
+              </div>
+            </div>
+            
+            {/* Search */}
+            <div className="mb-4">
+              <input
+                type="text"
+                placeholder="Search by name..."
+                value={refundSearchTerm}
+                onChange={(e) => setRefundSearchTerm(e.target.value)}
+                className="w-full px-4 py-2 border rounded-lg"
+              />
+            </div>
+            
+            {/* Past refunds list */}
+            <div className="flex-1 overflow-y-auto space-y-3">
+              {refundRequests
+                .filter(request => 
+                  request.status !== 'waiting' && 
+                  (refundSearchTerm === '' || 
+                   request.ownerName?.toLowerCase().includes(refundSearchTerm.toLowerCase()))
+                )
+                .sort((a, b) => {
+                  const dateA = a.createdAt?.toDate?.() || new Date(a.createdAt);
+                  const dateB = b.createdAt?.toDate?.() || new Date(b.createdAt);
+                  return dateB - dateA; // Latest first
+                })
+                .map(request => (
+                  <div key={request.id} className="border rounded-lg p-4 hover:bg-gray-50">
+                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                                             <div className="flex-1">
+                         <h5 className="font-bold text-xl text-gray-800 mb-2">{request.title}</h5>
+                         <p className="text-gray-700 text-lg font-semibold mb-1">Amount: ₪{request.amount}</p>
+                         <p className="text-gray-600 text-base font-medium mb-1">Method: {request.repaymentMethod}</p>
+                         <p className="text-gray-600 text-base font-medium mb-1">From: {request.ownerName} (Room {request.ownerRoomNumber})</p>
+                         <p className="text-gray-500 text-base mb-1">Date: {request.expenseDate?.toDate?.()?.toLocaleDateString?.() || 'No date'}</p>
+                         {request.status === 'approved' && request.receiptPhotoUrl && (
+                           <button
+                             onClick={() => {
+                               setSelectedPhoto({ url: request.receiptPhotoUrl, title: `Receipt for ${request.title}` });
+                               setPhotoViewerOpen(true);
+                             }}
+                             className="text-blue-600 hover:text-blue-800 text-base font-medium underline"
+                           >
+                             📷 Show Receipt
+                           </button>
+                         )}
+                       </div>
+                      <div className="flex flex-col gap-2">
+                        <span className={`px-3 py-1 rounded-full text-xs font-semibold text-center ${
+                          request.status === 'approved' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                        }`}>
+                          {request.status}
+                        </span>
+                        
+                        {/* Edit button for past requests */}
+                        <button
+                          onClick={() => {
+                            setApprovingRefundId(request.id);
+                            setApprovingRefundData(request);
+                            setApproveModalOpen(true);
+                          }}
+                          className="px-3 py-1 rounded text-xs font-semibold border-2"
+                          style={{ 
+                            borderColor: colors.gold, 
+                            color: colors.gold,
+                            background: 'transparent'
+                          }}
+                        >
+                          ✏️ Edit
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+            </div>
+            
+            <div className="flex justify-between pt-4 border-t">
+              <button 
+                onClick={() => {
+                  // Set default custom dates when opening modal
+                  const now = new Date();
+                  const pastMonth = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
+                  setExportCustomFrom(pastMonth.toISOString().slice(0, 16));
+                  setExportCustomTo(now.toISOString().slice(0, 16));
+                  setExportModalOpen(true);
+                }}
+                className="px-6 py-2 rounded-lg font-semibold text-white"
+                style={{ background: colors.primaryGreen }}
+              >
+                📊 Export as PDF
+              </button>
+              <button 
+                onClick={() => setPastRefundsOpen(false)}
+                className="px-6 py-2 rounded-lg font-semibold text-white"
+                style={{ background: colors.gold }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Approve Refund Modal */}
+      {approveModalOpen && approvingRefundData && (
+        <div className="fixed inset-0 z-[60] bg-black/50 flex items-center justify-center p-2 sm:p-4">
+          <div className="bg-white rounded-2xl w-full h-full sm:h-auto sm:max-w-md mx-0 sm:mx-4 p-3 sm:p-5 max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between mb-4 border-b pb-3 border-gray-200">
+              <h3 className="text-xl sm:text-2xl font-bold text-gray-800">
+                {approvingRefundData.status === 'waiting' ? 'Approve Refund Request' : 'Edit Refund Request'}
+              </h3>
+              <button onClick={() => {
+                setApproveModalOpen(false);
+                setReceiptPhoto(null);
+              }} className="text-gray-600 hover:text-gray-800 text-2xl transition-colors">✕</button>
+            </div>
+            
+            <div className="flex-1 space-y-4">
+              <div className="bg-gray-50 rounded-lg p-4">
+                <h4 className="font-semibold text-lg mb-2 text-gray-800">{approvingRefundData.title}</h4>
+                <p className="text-gray-700 text-base mb-1">Amount: ₪{approvingRefundData.amount}</p>
+                <p className="text-gray-600 text-base mb-1">From: {approvingRefundData.ownerName} (Room {approvingRefundData.ownerRoomNumber})</p>
+                {approvingRefundData.status !== 'waiting' && (
+                  <p className="text-gray-600 text-base">Current Status: {approvingRefundData.status}</p>
+                )}
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium mb-2 text-gray-700">Receipt Photo (Optional)</label>
+                
+                <PhotoUpload
+                  onPhotoUploaded={(photoUrl, photoPath) => {
+                    // Store the photo URL for the receipt
+                    setReceiptPhoto({ url: photoUrl, path: photoPath });
+                  }}
+                  onPhotoRemoved={() => {
+                    setReceiptPhoto(null);
+                  }}
+                  currentPhotoUrl={receiptPhoto?.url || null}
+                  uploadPath={`refunds/${approvingRefundData.ownerUid || 'admin'}`}
+                />
+              </div>
+            </div>
+            
+            <div className="flex gap-3 pt-4 border-t border-gray-200">
+              {approvingRefundData.status === 'waiting' ? (
+                // For waiting requests: Approve or Deny
+                <>
+                  <button
+                    onClick={() => confirmApproveRefund(receiptPhoto?.url || '')}
+                    className="flex-1 px-4 sm:px-6 py-3 rounded-lg font-semibold text-white text-lg"
+                    style={{ background: colors.primaryGreen }}
+                  >
+                    Save & Approve
+                  </button>
+                  <button
+                    onClick={() => confirmApproveRefund('')}
+                    className="flex-1 px-4 sm:px-6 py-3 rounded-lg font-semibold text-white text-lg"
+                    style={{ background: colors.gold }}
+                  >
+                    Save Without Receipt
+                  </button>
+                </>
+              ) : (
+                // For past requests: Change status options
+                <>
+                  <button
+                    onClick={() => handleStatusChange('approved', receiptPhoto?.url || '')}
+                    className="flex-1 px-4 sm:px-6 py-3 rounded-lg font-semibold text-white text-lg"
+                    style={{ background: colors.primaryGreen }}
+                  >
+                    Approve Request
+                  </button>
+                  <button
+                    onClick={() => handleStatusChange('denied', '')}
+                    className="flex-1 px-4 sm:px-6 py-3 rounded-lg font-semibold text-white text-lg"
+                    style={{ background: colors.red }}
+                  >
+                    Deny Request
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Export PDF Modal */}
+      {exportModalOpen && (
+        <div className="fixed inset-0 z-[70] bg-black/50 flex items-center justify-center p-2 sm:p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md mx-4 p-5">
+            <div className="text-center mb-6">
+              <h3 className="text-xl font-bold text-gray-800 mb-2">Export Refund Requests</h3>
+              <p className="text-gray-600">Choose the date range for your PDF export</p>
+            </div>
+            
+            <div className="space-y-4 mb-6">
+              <label className="flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
+                <input
+                  type="radio"
+                  name="dateRange"
+                  value="pastDay"
+                  checked={exportDateRange === 'pastDay'}
+                  onChange={(e) => setExportDateRange(e.target.value)}
+                  className="text-blue-600"
+                />
+                <span className="text-gray-700 font-medium">Past Day</span>
+              </label>
+              
+              <label className="flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
+                <input
+                  type="radio"
+                  name="dateRange"
+                  value="pastWeek"
+                  checked={exportDateRange === 'pastWeek'}
+                  onChange={(e) => setExportDateRange(e.target.value)}
+                  className="text-blue-600"
+                />
+                <span className="text-gray-700 font-medium">Past Week</span>
+              </label>
+              
+              <label className="flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
+                <input
+                  type="radio"
+                  name="dateRange"
+                  value="pastMonth"
+                  checked={exportDateRange === 'pastMonth'}
+                  onChange={(e) => setExportDateRange(e.target.value)}
+                  className="text-blue-600"
+                />
+                <span className="text-gray-700 font-medium">Past Month</span>
+              </label>
+              
+              <label className="flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
+                <input
+                  type="radio"
+                  name="dateRange"
+                  value="custom"
+                  checked={exportDateRange === 'custom'}
+                  onChange={(e) => setExportDateRange(e.target.value)}
+                  className="text-blue-600"
+                />
+                <span className="text-gray-700 font-medium">Custom Dates</span>
+              </label>
+            </div>
+            
+            {/* Custom Date Inputs */}
+            {exportDateRange === 'custom' && (
+              <div className="mb-6 p-4 bg-gray-50 rounded-lg space-y-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">From Date</label>
+                  <input
+                    type="datetime-local"
+                    value={exportCustomFrom || ''}
+                    onChange={(e) => setExportCustomFrom(e.target.value)}
+                    className="w-full px-3 py-2 border rounded-lg"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">To Date</label>
+                  <input
+                    type="datetime-local"
+                    value={exportCustomTo || ''}
+                    onChange={(e) => setExportCustomTo(e.target.value)}
+                    className="w-full px-3 py-2 border rounded-lg"
+                  />
+                </div>
+              </div>
+            )}
+            
+            <div className="flex gap-3">
+              <button
+                onClick={() => setExportModalOpen(false)}
+                className="flex-1 px-4 py-3 rounded-lg font-semibold text-white"
+                style={{ background: colors.gold }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  // Filter refund requests based on selected date range
+                  let filteredRequests = [...refundRequests];
+                  
+                  if (exportDateRange !== 'custom') {
+                    const now = new Date();
+                    let startDate = new Date();
+                    
+                    switch (exportDateRange) {
+                      case 'pastDay':
+                        startDate.setDate(now.getDate() - 1);
+                        break;
+                      case 'pastWeek':
+                        startDate.setDate(now.getDate() - 7);
+                        break;
+                      case 'pastMonth':
+                        startDate.setMonth(now.getMonth() - 1);
+                        break;
+                    }
+                    
+                    filteredRequests = refundRequests.filter(request => {
+                      const requestDate = request.expenseDate?.toDate?.() || request.createdAt?.toDate?.() || new Date();
+                      return requestDate >= startDate && requestDate <= now;
+                    });
+                  } else {
+                    // Custom date range
+                    if (exportCustomFrom && exportCustomTo) {
+                      const fromDate = new Date(exportCustomFrom);
+                      const toDate = new Date(exportCustomTo);
+                      
+                      filteredRequests = refundRequests.filter(request => {
+                        const requestDate = request.expenseDate?.toDate?.() || request.createdAt?.toDate?.() || new Date();
+                        return requestDate >= fromDate && requestDate <= toDate;
+                      });
+                    }
+                  }
+                  
+                  // Generate and export PDF
+                  generatePDF(filteredRequests, exportDateRange, exportCustomFrom, exportCustomTo);
+                  setExportModalOpen(false);
+                }}
+                className="flex-1 px-4 py-3 rounded-lg font-semibold text-white"
+                style={{ background: colors.primaryGreen }}
+              >
+                Export PDF
               </button>
             </div>
           </div>
