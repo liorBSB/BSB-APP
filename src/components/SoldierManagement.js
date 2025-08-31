@@ -19,6 +19,7 @@ export default function SoldierManagement() {
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
   const [soldierToDelete, setSoldierToDelete] = useState(null);
 
+
   useEffect(() => {
     loadSoldiers();
   }, []);
@@ -87,6 +88,8 @@ export default function SoldierManagement() {
     setSoldierToDelete(null);
   };
 
+
+
   const handleSearchResults = (results) => {
     setSearchResults(results);
     setIsSearching(results.length > 0);
@@ -127,8 +130,8 @@ export default function SoldierManagement() {
             </div>
           </div>
           
-          <div className="flex flex-col gap-2 ml-4">
-            <button
+                      <div className="flex flex-col gap-2 ml-4">
+              <button
               onClick={() => handleEditSoldier(soldier)}
               className="px-4 py-2 rounded-xl font-semibold transition-all duration-200 hover:scale-105"
               style={{ 
@@ -410,6 +413,8 @@ export default function SoldierManagement() {
           </div>
         </div>
       )}
+
+
     </div>
   );
 }

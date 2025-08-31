@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
   addDoc,
@@ -21,113 +21,148 @@ import AdminBottomNavBar from "@/components/AdminBottomNavBar";
 import DatePickerModal from "@/components/DatePickerModal";
 import PhotoUpload from "@/components/PhotoUpload";
 import colors from "@/app/colors";
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 // PDF generation function for refund requests
 const generatePDF = (refundRequests, dateRange, customFrom, customTo) => {
-  // Create HTML content for PDF
-  const htmlContent = `
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <title>Refund Requests Report</title>
-        <style>
-          body { font-family: Arial, sans-serif; margin: 20px; }
-          .header { text-align: center; margin-bottom: 30px; }
-          .title { font-size: 24px; font-weight: bold; color: #333; margin-bottom: 10px; }
-          .subtitle { font-size: 14px; color: #666; margin-bottom: 5px; }
-          .summary { display: flex; justify-content: space-around; margin: 30px 0; }
-          .summary-item { text-align: center; }
-          .summary-value { font-size: 20px; font-weight: bold; color: #2563eb; }
-          .summary-label { font-size: 12px; color: #666; margin-top: 5px; }
-          table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-          th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-          th { background-color: #f8f9fa; font-weight: bold; }
-          .amount { text-align: right; }
-          .status-approved { color: #28a745; font-weight: bold; }
-          .status-denied { color: #dc3545; font-weight: bold; }
-          .status-waiting { color: #ffc107; font-weight: bold; }
-        </style>
-      </head>
-      <body>
-        <div class="header">
-          <div class="title">Refund Requests Report</div>
-          <div class="subtitle">Generated on: ${new Date().toLocaleDateString()}</div>
-          <div class="subtitle">Date Range: ${getDateRangeText(dateRange, customFrom, customTo)}</div>
-        </div>
-        
-        <div class="summary">
-          <div class="summary-item">
-            <div class="summary-value">${refundRequests.filter(r => r.status === 'approved').length}</div>
-            <div class="summary-label">Approved</div>
-          </div>
-          <div class="summary-item">
-            <div class="summary-value">${refundRequests.filter(r => r.status === 'denied').length}</div>
-            <div class="summary-label">Denied</div>
-          </div>
-          <div class="summary-item">
-            <div class="summary-value">${refundRequests.filter(r => r.status === 'waiting').length}</div>
-            <div class="summary-label">Pending</div>
-          </div>
-          <div class="summary-item">
-            <div class="summary-value">₪${refundRequests.reduce((sum, r) => sum + (parseFloat(r.amount) || 0), 0).toFixed(2)}</div>
-            <div class="summary-label">Total Amount</div>
-          </div>
-        </div>
-        
-        <table>
-          <thead>
-            <tr>
-              <th>Title</th>
-              <th>Amount</th>
-              <th>Method</th>
-              <th>From</th>
-              <th>Date</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${refundRequests.map(request => `
-              <tr>
-                <td>${request.title || 'N/A'}</td>
-                <td class="amount">₪${request.amount || '0'}</td>
-                <td>${request.repaymentMethod || 'N/A'}</td>
-                <td>${request.ownerName || 'N/A'} (Room ${request.ownerRoomNumber || 'N/A'})</td>
-                <td>${request.expenseDate?.toDate?.()?.toLocaleDateString?.() || request.createdAt?.toDate?.()?.toLocaleDateString?.() || 'No date'}</td>
-                <td class="status-${request.status}">${request.status}</td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
-      </body>
-    </html>
-  `;
+  // Create a new PDF document
+  const doc = new jsPDF();
+  
+  // Add title
+  doc.setFontSize(24);
+  doc.setFont('helvetica', 'bold');
+  doc.text('RefundReport', 105, 25, { align: 'center' });
+  
+  // Add generation date and date range
+  doc.setFontSize(12);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 105, 35, { align: 'center' });
+  doc.text(`Date Range: ${getDateRangeText(dateRange, customFrom, customTo)}`, 105, 45, { align: 'center' });
+  
+  // Add summary information
+  doc.setFontSize(16);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Summary', 20, 60);
+  
+  doc.setFontSize(12);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Approved: ${refundRequests.filter(r => r.status === 'approved').length}`, 20, 70);
+  doc.text(`Denied: ${refundRequests.filter(r => r.status === 'denied').length}`, 20, 80);
+  doc.text(`Pending: ${refundRequests.filter(r => r.status === 'waiting').length}`, 20, 90);
+  doc.text(`Total Amount: ILS ${refundRequests.reduce((sum, r) => sum + (parseFloat(r.amount) || 0), 0).toFixed(2)}`, 20, 100);
+  
+  // Prepare table data with status color coding
+  const tableData = refundRequests.map(request => {
+    const status = request.status;
+    let statusText = status;
+    
+    // Add color coding for status
+    if (status === 'approved') {
+      statusText = 'Approved';
+    } else if (status === 'denied') {
+      statusText = 'Denied';
+    } else if (status === 'waiting') {
+      statusText = 'Pending';
+    }
+    
+    // Check for photo URL in multiple possible fields
+    const hasPhoto = request.photoUrl || request.receiptPhotoUrl || request.photoPath;
+    
+    // Extract only numeric part from room number (remove Hebrew letters)
+    const roomNumber = request.ownerRoomNumber ? request.ownerRoomNumber.replace(/[^0-9]/g, '') : 'N/A';
+    
+    return [
+      request.title || 'N/A',
+      `ILS ${request.amount || '0'}`,
+      request.repaymentMethod || request.reimbursementMethod || 'N/A',
+      request.ownerName || 'N/A',
+      roomNumber,
+      request.expenseDate?.toDate?.()?.toLocaleDateString?.() || request.createdAt?.toDate?.()?.toLocaleDateString?.() || 'No date',
+      statusText,
+      hasPhoto ? 'Receipt' : 'No photo'
+    ];
+  });
 
-  // Create and download the HTML file (can be opened in browser and printed to PDF)
-  const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8;' });
-  const link = document.createElement('a');
-  const url = URL.createObjectURL(blob);
-  link.setAttribute('href', url);
-  link.setAttribute('download', `refund_requests_${getDateRangeText(dateRange, customFrom, customTo).replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().slice(0, 10)}.html`);
-  link.style.visibility = 'hidden';
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
+  // Add table with proper column widths
+  autoTable(doc, {
+    startY: 115,
+    head: [['Title', 'Amount', 'Method', 'Name', 'Room', 'Date', 'Status', 'Receipt Photo']],
+    body: tableData,
+    theme: 'grid',
+    headStyles: {
+      fillColor: [37, 99, 235],
+      textColor: 255,
+      fontSize: 9,
+      fontStyle: 'bold'
+    },
+    bodyStyles: {
+      fontSize: 8
+    },
+    columnStyles: {
+      0: { cellWidth: 28 }, // Title
+      1: { cellWidth: 18 }, // Amount
+      2: { cellWidth: 18 }, // Method
+      3: { cellWidth: 22 }, // Name
+      4: { cellWidth: 12 }, // Room
+      5: { cellWidth: 22 }, // Date
+      6: { cellWidth: 18 }, // Status
+      7: { cellWidth: 25 }  // Receipt Photo
+    },
+    margin: { top: 115, right: 15, bottom: 20, left: 15 },
+    didDrawCell: function(data) {
+      // Only process the Receipt Photo column (index 7) and if it's a body cell
+      if (data.column.index === 7 && data.section === 'body') {
+        const requestIndex = data.row.index;
+        const request = refundRequests[requestIndex];
+        const photoUrl = request.photoUrl || request.receiptPhotoUrl || request.photoPath;
+        
+        if (photoUrl && data.cell.text[0] === 'Receipt') {
+          // Calculate the center position for the text
+          const cellCenterX = data.cell.x + (data.cell.width / 2);
+          const cellCenterY = data.cell.y + (data.cell.height / 2);
+          
+          // Clear the original text by drawing a white rectangle over it
+          doc.setFillColor(255, 255, 255);
+          doc.rect(data.cell.x, data.cell.y, data.cell.width, data.cell.height, 'F');
+          
+          // Redraw the cell border to match the table's border style
+          doc.setDrawColor(200, 200, 200); // Light gray to match table borders
+          doc.setLineWidth(0.1); // Thin line to match table borders
+          doc.rect(data.cell.x, data.cell.y, data.cell.width, data.cell.height, 'S');
+          
+          // Add the clickable link perfectly centered in the cell
+          doc.setTextColor(0, 0, 255); // Blue
+          doc.setFontSize(8);
+          doc.textWithLink('Receipt', cellCenterX - 10, cellCenterY + 2, { url: photoUrl }); // Better centering
+          
+          // Reset text properties
+          doc.setTextColor(0, 0, 0);
+          doc.setLineWidth(0.1); // Reset line width
+        }
+      }
+    }
+  });
+  
+  // Save the PDF
+  const fileName = `RefundReport-${getDateRangeText(dateRange, customFrom, customTo)}.pdf`;
+  doc.save(fileName);
   
   // Show success message
-  alert('PDF report downloaded! Open the HTML file in your browser and use Print → Save as PDF');
+  alert('PDF report downloaded successfully!');
 };
 
 // Helper function to get date range text
 const getDateRangeText = (dateRange, customFrom, customTo) => {
   switch (dateRange) {
     case 'pastDay':
-      return 'Past Day (Last 24 hours)';
+      return '1 Day';
     case 'pastWeek':
-      return 'Past Week (Last 7 days)';
+      return '7 Days';
     case 'pastMonth':
-      return 'Past Month (Last 30 days)';
+      return '30 Days';
     case 'custom':
-      return `Custom Range: ${customFrom ? new Date(customFrom).toLocaleDateString() : 'N/A'} to ${customTo ? new Date(customTo).toLocaleDateString() : 'N/A'}`;
+      return 'Custom Range';
     default:
       return 'All Time';
   }
@@ -482,11 +517,22 @@ export default function AdminExpensesPage() {
   };
 
   const handleSave = async () => {
-    setError(""); setSuccess("");
-    const v = validate(); if (v) { showError(v); return; }
+    setError(""); 
+    setSuccess("");
+    const v = validate(); 
+    if (v) { 
+      showError(v); 
+      return; 
+    }
+    
     try {
       setSaving(true);
-      const user = auth.currentUser; if (!user) { showError("Please sign in again"); return; }
+      const user = auth.currentUser; 
+      if (!user) { 
+        showError("Please sign in again"); 
+        return; 
+      }
+      
       const payload = {
         ownerUid: user.uid,
         title: form.title.trim(),
@@ -504,8 +550,9 @@ export default function AdminExpensesPage() {
         updatedAt: serverTimestamp(),
         softDeleted: false,
       };
+      
       await addDoc(collection(db, "expenses"), payload);
-      showSuccess("Expense saved");
+      showSuccess("Expense saved successfully!");
       
       // Reset form completely including photo
       setForm({ 
@@ -525,11 +572,20 @@ export default function AdminExpensesPage() {
       await fetchList();
       
     } catch (e) {
-      showError(e?.message || "Failed to save expense");
-    } finally { setSaving(false); }
+      console.error("Error saving expense:", e);
+      if (e.code === 'permission-denied') {
+        showError("Permission denied. Please check your access rights.");
+      } else if (e.code === 'unavailable') {
+        showError("Service temporarily unavailable. Please try again.");
+      } else {
+        showError(e?.message || "Failed to save expense. Please try again.");
+      }
+    } finally { 
+      setSaving(false); 
+    }
   };
 
-  const fetchList = async () => {
+  const fetchList = useCallback(async () => {
     try {
       setLoadingList(true);
       let constraints = [];
@@ -541,7 +597,7 @@ export default function AdminExpensesPage() {
       const data = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
       setItems(data);
     } finally { setLoadingList(false); }
-  };
+  }, [filters.category, filters.from, filters.to]);
 
   const fetchRefundRequests = async () => {
     try {
@@ -625,7 +681,7 @@ export default function AdminExpensesPage() {
     }
   };
 
-  useEffect(() => { fetchList(); }, []);
+  useEffect(() => { fetchList(); }, [fetchList]);
   useEffect(() => { fetchRefundRequests(); }, []);
 
   const amountFormatted = (amt) => new Intl.NumberFormat("he-IL", { style: "currency", currency: "ILS" }).format(amt || 0);
@@ -770,114 +826,96 @@ export default function AdminExpensesPage() {
   const exportToPDF = () => {
     if (reportItems.length === 0) return;
     
-    // Create PDF content using jsPDF-like structure
-    const pdfContent = {
-      title: 'Expenses Report',
-      generatedOn: new Date().toLocaleDateString(),
-      totalExpenses: reportItems.length,
-      totalAmount: amountFormatted(getTotalAmount(reportItems)),
-      expenses: reportItems.map(expense => ({
-        title: expense.title || '',
-        category: expense.category || '',
-        amount: amountFormatted(expense.amount || 0),
-        date: expense.expenseDate?.toDate?.()?.toLocaleDateString?.() || 'No date',
-        notes: expense.notes || '',
-        reimbursementMethod: expense.reimbursementMethod || '',
-        photoUrl: expense.photoUrl || null
-      }))
-    };
-
-    // Create HTML content for PDF
-    const htmlContent = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>Expenses Report</title>
-          <style>
-            body { font-family: Arial, sans-serif; margin: 20px; }
-            .header { text-align: center; margin-bottom: 30px; }
-            .title { font-size: 24px; font-weight: bold; color: #333; margin-bottom: 10px; }
-            .subtitle { font-size: 14px; color: #666; margin-bottom: 5px; }
-            .summary { display: flex; justify-content: space-around; margin: 30px 0; }
-            .summary-item { text-align: center; }
-            .summary-value { font-size: 20px; font-weight: bold; color: #2563eb; }
-            .summary-label { font-size: 12px; color: #666; margin-top: 5px; }
-            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-            th { background-color: #f8f9fa; font-weight: bold; }
-            .amount { text-align: right; }
-            .category { color: #666; }
-            .notes { font-size: 12px; color: #666; max-width: 200px; }
-            .photo-link { text-align: center; }
-            .photo-link a { color: #2563eb; text-decoration: underline; }
-            .photo-link a:hover { color: #1d4ed8; }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <div class="title">${pdfContent.title}</div>
-            <div class="subtitle">Generated on: ${pdfContent.generatedOn}</div>
-          </div>
-          
-          <div class="summary">
-            <div class="summary-item">
-              <div class="summary-value">${pdfContent.totalExpenses}</div>
-              <div class="summary-label">Total Expenses</div>
-            </div>
-            <div class="summary-item">
-              <div class="summary-value">${pdfContent.totalAmount}</div>
-              <div class="summary-label">Total Amount</div>
-            </div>
-          </div>
-          
-          <table>
-            <thead>
-              <tr>
-                <th>Title</th>
-                <th>Category</th>
-                <th>Amount</th>
-                <th>Date</th>
-                <th>Notes</th>
-                <th>Reimbursement Method</th>
-                <th>Photo</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${pdfContent.expenses.map(expense => `
-                <tr>
-                  <td>${expense.title}</td>
-                  <td class="category">${expense.category}</td>
-                  <td class="amount">${expense.amount}</td>
-                  <td>${expense.date}</td>
-                  <td class="notes">${expense.notes}</td>
-                  <td>${expense.reimbursementMethod}</td>
-                  <td class="photo-link">
-                    ${expense.photoUrl ? 
-                      `<a href="${expense.photoUrl}" target="_blank" style="color: #2563eb; text-decoration: underline;">View Receipt</a>` : 
-                      '<span style="color: #999;">No photo</span>'
-                    }
-                  </td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        </body>
-      </html>
-    `;
-
-    // Create and download the HTML file (can be opened in browser and printed to PDF)
-    const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', `expenses_report_${new Date().toISOString().slice(0, 10)}.html`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    // Create a new PDF document
+    const doc = new jsPDF();
+    
+    // Add title
+    doc.setFontSize(24);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Expenses Report', 105, 25, { align: 'center' });
+    
+    // Add generation date
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 105, 35, { align: 'center' });
+    
+    // Add summary information
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Summary', 20, 50);
+    
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Total Expenses: ${reportItems.length}`, 20, 60);
+    doc.text(`Total Amount: ILS ${getTotalAmount(reportItems).toFixed(2)}`, 20, 70);
+    
+    // Prepare table data with better photo indicators
+    const tableData = reportItems.map(expense => [
+      expense.title || 'N/A',
+      expense.category || 'N/A',
+      `ILS ${(expense.amount || 0).toFixed(2)}`,
+      expense.expenseDate?.toDate?.()?.toLocaleDateString?.() || 'No date',
+      expense.notes || 'N/A',
+      expense.reimbursementMethod || 'N/A',
+      expense.photoUrl ? 'Yes' : 'No'
+    ]);
+    
+    // Add table
+    autoTable(doc, {
+      startY: 85,
+      head: [['Title', 'Category', 'Amount', 'Date', 'Notes', 'Method', 'Photo']],
+      body: tableData,
+      theme: 'grid',
+      headStyles: {
+        fillColor: [37, 99, 235],
+        textColor: 255,
+        fontSize: 9,
+        fontStyle: 'bold'
+      },
+      bodyStyles: {
+        fontSize: 8
+      },
+      columnStyles: {
+        0: { cellWidth: 32 }, // Title
+        1: { cellWidth: 20 }, // Category
+        2: { cellWidth: 20 }, // Amount
+        3: { cellWidth: 20 }, // Date
+        4: { cellWidth: 22 }, // Notes
+        5: { cellWidth: 20 }, // Method
+        6: { cellWidth: 12 }  // Photo
+      },
+      margin: { top: 80, right: 15, bottom: 20, left: 15 }
+    });
+    
+    // Add category breakdown
+    const categoryBreakdown = getCategoryBreakdown(reportItems);
+    const breakdownY = 200; // Fixed position since we can't access finalY with function form
+    
+    if (breakdownY < 250) { // Only add if there's space
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Category Breakdown', 20, breakdownY);
+      
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      
+      let yPos = breakdownY + 10;
+      Object.entries(categoryBreakdown)
+        .sort(([,a], [,b]) => b - a)
+        .forEach(([category, amount]) => {
+          if (yPos < 280) { // Check if we have space
+            doc.text(`${category}: ILS ${amount.toFixed(2)}`, 20, yPos);
+            yPos += 7;
+          }
+        });
+    }
+    
+    // Save the PDF
+    const fileName = `expenses_report_${new Date().toISOString().slice(0, 10)}.pdf`;
+    doc.save(fileName);
     
     // Show success message
-    setSuccess('PDF report downloaded! Open the HTML file in your browser and use Print → Save as PDF');
+    setSuccess('PDF report downloaded successfully!');
   };
 
   const exportToExcel = () => {
@@ -918,29 +956,77 @@ export default function AdminExpensesPage() {
           {error && <div className="mb-3 text-red-600 text-sm bg-white rounded px-3 py-2">{error}</div>}
           {success && <div className="mb-3 text-green-700 text-sm bg-white rounded px-3 py-2">{success}</div>}
           <div className="grid grid-cols-1 gap-4">
-            <input className="w-full px-4 py-3 rounded-xl border text-lg" placeholder="Title" value={form.title} onChange={(e)=>setForm(f=>({...f,title:e.target.value}))} />
-            <input className="w-full px-4 py-3 rounded-xl border text-lg" placeholder="Amount (₪)" inputMode="decimal" value={form.amount} onChange={(e)=>setForm(f=>({...f,amount:e.target.value}))} />
+            <input 
+              className="w-full px-4 py-3 rounded-xl border text-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200" 
+              placeholder="Title" 
+              value={form.title} 
+              onChange={(e)=>setForm(f=>({...f,title:e.target.value}))}
+              autoComplete="off"
+              spellCheck="false"
+            />
+            <input 
+              className="w-full px-4 py-3 rounded-xl border text-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200" 
+              placeholder="Amount (₪)" 
+              inputMode="decimal" 
+              value={form.amount} 
+              onChange={(e)=>setForm(f=>({...f,amount:e.target.value}))}
+              autoComplete="off"
+              pattern="[0-9]*[.,]?[0-9]*"
+            />
             <div className="grid grid-cols-2 gap-3">
-              <select className="w-full px-4 py-3 rounded-xl border text-lg" value={form.category} onChange={(e)=>setForm(f=>({...f,category:e.target.value}))}>
+              <select 
+                className="w-full px-4 py-3 rounded-xl border text-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200" 
+                value={form.category} 
+                onChange={(e)=>setForm(f=>({...f,category:e.target.value}))}
+              >
                 {CATEGORIES.map(c=> <option key={c} value={c}>{c}</option>)}
               </select>
               {form.category === "Other" && (
-                <input className="w-full px-4 py-3 rounded-xl border text-lg" placeholder="Other category" value={form.categoryOther} onChange={(e)=>setForm(f=>({...f,categoryOther:e.target.value}))} />
+                <input 
+                  className="w-full px-4 py-3 rounded-xl border text-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200" 
+                  placeholder="Other category" 
+                  value={form.categoryOther} 
+                  onChange={(e)=>setForm(f=>({...f,categoryOther:e.target.value}))}
+                  autoComplete="off"
+                />
               )}
             </div>
-            <select className="w-full px-4 py-3 rounded-xl border text-lg" value={form.reimbursementMethod} onChange={(e)=>setForm(f=>({...f,reimbursementMethod:e.target.value}))}>
+            <select 
+              className="w-full px-4 py-3 rounded-xl border text-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200" 
+              value={form.reimbursementMethod} 
+              onChange={(e)=>setForm(f=>({...f,reimbursementMethod:e.target.value}))}
+            >
               {REIMBURSEMENT_METHODS.map(m=> <option key={m} value={m}>{m}</option>)}
             </select>
             <div>
               <div className="flex gap-2 items-center">
-                <button onClick={()=>setForm(f=>({...f,expenseDate:new Date().toISOString().slice(0,16)}))} className="px-4 py-2 rounded-full text-sm font-semibold text-white" style={{ background: colors.gold }}>Today</button>
-                <button onClick={()=>setDatePickerOpen(true)} className="px-4 py-2 rounded-full text-sm font-semibold border" style={{ borderColor: colors.primaryGreen, color: colors.primaryGreen }}>Other date</button>
+                <button 
+                  onClick={()=>setForm(f=>({...f,expenseDate:new Date().toISOString().slice(0,16)}))} 
+                  className="px-4 py-2 rounded-full text-sm font-semibold text-white transition-all duration-200 active:scale-95 touch-manipulation" 
+                  style={{ background: colors.gold }}
+                >
+                  Today
+                </button>
+                <button 
+                  onClick={()=>setDatePickerOpen(true)} 
+                  className="px-4 py-2 rounded-full text-sm font-semibold border transition-all duration-200 active:scale-95 touch-manipulation" 
+                  style={{ borderColor: colors.primaryGreen, color: colors.primaryGreen }}
+                >
+                  Other date
+                </button>
               </div>
               {form.expenseDate && (
                 <div className="mt-2 text-white text-sm">Selected: {new Date(form.expenseDate).toLocaleString()}</div>
               )}
             </div>
-            <textarea className="w-full px-4 py-3 rounded-xl border text-lg" placeholder="Notes (optional)" value={form.notes} onChange={(e)=>setForm(f=>({...f,notes:e.target.value}))} />
+            <textarea 
+              className="w-full px-4 py-3 rounded-xl border text-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200 resize-none" 
+              placeholder="Notes (optional)" 
+              value={form.notes} 
+              onChange={(e)=>setForm(f=>({...f,notes:e.target.value}))}
+              rows={3}
+              autoComplete="off"
+            />
             
             {/* Photo Upload Section */}
             <div className="bg-white/10 rounded-xl p-4">
@@ -954,15 +1040,39 @@ export default function AdminExpensesPage() {
               />
             </div>
             
-            <button onClick={handleSave} disabled={saving} className="w-full px-4 py-3 rounded-xl text-white font-semibold disabled:opacity-70 text-lg" style={{ background: colors.gold }}>{saving?"Saving...":"Save Expense"}</button>
+            <button 
+          onClick={handleSave} 
+          disabled={saving} 
+          className="w-full px-4 py-3 rounded-xl text-white font-semibold disabled:opacity-70 text-lg transition-all duration-200 active:scale-95 touch-manipulation" 
+          style={{ background: colors.gold }}
+        >
+          {saving ? (
+            <span className="flex items-center justify-center gap-2">
+              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+              Saving...
+            </span>
+          ) : (
+            "Save Expense"
+          )}
+        </button>
           </div>
         </div>
 
         {/* Expenses List with Photos */}
         <div className="mb-3 rounded-2xl p-5 shadow-xl" style={{ background: "rgba(0,0,0,0.22)" }}>
           <div className="flex items-center justify-between"><h3 className="text-white font-extrabold text-xl">Expenses</h3></div>
-          <button onClick={()=>{ setReportOpen(true); setShowSearchResults(false); }} className="w-full mt-4 px-6 py-4 rounded-full text-white font-bold text-lg" style={{ background: colors.gold }}>View Expenses</button>
-          <button onClick={()=>{ fetchPendingRequests(); setApprovalOpen(true); }} className={`w-full mt-3 px-6 py-4 rounded-full font-bold text-lg flex items-center justify-center gap-2 ${approvalItems.length>0 ? 'text-white' : ''}`} style={approvalItems.length>0 ? { background: colors.primaryGreen } : { borderColor: colors.primaryGreen, color: colors.white, borderWidth: 2, borderStyle: 'solid' }}>
+          <button 
+            onClick={()=>{ setReportOpen(true); setShowSearchResults(false); }} 
+            className="w-full mt-4 px-6 py-4 rounded-full text-white font-bold text-lg transition-all duration-200 active:scale-95 touch-manipulation" 
+            style={{ background: colors.gold }}
+          >
+            View Expenses
+          </button>
+          <button 
+            onClick={()=>{ fetchPendingRequests(); setApprovalOpen(true); }} 
+            className={`w-full mt-3 px-6 py-4 rounded-full font-bold text-lg flex items-center justify-center gap-2 transition-all duration-200 active:scale-95 touch-manipulation ${approvalItems.length>0 ? 'text-white' : ''}`} 
+            style={approvalItems.length>0 ? { background: colors.primaryGreen } : { borderColor: colors.primaryGreen, color: colors.white, borderWidth: 2, borderStyle: 'solid' }}
+          >
             <span>{`Pending (${approvalItems.length})`}</span>
           </button>
         </div>

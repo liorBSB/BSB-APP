@@ -22,5 +22,8 @@ export const db = getFirestore(app);
 // Use the default bucket from firebaseConfig.storageBucket to avoid mismatches
 export const storage = getStorage(app);
 export const googleProvider = new GoogleAuthProvider();
+googleProvider.setCustomParameters({
+  prompt: 'select_account'
+});
 
 

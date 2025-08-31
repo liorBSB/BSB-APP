@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation';
 import BottomNavBar from '@/components/BottomNavBar';
 import EditFieldModal from '@/components/EditFieldModal';
 import QuestionnaireEditor from '@/components/QuestionnaireEditor';
+import PhotoUpload from '@/components/PhotoUpload';
 import colors from '../colors';
 
 export default function SettingsPage() {
@@ -17,6 +18,9 @@ export default function SettingsPage() {
     name: '',
     room: '',
     email: '',
+    phone: '',
+    unit: '',
+    profilePhotoUrl: '',
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -24,6 +28,8 @@ export default function SettingsPage() {
   const [error, setError] = useState('');
   const [editField, setEditField] = useState(null); // 'name', 'room', 'bank', 'email'
   const [questionnaireEditorOpen, setQuestionnaireEditorOpen] = useState(false);
+  const [showPersonalId, setShowPersonalId] = useState(false);
+  const [showPhotoUpload, setShowPhotoUpload] = useState(false);
 
   useEffect(() => {
     // On mount, set language from localStorage if available
@@ -42,6 +48,9 @@ export default function SettingsPage() {
             name: data.fullName || '',
             room: data.roomNumber || '',
             email: data.email || '',
+            phone: data.phoneNumber || '',
+            unit: data.unit || '',
+            profilePhotoUrl: data.profilePhotoUrl || '',
           });
         }
       }
@@ -93,6 +102,25 @@ export default function SettingsPage() {
     if (updatedAnswers.email !== undefined) setFields(prev => ({ ...prev, email: updatedAnswers.email }));
   };
 
+  const updateUserPhoto = async (photoUrl) => {
+    try {
+      const user = auth.currentUser;
+      if (user) {
+        const userRef = doc(db, 'users', user.uid);
+        await updateDoc(userRef, { profilePhotoUrl: photoUrl });
+        setFields(prev => ({ ...prev, profilePhotoUrl: photoUrl }));
+        setSuccess('Profile photo updated successfully!');
+        setTimeout(() => setSuccess(''), 3000);
+      }
+    } catch (error) {
+      console.error('Error updating profile photo:', error);
+      setError('Failed to update profile photo');
+      setTimeout(() => setError(''), 3000);
+    }
+  };
+
+
+
   return (
     <main className="min-h-screen bg-gradient-to-br from-blue-200/60 to-green-100/60 font-body flex flex-col items-center pt-10 pb-32 px-2 phone-sm:px-2 phone-md:px-4 phone-lg:px-6">
       <button
@@ -134,6 +162,28 @@ export default function SettingsPage() {
                 </button>
               </div>
               
+              {/* Personal ID Button */}
+              <div className="w-full mt-4">
+                <button
+                  onClick={() => setShowPersonalId(true)}
+                  className="w-full py-4 px-6 bg-transparent text-white font-bold text-lg border-2 border-white rounded-xl hover:bg-white/10 transition-colors"
+                >
+                  🆔 Personal ID
+                </button>
+              </div>
+              
+              {/* Go Back Button */}
+              <div className="w-full mt-4">
+                <button
+                  onClick={() => router.back()}
+                  className="w-full py-4 px-6 bg-transparent text-white font-bold text-lg border-2 border-white rounded-xl hover:bg-white/10 transition-colors"
+                >
+                  ← Go Back
+                </button>
+              </div>
+              
+
+              
               {success && <div className="text-green-300 text-lg mb-2">{success}</div>}
               {error && <div className="text-red-300 text-lg mb-2">{error}</div>}
             </>
@@ -159,6 +209,122 @@ export default function SettingsPage() {
         userData={fields}
         onUpdate={handleProfileUpdate}
       />
+
+      {/* Personal ID Modal */}
+      {showPersonalId && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full">
+            {/* Header */}
+            <div className="p-6" style={{ background: colors.primaryGreen, color: colors.white }}>
+              <div className="flex items-center justify-between">
+                <h3 className="text-xl font-bold">
+                  🆔 Personal ID
+                </h3>
+                <button
+                  onClick={() => setShowPersonalId(false)}
+                  className="text-white hover:text-gray-200 text-2xl"
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="p-6">
+              {/* Photo Section */}
+              <div className="text-center mb-6">
+                {fields.profilePhotoUrl ? (
+                  <div className="w-32 h-32 rounded-full mx-auto mb-4 overflow-hidden border-4 border-gray-200">
+                    <img 
+                      src={fields.profilePhotoUrl} 
+                      alt="Profile Photo" 
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                ) : (
+                  <div className="w-32 h-32 rounded-full mx-auto mb-4 bg-gray-200 flex items-center justify-center">
+                    <span className="text-4xl text-gray-400">📷</span>
+                  </div>
+                )}
+                
+                {!fields.profilePhotoUrl && (
+                  <button
+                    onClick={() => setShowPhotoUpload(true)}
+                    className="px-4 py-2 rounded-lg font-semibold text-white"
+                    style={{ background: colors.gold }}
+                  >
+                    Add Photo
+                  </button>
+                )}
+              </div>
+
+              {/* ID Information */}
+              <div className="space-y-3 text-center">
+                <div className="text-2xl font-bold text-gray-800">
+                  {fields.name}
+                </div>
+                
+                <div className="space-y-2 text-sm text-gray-600">
+                  <div><span className="font-medium">Unit:</span> {fields.unit || 'Not specified'}</div>
+                  <div><span className="font-medium">Phone:</span> {fields.phone || 'Not specified'}</div>
+                  <div><span className="font-medium">Room:</span> {fields.room}</div>
+                  <div><span className="font-medium">Email:</span> {fields.email}</div>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="mt-6 pt-4 border-t">
+                <div className="flex justify-center">
+                  <button
+                    onClick={() => setShowPersonalId(false)}
+                    className="px-6 py-3 rounded-xl font-semibold transition-all duration-200 hover:scale-105"
+                    style={{ 
+                      background: colors.primaryGreen, 
+                      color: colors.white,
+                      boxShadow: '0 4px 12px rgba(7, 99, 50, 0.3)'
+                    }}
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Photo Upload Modal */}
+      {showPhotoUpload && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6">
+            <div className="text-center mb-6">
+              <h3 className="text-xl font-bold text-gray-800 mb-2">Add Profile Photo</h3>
+              <p className="text-gray-600">Take a photo or upload from your device</p>
+            </div>
+            
+            <PhotoUpload
+              onPhotoUploaded={(photoUrl, photoPath) => {
+                updateUserPhoto(photoUrl);
+                setShowPhotoUpload(false);
+              }}
+              onPhotoRemoved={() => setShowPhotoUpload(false)}
+              currentPhotoUrl={fields.profilePhotoUrl || null}
+              uploadPath={`user-profiles/${auth.currentUser?.uid}`}
+            />
+            
+            <div className="mt-6 text-center">
+              <button
+                onClick={() => setShowPhotoUpload(false)}
+                className="px-6 py-2 rounded-lg font-semibold text-white"
+                style={{ background: colors.gold }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <BottomNavBar active="settings" />
     </main>
   );

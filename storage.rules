@@ -41,5 +41,25 @@ service firebase.storage {
       allow write: if isSignedIn() && (request.auth.uid == ownerUid || isAdmin(request.auth.uid));
       allow delete: if isSignedIn() && (request.auth.uid == ownerUid || isAdmin(request.auth.uid));
     }
+
+    // Soldier profile photos uploaded by admins
+    // Path: soldier-profiles/{soldierId}/{fileName}
+    match /soldier-profiles/{soldierId}/{fileName} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && isAdmin(request.auth.uid)
+                  && request.resource.size < 10 * 1024 * 1024
+                  && request.resource.contentType.matches('image/.*');
+      allow delete: if isSignedIn() && isAdmin(request.auth.uid);
+    }
+
+    // User profile photos uploaded by users
+    // Path: user-profiles/{userId}/{fileName}
+    match /user-profiles/{userId}/{fileName} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && request.auth.uid == userId
+                  && request.resource.size < 10 * 1024 * 1024
+                  && request.resource.contentType.matches('image/.*');
+      allow delete: if isSignedIn() && request.auth.uid == userId;
+    }
   }
 }

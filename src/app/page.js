@@ -46,12 +46,17 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+  const [isAuthChecked, setIsAuthChecked] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         router.push('/redirect');
+      } else {
+        setIsAuthChecked(true);
       }
+      setIsLoading(false);
     });
     return () => unsubscribe();
   }, [router]);
@@ -75,6 +80,24 @@ export default function LoginPage() {
     }
   };
 
+  // Show loading screen until auth is checked
+  if (isLoading) {
+    return (
+      <main className="min-h-screen flex items-center justify-center font-body" style={{ background: colors.white }}>
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-4"></div>
+          <h2 style={{ color: colors.primaryGreen, fontSize: '1.5rem', fontWeight: 600 }}>Checking authentication...</h2>
+          <p style={{ color: colors.muted, marginTop: '0.5rem' }}>Please wait while we verify your login status</p>
+        </div>
+      </main>
+    );
+  }
+
+  // Only show login form after auth is checked and user is not logged in
+  if (!isAuthChecked) {
+    return null;
+  }
+
   return (
     <main className="min-h-screen flex items-center justify-center font-body px-4 phone-lg:px-0" style={{ background: colors.white }}>
       <div
@@ -96,6 +119,7 @@ export default function LoginPage() {
               style={{ width: '100%', border: 'none', borderBottom: `2px solid ${colors.muted}`, outline: 'none', fontSize: '1.25rem', padding: '0.7rem 0', background: 'transparent', marginBottom: 18 }}
               placeholder="your.email@example.com"
               required
+              disabled={isLoading}
             />
             <label style={{ display: 'block', color: colors.muted, fontWeight: 600, marginBottom: 2, fontSize: 18 }}>password</label>
             <input
@@ -105,13 +129,33 @@ export default function LoginPage() {
               style={{ width: '100%', border: 'none', borderBottom: `2px solid ${colors.muted}`, outline: 'none', fontSize: '1.25rem', padding: '0.7rem 0', background: 'transparent' }}
               placeholder="your password"
               required
+              disabled={isLoading}
             />
             <div style={{ marginTop: 12, marginBottom: 0 }}>
               <a href="#" style={{ color: colors.primaryGreen, fontSize: 16, textDecoration: 'none', fontWeight: 500 }}>Forgot password?</a>
             </div>
           </div>
           {error && <div style={{ color: 'red', marginBottom: 16 }}>{error}</div>}
-          <button type="submit" style={{ width: '100%', background: colors.gold, color: colors.black, fontWeight: 700, fontSize: '1.35rem', border: 'none', borderRadius: 999, padding: '0.8rem 0', marginBottom: 32, marginTop: 12, cursor: 'pointer' }}>Log in</button>
+          <button 
+            type="submit" 
+            style={{ 
+              width: '100%', 
+              background: isLoading ? colors.muted : colors.gold, 
+              color: colors.black, 
+              fontWeight: 700, 
+              fontSize: '1.35rem', 
+              border: 'none', 
+              borderRadius: 999, 
+              padding: '0.8rem 0', 
+              marginBottom: 32, 
+              marginTop: 12, 
+              cursor: isLoading ? 'not-allowed' : 'pointer',
+              opacity: isLoading ? 0.6 : 1
+            }}
+            disabled={isLoading}
+          >
+            {isLoading ? 'Please wait...' : 'Log in'}
+          </button>
         </form>
         
         {/* Separator Line */}
@@ -121,7 +165,9 @@ export default function LoginPage() {
           <div style={{ flex: 1, height: '1px', background: colors.muted }}></div>
         </div>
         
-        <button onClick={handleGoogleSignIn} 
+        <button 
+          onClick={handleGoogleSignIn} 
+          disabled={isLoading}
           className="w-full flex items-center justify-center gap-3 font-semibold text-black px-0 py-0
             bg-transparent border-2 border-primaryGreen shadow-none
             phone-lg:bg-transparent phone-lg:border-2 phone-lg:border-primaryGreen phone-lg:shadow-md phone-lg:py-4 phone-lg:px-0 phone-lg:rounded-full"
@@ -131,16 +177,34 @@ export default function LoginPage() {
             fontSize: '1.25rem',
             padding: '1rem 0',
             borderRadius: 999,
-            borderColor: colors.primaryGreen,
-            color: colors.primaryGreen,
-            fontWeight: 600
+            borderColor: isLoading ? colors.muted : colors.primaryGreen,
+            color: isLoading ? colors.muted : colors.primaryGreen,
+            fontWeight: 600,
+            cursor: isLoading ? 'not-allowed' : 'pointer',
+            opacity: isLoading ? 0.6 : 1
           }}
         >
           <Image src="/google-logo.png" alt="Google" width={24} height={24} /> 
-          Log in with Google
+          {isLoading ? 'Please wait...' : 'Log in with Google'}
         </button>
         <div style={{ textAlign: 'center', fontSize: 18, color: colors.muted, width: '100%', maxWidth: 340 }}>
-          Don&apos;t have a user yet? <a href="#" style={{ color: colors.primaryGreen, fontWeight: 600, textDecoration: 'none' }} onClick={e => { e.preventDefault(); router.push('/register'); }}>Sign up</a>
+          Don&apos;t have a user yet? <a 
+            href="#" 
+            style={{ 
+              color: isLoading ? colors.muted : colors.primaryGreen, 
+              fontWeight: 600, 
+              textDecoration: 'none',
+              pointerEvents: isLoading ? 'none' : 'auto'
+            }} 
+            onClick={e => { 
+              if (!isLoading) {
+                e.preventDefault(); 
+                router.push('/register'); 
+              }
+            }}
+          >
+            Sign up
+          </a>
         </div>
       </div>
     </main>
