@@ -18,18 +18,21 @@ export default function SettingsPage() {
     name: '',
     room: '',
     email: '',
-    phone: '',
-    unit: '',
-    profilePhotoUrl: '',
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState('');
   const [error, setError] = useState('');
-  const [editField, setEditField] = useState(null); // 'name', 'room', 'bank', 'email'
+  const [editField, setEditField] = useState(null); // 'name', 'room', 'email'
   const [questionnaireEditorOpen, setQuestionnaireEditorOpen] = useState(false);
   const [showPersonalId, setShowPersonalId] = useState(false);
   const [showPhotoUpload, setShowPhotoUpload] = useState(false);
+  const [hasDeclinedPhoto, setHasDeclinedPhoto] = useState(false);
+  const [personalIdData, setPersonalIdData] = useState({
+    personalNumber: '',
+    phone: '',
+    profilePhotoUrl: '',
+  });
 
   useEffect(() => {
     // On mount, set language from localStorage if available
@@ -48,9 +51,6 @@ export default function SettingsPage() {
             name: data.fullName || '',
             room: data.roomNumber || '',
             email: data.email || '',
-            phone: data.phoneNumber || '',
-            unit: data.unit || '',
-            profilePhotoUrl: data.profilePhotoUrl || '',
           });
         }
       }
@@ -108,7 +108,6 @@ export default function SettingsPage() {
       if (user) {
         const userRef = doc(db, 'users', user.uid);
         await updateDoc(userRef, { profilePhotoUrl: photoUrl });
-        setFields(prev => ({ ...prev, profilePhotoUrl: photoUrl }));
         setSuccess('Profile photo updated successfully!');
         setTimeout(() => setSuccess(''), 3000);
       }
@@ -119,7 +118,36 @@ export default function SettingsPage() {
     }
   };
 
+  const handleClosePersonalId = () => {
+    if (!personalIdData.profilePhotoUrl) {
+      setHasDeclinedPhoto(true);
+      return; // Don't close if no photo
+    }
+    setShowPersonalId(false);
+    setHasDeclinedPhoto(false);
+  };
 
+  const handleOpenPersonalId = async () => {
+    try {
+      const user = auth.currentUser;
+      if (user) {
+        const userRef = doc(db, 'users', user.uid);
+        const userSnap = await getDoc(userRef);
+        if (userSnap.exists()) {
+          const data = userSnap.data();
+          setPersonalIdData({
+            personalNumber: data.personalNumber || '',
+            phone: data.phoneNumber || '',
+            profilePhotoUrl: data.profilePhotoUrl || '',
+          });
+        }
+      }
+      setShowPersonalId(true);
+    } catch (error) {
+      console.error('Error fetching personal ID data:', error);
+      setShowPersonalId(true);
+    }
+  };
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-blue-200/60 to-green-100/60 font-body flex flex-col items-center pt-10 pb-32 px-2 phone-sm:px-2 phone-md:px-4 phone-lg:px-6">
@@ -130,6 +158,18 @@ export default function SettingsPage() {
         {i18n.language === 'en' ? 'עברית' : 'EN'}
       </button>
       <div className="w-full max-w-md">
+        {/* Personal ID Button - Above Settings */}
+        <div className="rounded-3xl p-8 mb-6 shadow-lg flex flex-col items-center" style={{ background: 'rgba(0,0,0,0.38)' }}>
+          <button
+            onClick={handleOpenPersonalId}
+            className="w-full py-5 px-6 bg-transparent font-bold text-xl border-2 rounded-xl hover:bg-white/10 transition-colors flex items-center justify-center gap-3"
+            style={{ borderColor: colors.gold, color: colors.gold }}
+          >
+            Personal ID
+          </button>
+        </div>
+
+        {/* Settings Section */}
         <div className="rounded-3xl p-10 mb-8 shadow-lg flex flex-col items-center" style={{ background: 'rgba(0,0,0,0.38)' }}>
           <h2 className="text-3xl font-extrabold mb-8 text-white text-center tracking-wide">{t('settings')}</h2>
           {loading ? (
@@ -162,16 +202,6 @@ export default function SettingsPage() {
                 </button>
               </div>
               
-              {/* Personal ID Button */}
-              <div className="w-full mt-4">
-                <button
-                  onClick={() => setShowPersonalId(true)}
-                  className="w-full py-4 px-6 bg-transparent text-white font-bold text-lg border-2 border-white rounded-xl hover:bg-white/10 transition-colors"
-                >
-                  🆔 Personal ID
-                </button>
-              </div>
-              
               {/* Go Back Button */}
               <div className="w-full mt-4">
                 <button
@@ -181,8 +211,6 @@ export default function SettingsPage() {
                   ← Go Back
                 </button>
               </div>
-              
-
               
               {success && <div className="text-green-300 text-lg mb-2">{success}</div>}
               {error && <div className="text-red-300 text-lg mb-2">{error}</div>}
@@ -213,80 +241,109 @@ export default function SettingsPage() {
       {/* Personal ID Modal */}
       {showPersonalId && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full">
-            {/* Header */}
-            <div className="p-6" style={{ background: colors.primaryGreen, color: colors.white }}>
-              <div className="flex items-center justify-between">
-                <h3 className="text-xl font-bold">
-                  🆔 Personal ID
-                </h3>
-                <button
-                  onClick={() => setShowPersonalId(false)}
-                  className="text-white hover:text-gray-200 text-2xl"
-                >
-                  ×
-                </button>
+          <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl" style={{ border: `4px solid ${colors.gold}`, maxHeight: '90vh' }}>
+            {/* ID Card Content - Scrollable */}
+            <div className="p-6 relative overflow-y-auto" style={{ maxHeight: 'calc(90vh - 2rem)' }}>
+              {/* Close Button */}
+              <button
+                onClick={handleClosePersonalId}
+                className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-2xl transition-colors z-10"
+              >
+                ×
+              </button>
+              
+              {/* Header */}
+              <div className="text-center mb-6 pt-2">
+                <h3 className="text-2xl font-bold text-gray-800 mb-3">Habayit Shel Benji Card</h3>
               </div>
-            </div>
-
-            {/* Content */}
-            <div className="p-6">
-              {/* Photo Section */}
+              
+              {/* Logo */}
               <div className="text-center mb-6">
-                {fields.profilePhotoUrl ? (
-                  <div className="w-32 h-32 rounded-full mx-auto mb-4 overflow-hidden border-4 border-gray-200">
+                <img 
+                  src="/House_Logo.jpg" 
+                  alt="House Logo" 
+                  className="h-16 mx-auto"
+                  onError={(e) => {
+                    console.log('Logo failed to load:', e.target.src);
+                    e.target.style.display = 'none';
+                  }}
+                />
+              </div>
+              
+              {/* Photo */}
+              <div className="text-center mb-6">
+                {personalIdData.profilePhotoUrl ? (
+                  <div className="w-32 h-32 rounded-xl overflow-hidden shadow-xl mx-auto" style={{ border: `3px solid ${colors.gold}` }}>
                     <img 
-                      src={fields.profilePhotoUrl} 
+                      src={personalIdData.profilePhotoUrl} 
                       alt="Profile Photo" 
                       className="w-full h-full object-cover"
                     />
                   </div>
                 ) : (
-                  <div className="w-32 h-32 rounded-full mx-auto mb-4 bg-gray-200 flex items-center justify-center">
+                  <div className="w-32 h-32 rounded-xl flex items-center justify-center shadow-xl mx-auto" style={{ border: `3px solid ${colors.gold}`, background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)' }}>
                     <span className="text-4xl text-gray-400">📷</span>
                   </div>
                 )}
                 
-                {!fields.profilePhotoUrl && (
-                  <button
-                    onClick={() => setShowPhotoUpload(true)}
-                    className="px-4 py-2 rounded-lg font-semibold text-white"
-                    style={{ background: colors.gold }}
-                  >
-                    Add Photo
-                  </button>
+                {!personalIdData.profilePhotoUrl && (
+                  <div className="mt-3 text-center">
+                    <p className="text-gray-600 text-sm mb-2 font-medium">Photo Required</p>
+                    <button
+                      onClick={() => setShowPhotoUpload(true)}
+                      className="px-4 py-2 rounded-lg font-semibold text-white text-sm transition-all hover:scale-105"
+                      style={{ background: colors.gold, boxShadow: '0 4px 12px rgba(237, 195, 129, 0.3)' }}
+                    >
+                      Add Photo
+                    </button>
+                    {hasDeclinedPhoto && (
+                      <p className="text-red-500 text-sm mt-2 font-medium">Please add a photo to continue</p>
+                    )}
+                  </div>
                 )}
               </div>
-
-              {/* ID Information */}
-              <div className="space-y-3 text-center">
-                <div className="text-2xl font-bold text-gray-800">
-                  {fields.name}
+              
+              {/* All Fields - Stacked Vertically */}
+              <div className="space-y-4 mb-6">
+                <div className="text-center pb-3">
+                  <div className="text-xs text-gray-500 uppercase tracking-wider font-semibold mb-1">Full Name</div>
+                  <div className="text-lg font-semibold text-gray-800">{fields.name || 'Not specified'}</div>
                 </div>
                 
-                <div className="space-y-2 text-sm text-gray-600">
-                  <div><span className="font-medium">Unit:</span> {fields.unit || 'Not specified'}</div>
-                  <div><span className="font-medium">Phone:</span> {fields.phone || 'Not specified'}</div>
-                  <div><span className="font-medium">Room:</span> {fields.room}</div>
-                  <div><span className="font-medium">Email:</span> {fields.email}</div>
+                <div className="text-center pb-3">
+                  <div className="text-xs text-gray-500 uppercase tracking-wider font-semibold mb-1">Room Number</div>
+                  <div className="text-lg font-semibold text-gray-800">{fields.room || 'Not specified'}</div>
+                </div>
+                
+                <div className="text-center pb-3">
+                  <div className="text-xs text-gray-500 uppercase tracking-wider font-semibold mb-1">Personal Army ID</div>
+                  <div className="text-lg font-semibold text-gray-800">{personalIdData.personalNumber || 'Not specified'}</div>
+                </div>
+                
+                <div className="text-center pb-3">
+                  <div className="text-xs text-gray-500 uppercase tracking-wider font-semibold mb-1">Phone Number</div>
+                  <div className="text-lg font-semibold text-gray-800">{personalIdData.phone || 'Not specified'}</div>
+                </div>
+                
+                <div className="text-center pb-3">
+                  <div className="text-xs text-gray-500 uppercase tracking-wider font-semibold mb-1">Email</div>
+                  <div className="text-lg font-semibold text-gray-800">{fields.email || 'Not specified'}</div>
                 </div>
               </div>
 
               {/* Actions */}
-              <div className="mt-6 pt-4 border-t">
-                <div className="flex justify-center">
-                  <button
-                    onClick={() => setShowPersonalId(false)}
-                    className="px-6 py-3 rounded-xl font-semibold transition-all duration-200 hover:scale-105"
-                    style={{ 
-                      background: colors.primaryGreen, 
-                      color: colors.white,
-                      boxShadow: '0 4px 12px rgba(7, 99, 50, 0.3)'
-                    }}
-                  >
-                    Close
-                  </button>
-                </div>
+              <div className="text-center">
+                <button
+                  onClick={handleClosePersonalId}
+                  className="px-8 py-3 rounded-xl font-semibold transition-all duration-200 hover:scale-105"
+                  style={{ 
+                    background: colors.sectionBg, 
+                    color: colors.white,
+                    boxShadow: '0 6px 20px rgba(0,0,0,0.15)'
+                  }}
+                >
+                  Close
+                </button>
               </div>
             </div>
           </div>
@@ -305,7 +362,10 @@ export default function SettingsPage() {
             <PhotoUpload
               onPhotoUploaded={(photoUrl, photoPath) => {
                 updateUserPhoto(photoUrl);
+                setFields(prev => ({ ...prev, profilePhotoUrl: photoUrl }));
                 setShowPhotoUpload(false);
+                setShowPersonalId(false);
+                setHasDeclinedPhoto(false);
               }}
               onPhotoRemoved={() => setShowPhotoUpload(false)}
               currentPhotoUrl={fields.profilePhotoUrl || null}
