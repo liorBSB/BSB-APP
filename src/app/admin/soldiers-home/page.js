@@ -85,10 +85,20 @@ export default function SoldiersHomePage() {
   );
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-blue-200/60 to-green-100/60 font-body flex flex-col items-center pt-6 pb-32 px-4">
+    <main className="min-h-screen bg-gradient-to-br from-blue-200/60 to-green-100/60 font-body flex flex-col items-center pt-6 pb-40 px-4">
       <div className="w-full max-w-md">
+        {/* Header */}
+        <div className="w-full max-w-md px-5 pt-6 pb-4 mb-2">
+          <h1 className="text-2xl font-bold text-black mb-1">
+            Soldiers Home
+          </h1>
+          <p className="text-lg text-black font-medium">
+            Manage soldier status and information
+          </p>
+        </div>
+
         {/* Search Bar */}
-        <div className="mb-6">
+        <div className="mb-8">
           <input
             type="text"
             value={search}
@@ -99,61 +109,88 @@ export default function SoldiersHomePage() {
           />
         </div>
         {/* Soldiers List */}
-        {loading ? (
-          <div className="text-center text-muted py-2">Loading...</div>
-        ) : filteredSoldiers.length === 0 ? (
-          <div className="text-center text-muted py-2">No soldiers found</div>
-        ) : (
-          filteredSoldiers.map(soldier => {
-            const isOpen = openId === soldier.id;
-            return (
-              <div key={soldier.id} className="mb-4">
-                <div
-                  onClick={() => setOpenId(isOpen ? null : soldier.id)}
-                  className="cursor-pointer px-4 py-2 rounded-t-lg shadow-sm mb-0 flex items-center gap-3"
-                  style={{ background: 'rgba(0,0,0,0.28)' }}
-                >
-                  <span className="text-2xl">🪖</span>
-                  <div className="flex-1">
-                    <div className="font-bold text-lg text-white">{soldier.fullName || 'ללא שם'}</div>
-                    {soldier.roomNumber && (
-                      <div className="text-sm text-white/80">
-                        Room: {soldier.roomNumber}
+        <div className="mb-8">
+          <div className="flex items-center px-4 py-3 rounded-t-lg shadow-sm select-none" style={{ background: colors.sectionBg, color: colors.white }}>
+            <div className="font-semibold text-lg flex-1 text-left">
+              Soldiers
+            </div>
+            <div className="text-sm text-white/80">
+              {filteredSoldiers.length} found
+            </div>
+          </div>
+          <div className="rounded-b-lg p-5" style={{ background: 'rgba(0,0,0,0.18)' }}>
+            {loading ? (
+              <div className="text-center text-muted py-3">Loading...</div>
+            ) : filteredSoldiers.length === 0 ? (
+              <div className="text-center text-muted py-3">No soldiers found</div>
+            ) : (
+              filteredSoldiers.map(soldier => {
+                const isOpen = openId === soldier.id;
+                return (
+                  <div key={soldier.id} className="relative mb-5 bg-blue-50 rounded-xl shadow-md p-6">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1 pr-4">
+                        <div className="flex items-start gap-3 mb-3">
+                          <span className="text-2xl">🪖</span>
+                          <div className="flex-1">
+                            <div className="font-bold text-xl text-[#076332] mb-2">{soldier.fullName || 'ללא שם'}</div>
+                            {soldier.roomNumber && (
+                              <div className="text-base font-medium text-gray-700 mb-2">
+                                Room: {soldier.roomNumber}
+                              </div>
+                            )}
+                            <div className="text-sm font-semibold" style={{ color: '#fff', background: '#076332', borderRadius: 6, padding: '4px 10px', display: 'inline-block' }}>
+                              {soldier.status === 'home' ? 'נוכח' : 'לא נוכח'}
+                            </div>
+                          </div>
+                        </div>
+                        {isOpen && (
+                          <div className="mt-4 pt-4 border-t border-gray-200">
+                            <div className="grid grid-cols-2 gap-4 text-sm text-gray-600">
+                              <div>
+                                <span className="font-semibold">Email:</span> {soldier.email || '-'}
+                              </div>
+                              <div>
+                                <span className="font-semibold">Profile:</span> {soldier.profileComplete ? 'Complete' : 'Incomplete'}
+                              </div>
+                              <div>
+                                <span className="font-semibold">Questions:</span> {soldier.answeredQuestions || 0}/{soldier.totalQuestions || 0}
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
-                    )}
+                      <div className="flex flex-col gap-2">
+                        <button
+                          className="p-2 rounded-full hover:bg-gray-100"
+                          onClick={e => { e.stopPropagation(); handleEditClick(soldier); }}
+                        >
+                          <PencilIcon />
+                        </button>
+                        <button
+                          onClick={() => setOpenId(isOpen ? null : soldier.id)}
+                          className="px-3 py-1 rounded-lg text-xs font-semibold transition"
+                          style={{ color: colors.primaryGreen, background: 'none' }}
+                        >
+                          {isOpen ? 'Hide' : 'Show'}
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                  <button
-                    className="ml-2 p-2 rounded-full hover:bg-gray-100"
-                    style={{ background: 'none' }}
-                    onClick={e => { e.stopPropagation(); handleEditClick(soldier); }}
-                  >
-                    <PencilIcon />
-                  </button>
-                </div>
-                {isOpen && (
-                  <div className="rounded-b-lg shadow px-6 py-4 mb-3" style={{ background: 'rgba(0,0,0,0.18)' }}>
-                    <ul className="space-y-2">
-                      <li className="text-white text-base">Full name: {soldier.fullName || '-'}</li>
-                      <li className="text-white text-base">Room number: {soldier.roomNumber || '-'}</li>
-                      <li className="text-white text-base">Status: {soldier.status === 'home' ? 'נוכח' : 'לא נוכח'}</li>
-                      <li className="text-white text-base">Email: {soldier.email || '-'}</li>
-                      <li className="text-white text-base">Profile Complete: {soldier.profileComplete ? 'כן' : 'לא'}</li>
-                      <li className="text-white text-base">Questions: {soldier.answeredQuestions || 0}/{soldier.totalQuestions || 0}</li>
-                    </ul>
-                  </div>
-                )}
-              </div>
-            );
-          })
-        )}
+                );
+              })
+            )}
+          </div>
+        </div>
       </div>
       {/* Edit Modal */}
       {editModal.open && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 shadow-lg w-full max-w-xs mx-4">
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-6 shadow-lg w-full max-w-xs">
             <h2 className="text-xl font-bold mb-4">Edit Soldier</h2>
+            
             <div className="mb-4">
-              <label className="block text-gray-700 font-semibold mb-2">Full name</label>
+              <label className="block text-gray-700 font-semibold mb-2">Full Name</label>
               <input
                 type="text"
                 name="fullName"
@@ -162,8 +199,9 @@ export default function SoldiersHomePage() {
                 className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-primaryGreen"
               />
             </div>
+            
             <div className="mb-4">
-              <label className="block text-gray-700 font-semibold mb-2">Room number</label>
+              <label className="block text-gray-700 font-semibold mb-2">Room Number</label>
               <input
                 type="text"
                 name="room"
@@ -172,16 +210,20 @@ export default function SoldiersHomePage() {
                 className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-primaryGreen"
               />
             </div>
+            
             <div className="mb-4">
               <label className="block text-gray-700 font-semibold mb-2">Status</label>
-              <input
-                type="text"
+              <select
                 name="status"
                 value={editModal.form.status}
                 onChange={handleEditChange}
                 className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-primaryGreen"
-              />
+              >
+                <option value="home">Home</option>
+                <option value="away">Away</option>
+              </select>
             </div>
+            
             <div className="mb-4">
               <label className="block text-gray-700 font-semibold mb-2">Email</label>
               <input
@@ -192,6 +234,7 @@ export default function SoldiersHomePage() {
                 className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-primaryGreen"
               />
             </div>
+            
             <div className="flex gap-4">
               <button
                 onClick={handleEditSave}

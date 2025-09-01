@@ -92,17 +92,45 @@ export default function ProfileSetup() {
                 placeholder="Number"
                 required
               />
-              <select
-                value={roomLetter}
-                onChange={e => setRoomLetter(e.target.value)}
-                style={{ flex: 1, border: 'none', borderBottom: `2px solid ${colors.muted}`, outline: 'none', fontSize: '1.25rem', padding: '0.4rem 0', background: 'transparent' }}
-                required
-              >
-                <option value="">Letter</option>
-                <option value="א">א</option>
-                <option value="ב">ב</option>
-                <option value="ג">ג</option>
-              </select>
+              <div style={{ flex: 1 }}>
+                <select
+                  value={roomLetter}
+                  onChange={e => setRoomLetter(e.target.value)}
+                  style={{ 
+                    width: '100%', 
+                    border: 'none', 
+                    borderBottom: `2px solid ${colors.muted}`, 
+                    outline: 'none', 
+                    fontSize: '1.25rem', 
+                    padding: '0.4rem 0', 
+                    background: 'transparent',
+                    appearance: 'none',
+                    WebkitAppearance: 'none',
+                    MozAppearance: 'none',
+                    cursor: 'pointer',
+                    position: 'relative'
+                  }}
+                  required
+                >
+                  <option value="">Letter</option>
+                  <option value="א">א</option>
+                  <option value="ב">ב</option>
+                  <option value="ג">ג</option>
+                </select>
+                {/* Custom dropdown arrow for better mobile experience */}
+                <div style={{
+                  position: 'absolute',
+                  right: '8px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  pointerEvents: 'none',
+                  fontSize: '12px',
+                  color: colors.muted,
+                  marginTop: '-0.6rem'
+                }}>
+                  ▼
+                </div>
+              </div>
             </div>
           </div>
           {error && <p style={{ color: colors.red, fontSize: 16, marginBottom: 16 }}>{error}</p>}

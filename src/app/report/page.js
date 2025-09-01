@@ -129,9 +129,6 @@ export default function ReportPage() {
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-blue-200/60 to-green-100/60 font-body flex flex-col items-center pt-10 pb-32 px-2 phone-sm:px-2 phone-md:px-4 phone-lg:px-6">
-      <div className="w-full max-w-md mb-6">
-        <button onClick={()=>setRefundOpen(true)} className="w-full rounded-full px-6 py-4 font-bold text-white text-lg shadow" style={{ background: colors.gold }}>Request refund</button>
-      </div>
       <button onClick={handleLanguageSwitch} className="absolute top-4 right-4 bg-surface p-2 rounded-full text-white text-xl hover:text-text">{i18n.language === 'en' ? 'עברית' : 'EN'}</button>
       <div className="w-full max-w-md">
         <div className="rounded-3xl p-10 mb-8 shadow-lg flex flex-col items-center" style={{ background: 'rgba(0,0,0,0.38)' }}>
@@ -151,6 +148,11 @@ export default function ReportPage() {
           </div>
           <button className="w-full bg-[#EDC381] hover:bg-[#d4b06a] text-white py-4 rounded-full font-bold text-xl transition">{t('submit')}</button>
         </div>
+      </div>
+      
+      {/* Request Refund Section */}
+      <div className="w-full max-w-md mb-6">
+        <button onClick={()=>setRefundOpen(true)} className="w-full rounded-full px-6 py-4 font-bold text-white text-lg shadow" style={{ background: colors.gold }}>Request refund</button>
       </div>
       <BottomNavBar active="report" />
 

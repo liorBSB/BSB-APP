@@ -27,3 +27,24 @@ body::before {
   position: relative;
   z-index: 1;
 }
+
+/* Fix dropdown positioning issues */
+select {
+  position: relative;
+  z-index: 10;
+}
+
+/* Ensure dropdowns appear above other elements on mobile */
+@media (max-width: 768px) {
+  select {
+    z-index: 1000;
+  }
+}
+
+/* Fix iOS Safari dropdown positioning */
+@supports (-webkit-touch-callout: none) {
+  select {
+    -webkit-transform: translateZ(0);
+    transform: translateZ(0);
+  }
+}

@@ -138,14 +138,54 @@ export const getArchivedUsers = async () => {
  * Get all users (soldiers)
  */
 export const getActiveUsers = async () => {
-  const usersQuery = query(
-    collection(db, COLLECTIONS.USERS),
-    where('userType', '==', 'user'),
-    orderBy('fullName')
-  );
-  
-  const usersSnap = await getDocs(usersQuery);
-  return usersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  try {
+    console.log('getActiveUsers: Starting query...');
+    
+    // First try with ordering by fullName
+    let usersQuery = query(
+      collection(db, COLLECTIONS.USERS),
+      where('userType', '==', 'user'),
+      orderBy('fullName')
+    );
+    
+    let usersSnap = await getDocs(usersQuery);
+    console.log('getActiveUsers: Query with orderBy successful, found:', usersSnap.docs.length);
+    
+    if (usersSnap.docs.length > 0) {
+      return usersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    }
+    
+    // If no results, try without ordering (in case fullName is empty)
+    console.log('getActiveUsers: No results with ordering, trying without orderBy...');
+    usersQuery = query(
+      collection(db, COLLECTIONS.USERS),
+      where('userType', '==', 'user')
+    );
+    
+    usersSnap = await getDocs(usersQuery);
+    console.log('getActiveUsers: Query without orderBy successful, found:', usersSnap.docs.length);
+    
+    return usersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    
+  } catch (error) {
+    console.error('getActiveUsers: Error in query:', error);
+    
+    // If there's an error with the query, try to get all users and filter manually
+    try {
+      console.log('getActiveUsers: Trying manual filter...');
+      const allUsersQuery = query(collection(db, COLLECTIONS.USERS));
+      const allUsersSnap = await getDocs(allUsersQuery);
+      const allUsers = allUsersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      
+      const filteredUsers = allUsers.filter(user => user.userType === 'user');
+      console.log('getActiveUsers: Manual filter found:', filteredUsers.length);
+      
+      return filteredUsers;
+    } catch (fallbackError) {
+      console.error('getActiveUsers: Fallback also failed:', fallbackError);
+      throw error; // Throw the original error
+    }
+  }
 };
 
 

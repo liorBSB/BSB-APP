@@ -224,13 +224,16 @@ export default function AdminHomePage() {
   };
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-blue-200/60 to-green-100/60 font-body flex flex-col items-center pt-6 pb-32 px-4">
+    <main className="min-h-screen bg-gradient-to-br from-blue-200/60 to-green-100/60 font-body flex flex-col items-center pt-6 pb-40 px-4">
       <div className="w-full max-w-md">
         {/* Header */}
         <div className="w-full max-w-md px-5 pt-6 pb-4 mb-2">
           <h1 className="text-2xl font-bold text-black mb-1">
-            Welcome{adminData?.firstName ? `, ${adminData.firstName}` : ''}
+            Welcome,
           </h1>
+          <p className="text-2xl font-bold text-black">
+            {adminData?.firstName && adminData?.lastName ? `${adminData.firstName} ${adminData.lastName}` : ''}
+          </p>
           <p className="text-lg text-black font-medium">
             {adminData?.jobTitle || ''}
           </p>
@@ -238,97 +241,37 @@ export default function AdminHomePage() {
         {/* Top 3 Cards Section */}
         <div className="flex justify-between gap-3 mb-8">
           <button
-            onClick={() => router.push('/admin/soldiers-home')}
+            onClick={() => router.push('/admin/soldiers?filter=home')}
             className="flex-1 flex flex-col items-center justify-center rounded-2xl shadow-lg py-5"
             style={{ minWidth: 0, background: colors.sectionBg }}
           >
             <div className="text-2xl font-extrabold text-white mb-1">75</div>
-            <div className="text-xs font-semibold text-white/80">soldiers home</div>
+            <div className="text-xs font-semibold text-white/80">Soldiers Home</div>
           </button>
           <button
-            onClick={() => router.push('/admin/pending-reports')}
+            onClick={() => router.push('/admin/expenses')}
             className="flex-1 flex flex-col items-center justify-center rounded-2xl shadow-lg py-5"
             style={{ minWidth: 0, background: colors.sectionBg }}
           >
             <div className="text-2xl font-extrabold text-white mb-1">20</div>
-            <div className="text-xs font-semibold text-white/80">pending reports</div>
+            <div className="text-xs font-semibold text-white/80">Refund Requests</div>
           </button>
           <button
-            onClick={() => setOpenApprovalRequests(true)}
-            className="flex-1 flex flex-col items-center justify-center rounded-2xl shadow-lg py-5"
+            className="flex-1 flex flex-col items-center justify-center rounded-2xl shadow-lg py-5 cursor-default"
             style={{ minWidth: 0, background: colors.sectionBg }}
           >
-            <div className="text-2xl font-extrabold text-white mb-1">{approvalRequests.length}</div>
-            <div className="text-xs font-semibold text-white/80">approval requests</div>
+            <div className="text-2xl font-extrabold text-white mb-1">5</div>
+            <div className="text-xs font-semibold text-white/80">Pending Problems</div>
           </button>
         </div>
 
-        {/* Approval Requests Section */}
-        <div className="mb-4">
-          <div className="flex items-center px-4 py-2 rounded-t-lg shadow-sm select-none" style={{ background: colors.sectionBg, color: colors.white }}>
-            <button
-              className="font-semibold text-base flex-1 text-left focus:outline-none bg-transparent border-none"
-              onClick={() => setOpenApprovalRequests((prev) => !prev)}
-              style={{ color: colors.white }}
-            >
-              Approval Requests
-            </button>
-            <div className="text-sm text-white/80">
-              {approvalRequests.length} pending
-            </div>
-          </div>
-          {openApprovalRequests && (
-            <div className="rounded-b-lg p-4" style={{ background: 'rgba(0,0,0,0.18)' }}>
-              {loading ? (
-                <div className="text-center text-muted py-2">Loading...</div>
-              ) : approvalRequests.length === 0 ? (
-                <div className="text-center text-muted py-2">No pending approval requests</div>
-              ) : (
-                approvalRequests.map(request => (
-                  <div key={request.id} className="relative mb-3 bg-white rounded-lg shadow p-4">
-                    <div className="flex items-start gap-3 mb-3">
-                      <span className="text-2xl">👤</span>
-                      <div className="flex-1">
-                        <div className="font-bold text-lg text-[#076332]">{request.userName}</div>
-                        <div className="text-sm text-gray-600">{request.userEmail}</div>
-                        {request.jobTitle && (
-                          <div className="text-sm text-gray-600">Job: {request.jobTitle}</div>
-                        )}
-                        <div className="text-xs text-gray-500 mt-1">
-                          Requested: {request.createdAt?.toDate?.()?.toLocaleDateString() || 'Unknown date'}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleApprove(request.id, request.userId)}
-                        disabled={processingApproval}
-                        className="flex-1 px-3 py-2 rounded-lg text-white font-semibold disabled:opacity-50"
-                        style={{ background: colors.primaryGreen }}
-                      >
-                        {processingApproval ? 'Processing...' : 'Approve'}
-                      </button>
-                      <button
-                        onClick={() => handleReject(request.id, request.userId)}
-                        disabled={processingApproval}
-                        className="flex-1 px-3 py-2 rounded-lg border-2 font-semibold disabled:opacity-50"
-                        style={{ borderColor: colors.primaryGreen, color: colors.primaryGreen }}
-                      >
-                        {processingApproval ? 'Processing...' : 'Reject'}
-                      </button>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          )}
-        </div>
+
 
         {/* Events Section */}
-        <div className="mb-4">
-          <div className="flex items-center px-4 py-2 rounded-t-lg shadow-sm select-none" style={{ background: colors.sectionBg, color: colors.white }}>
+        <div className="mb-8">
+          <div className="flex items-center px-4 py-3 rounded-t-lg shadow-sm select-none" style={{ background: colors.sectionBg, color: colors.white }}>
             <button
-              className="font-semibold text-base flex-1 text-left focus:outline-none bg-transparent border-none"
+              className="font-semibold text-lg flex-1 text-left focus:outline-none bg-transparent border-none"
               onClick={() => setOpenEvents((prev) => !prev)}
               style={{ color: colors.white }}
             >
@@ -339,63 +282,73 @@ export default function AdminHomePage() {
               className="px-3 py-1 rounded-lg font-semibold transition focus:outline-none"
               style={{ color: colors.primaryGreen, background: 'none', boxShadow: 'none' }}
             >
-              + Add event
+              + Add Event
             </button>
           </div>
-          {openEvents ? (
-            <div className="rounded-b-lg p-4" style={{ background: 'rgba(0,0,0,0.18)' }}>
-              {loading ? (
-                <div className="text-center text-muted py-2">Loading...</div>
-              ) : events.length === 0 ? (
-                <div className="text-center text-muted py-2">No upcoming events</div>
-              ) : (
-                events.map(event => (
-                  <div key={event.id} className="relative mb-3 bg-white rounded-lg shadow p-4 flex items-center gap-3">
-                    <span className="text-2xl">📅</span>
-                    <div className="flex-1">
-                      <div className="font-bold text-lg text-[#076332]">{event.title}</div>
-                      {event.body && <div className="text-sm text-gray-700">{event.body}</div>}
+          <div className="rounded-b-lg p-5" style={{ background: 'rgba(0,0,0,0.18)' }}>
+            {loading ? (
+              <div className="text-center text-muted py-3">Loading...</div>
+            ) : events.length === 0 ? (
+              <div className="text-center text-muted py-3">No upcoming events</div>
+            ) : openEvents ? (
+              events.map(event => (
+                <div key={event.id} className="relative mb-5 bg-blue-50 rounded-xl shadow-md p-6">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1 pr-4">
+                      <div className="font-bold text-xl text-[#076332] mb-3 leading-tight line-clamp-2">{event.title}</div>
+                      {event.body && <div className="text-base font-medium text-gray-700 mb-4 leading-relaxed line-clamp-2">{event.body}</div>}
                       {event.endTime && (
-                        <div className="text-sm font-semibold" style={{ color: '#fff', background: '#076332', borderRadius: 6, padding: '2px 8px', display: 'inline-block', marginTop: 4 }}>
-                          When: {new Date(event.endTime.seconds ? event.endTime.seconds * 1000 : event.endTime).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit' })} {new Date(event.endTime.seconds ? event.endTime.seconds * 1000 : event.endTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                        <div className="text-sm font-semibold" style={{ color: '#fff', background: '#076332', borderRadius: 6, padding: '4px 10px', display: 'inline-block' }}>
+                          {new Date(event.endTime.seconds ? event.endTime.seconds * 1000 : event.endTime).toLocaleDateString('en-US', { 
+                            weekday: 'short', 
+                            month: 'short', 
+                            day: 'numeric',
+                            hour: '2-digit', 
+                            minute: '2-digit' 
+                          })}
                         </div>
                       )}
                     </div>
-                    <button onClick={() => handleEditClick('event', event)} className="ml-2 p-2 rounded-full hover:bg-gray-100">
+                    <button onClick={() => handleEditClick('event', event)} className="flex-shrink-0 p-2 rounded-full hover:bg-gray-100">
                       <PencilIcon />
                     </button>
                   </div>
-                ))
-              )}
-            </div>
-          ) : (
-            events.length > 0 && (
-              <div className="rounded-b-lg p-4" style={{ background: 'rgba(0,0,0,0.18)' }}>
-                <div className="relative mb-3 bg-white rounded-lg shadow p-4 flex items-center gap-3">
-                  <span className="text-2xl">📅</span>
-                  <div className="flex-1">
-                    <div className="font-bold text-lg text-[#076332]">{events[0].title}</div>
-                    {events[0].body && <div className="text-sm text-gray-700">{events[0].body}</div>}
-                    {events[0].endTime && (
-                      <div className="text-sm font-semibold" style={{ color: '#fff', background: '#076332', borderRadius: 6, padding: '2px 8px', display: 'inline-block', marginTop: 4 }}>
-                        When: {new Date(events[0].endTime.seconds ? events[0].endTime.seconds * 1000 : events[0].endTime).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit' })} {new Date(events[0].endTime.seconds ? events[0].endTime.seconds * 1000 : events[0].endTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
-                      </div>
-                    )}
-                  </div>
-                  <button onClick={() => handleEditClick('event', events[0])} className="ml-2 p-2 rounded-full hover:bg-gray-100">
-                    <PencilIcon />
-                  </button>
                 </div>
-              </div>
-            )
-          )}
+              ))
+            ) : (
+              events.length > 0 && (
+                <div className="relative mb-5 bg-blue-50 rounded-xl shadow-md p-6">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1 pr-4">
+                      <div className="font-bold text-xl text-[#076332] mb-3 leading-tight line-clamp-2">{events[0].title}</div>
+                      {events[0].body && <div className="text-base font-medium text-gray-700 mb-4 leading-relaxed line-clamp-2">{events[0].body}</div>}
+                      {events[0].endTime && (
+                        <div className="text-sm font-semibold" style={{ color: '#fff', background: '#076332', borderRadius: 6, padding: '4px 10px', display: 'inline-block' }}>
+                          {new Date(events[0].endTime.seconds ? events[0].endTime.seconds * 1000 : events[0].endTime).toLocaleDateString('en-US', { 
+                            weekday: 'short', 
+                            month: 'short', 
+                            day: 'numeric',
+                            hour: '2-digit', 
+                            minute: '2-digit' 
+                          })}
+                        </div>
+                      )}
+                    </div>
+                    <button onClick={() => handleEditClick('event', events[0])} className="flex-shrink-0 p-2 rounded-full hover:bg-gray-100">
+                      <PencilIcon />
+                    </button>
+                  </div>
+                </div>
+              )
+            )}
+          </div>
         </div>
 
         {/* Surveys Section */}
-        <div className="mb-4">
-          <div className="flex items-center px-4 py-2 rounded-t-lg shadow-sm select-none" style={{ background: colors.sectionBg, color: colors.white }}>
+        <div className="mb-8">
+          <div className="flex items-center px-4 py-3 rounded-t-lg shadow-sm select-none" style={{ background: colors.sectionBg, color: colors.white }}>
             <button
-              className="font-semibold text-base flex-1 text-left focus:outline-none bg-transparent border-none"
+              className="font-semibold text-lg flex-1 text-left focus:outline-none bg-transparent border-none"
               onClick={() => setOpenSurveys((prev) => !prev)}
               style={{ color: colors.white }}
             >
@@ -406,63 +359,73 @@ export default function AdminHomePage() {
               className="px-3 py-1 rounded-lg font-semibold transition focus:outline-none"
               style={{ color: colors.primaryGreen, background: 'none', boxShadow: 'none' }}
             >
-              + Add survey
+              + Add Survey
             </button>
           </div>
-          {openSurveys ? (
-            <div className="rounded-b-lg p-4" style={{ background: 'rgba(0,0,0,0.18)' }}>
-              {loading ? (
-                <div className="text-center text-muted py-2">Loading...</div>
-              ) : surveys.length === 0 ? (
-                <div className="text-center text-muted py-2">No surveys to fill</div>
-              ) : (
-                surveys.map(survey => (
-                  <div key={survey.id} className="relative mb-3 bg-white rounded-lg shadow p-4 flex items-center gap-3">
-                    <span className="text-2xl">📝</span>
-                    <div className="flex-1">
-                      <div className="font-bold text-lg text-[#076332]">{survey.title}</div>
-                      {survey.body && <div className="text-sm text-gray-700">{survey.body}</div>}
+          <div className="rounded-b-lg p-5" style={{ background: 'rgba(0,0,0,0.18)' }}>
+            {loading ? (
+              <div className="text-center text-muted py-3">Loading...</div>
+            ) : surveys.length === 0 ? (
+              <div className="text-center text-muted py-3">No surveys to fill</div>
+            ) : openSurveys ? (
+              surveys.map(survey => (
+                <div key={survey.id} className="relative mb-5 bg-blue-50 rounded-xl shadow-md p-6">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1 pr-4">
+                      <div className="font-bold text-xl text-[#076332] mb-3 leading-tight line-clamp-2">{survey.title}</div>
+                      {survey.body && <div className="text-base font-medium text-gray-700 mb-4 leading-relaxed line-clamp-2">{survey.body}</div>}
                       {survey.endTime && (
-                        <div className="text-sm font-semibold" style={{ color: '#fff', background: '#076332', borderRadius: 6, padding: '2px 8px', display: 'inline-block', marginTop: 4 }}>
-                          Due Date: {new Date(survey.endTime.seconds ? survey.endTime.seconds * 1000 : survey.endTime).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit' })} {new Date(survey.endTime.seconds ? survey.endTime.seconds * 1000 : survey.endTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                        <div className="text-sm font-semibold" style={{ color: '#fff', background: '#076332', borderRadius: 6, padding: '4px 10px', display: 'inline-block' }}>
+                          Due: {new Date(survey.endTime.seconds ? survey.endTime.seconds * 1000 : survey.endTime).toLocaleDateString('en-US', { 
+                            weekday: 'short', 
+                            month: 'short', 
+                            day: 'numeric',
+                            hour: '2-digit', 
+                            minute: '2-digit' 
+                          })}
                         </div>
                       )}
                     </div>
-                    <button onClick={() => handleEditClick('survey', survey)} className="ml-2 p-2 rounded-full hover:bg-gray-100">
+                    <button onClick={() => handleEditClick('survey', survey)} className="flex-shrink-0 p-2 rounded-full hover:bg-gray-100">
                       <PencilIcon />
                     </button>
                   </div>
-                ))
-              )}
-            </div>
-          ) : (
-            surveys.length > 0 && (
-              <div className="rounded-b-lg p-4" style={{ background: 'rgba(0,0,0,0.18)' }}>
-                <div className="relative mb-3 bg-white rounded-lg shadow p-4 flex items-center gap-3">
-                  <span className="text-2xl">📝</span>
-                  <div className="flex-1">
-                    <div className="font-bold text-lg text-[#076332]">{surveys[0].title}</div>
-                    {surveys[0].body && <div className="text-sm text-gray-700">{surveys[0].body}</div>}
-                    {surveys[0].endTime && (
-                      <div className="text-sm font-semibold" style={{ color: '#fff', background: '#076332', borderRadius: 6, padding: '2px 8px', display: 'inline-block', marginTop: 4 }}>
-                        Due Date: {new Date(surveys[0].endTime.seconds ? surveys[0].endTime.seconds * 1000 : surveys[0].endTime).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit' })} {new Date(surveys[0].endTime.seconds ? surveys[0].endTime.seconds * 1000 : surveys[0].endTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
-                      </div>
-                    )}
-                  </div>
-                  <button onClick={() => handleEditClick('survey', surveys[0])} className="ml-2 p-2 rounded-full hover:bg-gray-100">
-                    <PencilIcon />
-                  </button>
                 </div>
-              </div>
-            )
-          )}
+              ))
+            ) : (
+              surveys.length > 0 && (
+                <div className="relative mb-5 bg-blue-50 rounded-xl shadow-md p-6">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1 pr-4">
+                      <div className="font-bold text-xl text-[#076332] mb-3 leading-tight line-clamp-2">{surveys[0].title}</div>
+                      {surveys[0].body && <div className="text-base font-medium text-gray-700 mb-4 leading-relaxed line-clamp-2">{surveys[0].body}</div>}
+                      {surveys[0].endTime && (
+                        <div className="text-sm font-semibold" style={{ color: '#fff', background: '#076332', borderRadius: 6, padding: '4px 10px', display: 'inline-block' }}>
+                          Due: {new Date(surveys[0].endTime.seconds ? surveys[0].endTime.seconds * 1000 : surveys[0].endTime).toLocaleDateString('en-US', { 
+                            weekday: 'short', 
+                            month: 'short', 
+                            day: 'numeric',
+                            hour: '2-digit', 
+                            minute: '2-digit' 
+                          })}
+                        </div>
+                      )}
+                    </div>
+                    <button onClick={() => handleEditClick('survey', surveys[0])} className="flex-shrink-0 p-2 rounded-full hover:bg-gray-100">
+                      <PencilIcon />
+                    </button>
+                  </div>
+                </div>
+              )
+            )}
+          </div>
         </div>
 
         {/* Messages Section */}
-        <div className="mb-4">
-          <div className="flex items-center px-4 py-2 rounded-t-lg shadow-sm select-none" style={{ background: colors.sectionBg, color: colors.white }}>
+        <div className="mb-8">
+          <div className="flex items-center px-4 py-3 rounded-t-lg shadow-sm select-none" style={{ background: colors.sectionBg, color: colors.white }}>
             <button
-              className="font-semibold text-base flex-1 text-left focus:outline-none bg-transparent border-none"
+              className="font-semibold text-lg flex-1 text-left focus:outline-none bg-transparent border-none"
               onClick={() => setOpenMessages((prev) => !prev)}
               style={{ color: colors.white }}
             >
@@ -473,66 +436,88 @@ export default function AdminHomePage() {
               className="px-3 py-1 rounded-lg font-semibold transition focus:outline-none"
               style={{ color: colors.primaryGreen, background: 'none', boxShadow: 'none' }}
             >
-              + Add message
+              + Add Message
             </button>
           </div>
-          {openMessages ? (
-            <div className="rounded-b-lg p-4" style={{ background: 'rgba(0,0,0,0.18)' }}>
-              {loading ? (
-                <div className="text-center text-muted py-2">Loading...</div>
-              ) : messages.length === 0 ? (
-                <div className="text-center text-muted py-2">No important messages</div>
-              ) : (
-                messages.map(message => (
-                  <div key={message.id} className="relative mb-3 bg-white rounded-lg shadow p-4 flex items-center gap-3">
-                    <span className="text-2xl">📢</span>
-                    <div className="flex-1">
-                      <div className="font-bold text-lg text-[#076332]">{message.title}</div>
-                      {message.body && <div className="text-sm text-gray-700">{message.body}</div>}
+          <div className="rounded-b-lg p-5" style={{ background: 'rgba(0,0,0,0.18)' }}>
+            {loading ? (
+              <div className="text-center text-muted py-3">Loading...</div>
+            ) : messages.length === 0 ? (
+              <div className="text-center text-muted py-3">No important messages</div>
+            ) : openMessages ? (
+              messages.map(message => (
+                <div key={message.id} className="relative mb-5 bg-blue-50 rounded-xl shadow-md p-6">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1 pr-4">
+                      <div className="font-bold text-xl text-[#076332] mb-3 leading-tight line-clamp-2">{message.title}</div>
+                      {message.body && <div className="text-base font-medium text-gray-700 mb-4 leading-relaxed line-clamp-2">{message.body}</div>}
                       {message.startTime && (
-                        <div className="text-sm font-semibold" style={{ color: '#fff', background: '#076332', borderRadius: 6, padding: '2px 8px', display: 'inline-block', marginTop: 4 }}>
-                          Start: {new Date(message.startTime.seconds ? message.startTime.seconds * 1000 : message.startTime).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit' })} {new Date(message.startTime.seconds ? message.startTime.seconds * 1000 : message.startTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                        <div className="text-sm font-semibold mb-2" style={{ color: '#fff', background: '#076332', borderRadius: 6, padding: '4px 10px', display: 'inline-block' }}>
+                          Start: {new Date(message.startTime.seconds ? message.startTime.seconds * 1000 : message.startTime).toLocaleDateString('en-US', { 
+                            weekday: 'short', 
+                            month: 'short', 
+                            day: 'numeric',
+                            hour: '2-digit', 
+                            minute: '2-digit' 
+                          })}
                         </div>
                       )}
                       {message.endTime && (
-                        <div className="text-sm font-semibold" style={{ color: '#fff', background: '#076332', borderRadius: 6, padding: '2px 8px', display: 'inline-block', marginTop: 4, marginLeft: 4 }}>
-                          End: {new Date(message.endTime.seconds ? message.endTime.seconds * 1000 : message.endTime).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit' })} {new Date(message.endTime.seconds ? message.endTime.seconds * 1000 : message.endTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                        <div className="text-sm font-semibold" style={{ color: '#fff', background: '#076332', borderRadius: 6, padding: '4px 10px', display: 'inline-block' }}>
+                          End: {new Date(message.endTime.seconds ? message.endTime.seconds * 1000 : message.endTime).toLocaleDateString('en-US', { 
+                            weekday: 'short', 
+                            month: 'short', 
+                            day: 'numeric',
+                            hour: '2-digit', 
+                            minute: '2-digit' 
+                          })}
                         </div>
                       )}
                     </div>
-                    <button onClick={() => handleEditClick('message', message)} className="ml-2 p-2 rounded-full hover:bg-gray-100">
+                    <button onClick={() => handleEditClick('message', message)} className="flex-shrink-0 p-2 rounded-full hover:bg-gray-100">
                       <PencilIcon />
                     </button>
                   </div>
-                ))
-              )}
-            </div>
-          ) : (
-            messages.length > 0 && (
-              <div className="rounded-b-lg p-4" style={{ background: 'rgba(0,0,0,0.18)' }}>
-                <div className="relative mb-3 bg-white rounded-lg shadow p-4 flex items-center gap-3">
-                  <span className="text-2xl">📢</span>
-                  <div className="flex-1">
-                    <div className="font-bold text-lg text-[#076332]">{messages[0].title}</div>
-                    {messages[0].body && <div className="text-sm text-gray-700">{messages[0].body}</div>}
-                    {messages[0].startTime && (
-                      <div className="text-sm font-semibold" style={{ color: '#fff', background: '#076332', borderRadius: 6, padding: '2px 8px', display: 'inline-block', marginTop: 4 }}>
-                        Start: {new Date(messages[0].startTime.seconds ? messages[0].startTime.seconds * 1000 : messages[0].startTime).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit' })} {new Date(messages[0].startTime.seconds ? messages[0].startTime.seconds * 1000 : messages[0].startTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
-                      </div>
-                    )}
-                    {messages[0].endTime && (
-                      <div className="text-sm font-semibold" style={{ color: '#fff', background: '#076332', borderRadius: 6, padding: '2px 8px', display: 'inline-block', marginTop: 4, marginLeft: 4 }}>
-                        End: {new Date(messages[0].endTime.seconds ? messages[0].endTime.seconds * 1000 : messages[0].endTime).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit' })} {new Date(messages[0].endTime.seconds ? messages[0].endTime.seconds * 1000 : messages[0].endTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
-                      </div>
-                    )}
-                  </div>
-                  <button onClick={() => handleEditClick('message', messages[0])} className="ml-2 p-2 rounded-full hover:bg-gray-100">
-                    <PencilIcon />
-                  </button>
                 </div>
-              </div>
-            )
-          )}
+              ))
+            ) : (
+              messages.length > 0 && (
+                <div className="relative mb-5 bg-blue-50 rounded-xl shadow-md p-6">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1 pr-4">
+                      <div className="font-bold text-xl text-[#076332] mb-3 leading-tight line-clamp-2">{messages[0].title}</div>
+                      {messages[0].body && <div className="text-base font-medium text-gray-700 mb-4 leading-relaxed line-clamp-2">{messages[0].body}</div>}
+                      {messages[0].startTime && (
+                        <div className="text-sm font-semibold mb-2" style={{ color: '#fff', background: '#076332', borderRadius: 6, padding: '4px 10px', display: 'inline-block' }}>
+                          Start: {new Date(messages[0].startTime.seconds ? messages[0].startTime.seconds * 1000 : messages[0].startTime).toLocaleDateString('en-US', { 
+                            weekday: 'short', 
+                            month: 'short', 
+                            day: 'numeric',
+                            hour: '2-digit', 
+                            minute: '2-digit' 
+                          })}
+                        </div>
+                      )}
+                      {messages[0].endTime && (
+                        <div className="text-sm font-semibold" style={{ color: '#fff', background: '#076332', borderRadius: 6, padding: '4px 10px', display: 'inline-block' }}>
+                          End: {new Date(messages[0].endTime.seconds ? messages[0].endTime.seconds * 1000 : messages[0].endTime).toLocaleDateString('en-US', { 
+                            weekday: 'short', 
+                            month: 'short', 
+                            day: 'numeric',
+                            hour: '2-digit', 
+                            minute: '2-digit' 
+                          })}
+                        </div>
+                      )}
+                    </div>
+                    <button onClick={() => handleEditClick('message', messages[0])} className="flex-shrink-0 p-2 rounded-full hover:bg-gray-100">
+                      <PencilIcon />
+                    </button>
+                  </div>
+                </div>
+              )
+            )}
+          </div>
         </div>
 
         {/* Yes Modal */}
@@ -563,23 +548,98 @@ export default function AdminHomePage() {
 
       {/* Edit Modal */}
       {editModal.open && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 shadow-lg w-full max-w-xs mx-4">
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-6 shadow-lg w-full max-w-xs">
             <h2 className="text-xl font-bold mb-4">Edit {editModal.type.charAt(0).toUpperCase() + editModal.type.slice(1)}</h2>
-            {Object.entries(editModal.form).map(([key, value]) => (
-              key === 'id' ? null : (
-                <div className="mb-4" key={key}>
-                  <label className="block text-gray-700 font-semibold mb-2">{key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}</label>
+            
+            {/* Title field for all types */}
+            <div className="mb-4">
+              <label className="block text-gray-700 font-semibold mb-2">Title</label>
+              <input
+                type="text"
+                name="title"
+                value={editModal.form.title || ''}
+                onChange={handleEditChange}
+                className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-primaryGreen"
+              />
+            </div>
+
+            {/* Body field for all types */}
+            <div className="mb-4">
+              <label className="block text-gray-700 font-semibold mb-2">Body</label>
+              <textarea
+                name="body"
+                value={editModal.form.body || ''}
+                onChange={handleEditChange}
+                rows="3"
+                className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-primaryGreen resize-none"
+              />
+            </div>
+
+            {/* Date fields based on type */}
+            {editModal.type === 'event' && (
+              <>
+                <div className="mb-4">
+                  <label className="block text-gray-700 font-semibold mb-2">Start Date</label>
                   <input
-                    type={key.toLowerCase().includes('date') ? 'datetime-local' : 'text'}
-                    name={key}
-                    value={typeof value === 'string' ? value : (value?.seconds ? new Date(value.seconds * 1000).toISOString().slice(0, 16) : '')}
+                    type="datetime-local"
+                    name="startTime"
+                    value={editModal.form.startTime?.seconds ? new Date(editModal.form.startTime.seconds * 1000).toISOString().slice(0, 16) : (editModal.form.startTime ? new Date(editModal.form.startTime).toISOString().slice(0, 16) : '')}
                     onChange={handleEditChange}
                     className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-primaryGreen"
                   />
                 </div>
-              )
-            ))}
+                <div className="mb-4">
+                  <label className="block text-gray-700 font-semibold mb-2">End Date</label>
+                  <input
+                    type="datetime-local"
+                    name="endTime"
+                    value={editModal.form.endTime?.seconds ? new Date(editModal.form.endTime.seconds * 1000).toISOString().slice(0, 16) : (editModal.form.endTime ? new Date(editModal.form.endTime).toISOString().slice(0, 16) : '')}
+                    onChange={handleEditChange}
+                    className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-primaryGreen"
+                  />
+                </div>
+              </>
+            )}
+
+            {editModal.type === 'survey' && (
+              <div className="mb-4">
+                <label className="block text-gray-700 font-semibold mb-2">Due Date</label>
+                <input
+                  type="datetime-local"
+                  name="endTime"
+                  value={editModal.form.endTime?.seconds ? new Date(editModal.form.endTime.seconds * 1000).toISOString().slice(0, 16) : (editModal.form.endTime ? new Date(editModal.form.endTime).toISOString().slice(0, 16) : '')}
+                  onChange={handleEditChange}
+                  className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-primaryGreen"
+                />
+              </div>
+            )}
+
+            {editModal.type === 'message' && (
+              <>
+                <div className="mb-4">
+                  <label className="block text-gray-700 font-semibold mb-2">Start Date</label>
+                  <input
+                    type="datetime-local"
+                    name="startTime"
+                    value={editModal.form.startTime?.seconds ? new Date(editModal.form.startTime.seconds * 1000).toISOString().slice(0, 16) : (editModal.form.startTime ? new Date(editModal.form.startTime).toISOString().slice(0, 16) : '')}
+                    onChange={handleEditChange}
+                    className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-primaryGreen"
+                  />
+                </div>
+                <div className="mb-4">
+                  <label className="block text-gray-700 font-semibold mb-2">End Date</label>
+                  <input
+                    type="datetime-local"
+                    name="endTime"
+                    value={editModal.form.endTime?.seconds ? new Date(editModal.form.endTime.seconds * 1000).toISOString().slice(0, 16) : (editModal.form.endTime ? new Date(editModal.form.endTime).toISOString().slice(0, 16) : '')}
+                    onChange={handleEditChange}
+                    className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-primaryGreen"
+                  />
+                </div>
+              </>
+            )}
+
             <div className="flex gap-4">
               <button
                 onClick={handleEditSave}
@@ -599,6 +659,67 @@ export default function AdminHomePage() {
           </div>
         </div>
       )}
+
+      {/* Approval Requests Section */}
+      <div className="mb-16">
+        <div className="flex items-center px-4 py-2 rounded-t-lg shadow-sm select-none" style={{ background: colors.sectionBg, color: colors.white }}>
+          <button
+            className="font-semibold text-base flex-1 text-left focus:outline-none bg-transparent border-none"
+            onClick={() => setOpenApprovalRequests((prev) => !prev)}
+            style={{ color: colors.white }}
+          >
+            Approval Requests
+          </button>
+          <div className="text-sm text-white/80">
+            {approvalRequests.length} pending
+          </div>
+        </div>
+        {openApprovalRequests && (
+          <div className="rounded-b-lg p-4" style={{ background: 'rgba(0,0,0,0.18)' }}>
+            {loading ? (
+              <div className="text-center text-muted py-2">Loading...</div>
+            ) : approvalRequests.length === 0 ? (
+              <div className="text-center text-muted py-2">No pending approval requests</div>
+            ) : (
+              approvalRequests.map(request => (
+                <div key={request.id} className="relative mb-5 bg-blue-50 rounded-xl shadow-md p-6">
+                  <div className="flex items-start gap-3 mb-3">
+                    <span className="text-2xl">👤</span>
+                    <div className="flex-1">
+                      <div className="font-bold text-lg text-[#076332]">{request.userName}</div>
+                      <div className="text-sm text-gray-600">{request.userEmail}</div>
+                      {request.jobTitle && (
+                        <div className="text-sm text-gray-600">Job: {request.jobTitle}</div>
+                      )}
+                      <div className="text-xs text-gray-500 mt-1">
+                        Requested: {request.createdAt?.toDate?.()?.toLocaleDateString() || 'Unknown date'}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleApprove(request.id, request.userId)}
+                      disabled={processingApproval}
+                      className="flex-1 px-3 py-2 rounded-lg text-white font-semibold disabled:opacity-50"
+                      style={{ background: colors.primaryGreen }}
+                    >
+                      {processingApproval ? 'Processing...' : 'Approve'}
+                    </button>
+                    <button
+                      onClick={() => handleReject(request.id, request.userId)}
+                      disabled={processingApproval}
+                      className="flex-1 px-3 py-2 rounded-lg border-2 font-semibold disabled:opacity-50"
+                      style={{ borderColor: colors.primaryGreen, color: colors.primaryGreen }}
+                    >
+                      {processingApproval ? 'Processing...' : 'Reject'}
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+      </div>
 
       <AdminBottomNavBar active="home" />
     </main>

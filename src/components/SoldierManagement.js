@@ -18,6 +18,7 @@ export default function SoldierManagement() {
   const [isSearching, setIsSearching] = useState(false);
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
   const [soldierToDelete, setSoldierToDelete] = useState(null);
+  const [showOnlyHome, setShowOnlyHome] = useState(false);
 
 
   useEffect(() => {
@@ -27,8 +28,34 @@ export default function SoldierManagement() {
   const loadSoldiers = async () => {
     try {
       setLoading(true);
+      console.log('Loading soldiers...');
+      
+      // Get active users (soldiers)
       const activeSoldiers = await getActiveUsers();
-      setSoldiers(activeSoldiers);
+      console.log('Active soldiers loaded:', activeSoldiers);
+      console.log('Number of active soldiers:', activeSoldiers.length);
+      
+      if (activeSoldiers.length === 0) {
+        console.log('No soldiers found with userType === "user"');
+        console.log('Let\'s check what users exist in the database...');
+        
+        // Import the necessary Firebase functions
+        const { collection, getDocs, query, orderBy } = await import('firebase/firestore');
+        const { db } = await import('@/lib/firebase');
+        
+        // Get all users to see what's in the database
+        const allUsersQuery = query(collection(db, 'users'), orderBy('fullName'));
+        const allUsersSnap = await getDocs(allUsersQuery);
+        const allUsers = allUsersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        
+        console.log('All users in database:', allUsers);
+        console.log('User types found:', [...new Set(allUsers.map(u => u.userType))]);
+        
+        // Show all users for debugging purposes
+        setSoldiers(allUsers);
+      } else {
+        setSoldiers(activeSoldiers);
+      }
     } catch (error) {
       console.error('Error loading soldiers:', error);
     } finally {
@@ -88,14 +115,32 @@ export default function SoldierManagement() {
     setSoldierToDelete(null);
   };
 
+  // Helper function to get filtered soldiers
+  const getFilteredSoldiers = () => {
+    if (showOnlyHome) {
+      return soldiers.filter(soldier => soldier.status === 'home');
+    }
+    return soldiers;
+  };
+
+  // Helper function to get home soldiers count
+  const getHomeSoldiersCount = () => {
+    return soldiers.filter(soldier => soldier.status === 'home').length;
+  };
+
 
 
   const handleSearchResults = (results) => {
     setSearchResults(results);
     setIsSearching(results.length > 0);
+    
+    // Reset home filter when searching
+    if (results.length > 0) {
+      setShowOnlyHome(false);
+    }
   };
 
-  const renderSoldierCard = (soldier, showMarkAsLeft = true) => {
+  const renderSoldierCard = (soldier, showMarkAsLeft = false) => {
     const isProcessing = processingId === soldier.id;
     
     return (
@@ -124,14 +169,14 @@ export default function SoldierManagement() {
                     : 'bg-red-100 text-red-700'
                 }`}>
                   <span className="w-2 h-2 rounded-full bg-current"></span>
-                  {soldier.status === 'home' ? 'Present' : 'Not Present'}
+                  {soldier.status === 'home' ? '🏠 Home' : '🚪 Away'}
                 </div>
               </div>
             </div>
           </div>
           
-                      <div className="flex flex-col gap-2 ml-4">
-              <button
+          <div className="flex flex-col gap-2 ml-4">
+            <button
               onClick={() => handleEditSoldier(soldier)}
               className="px-4 py-2 rounded-xl font-semibold transition-all duration-200 hover:scale-105"
               style={{ 
@@ -144,22 +189,6 @@ export default function SoldierManagement() {
             >
               Edit
             </button>
-            
-            {showMarkAsLeft && (
-              <button
-                onClick={() => showDeleteConfirmationDialog(soldier)}
-                disabled={isProcessing}
-                className="px-4 py-2 rounded-xl font-semibold transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
-                style={{ 
-                  background: 'transparent', 
-                  color: colors.red,
-                  border: `2px solid ${colors.red}`,
-                  boxShadow: '0 4px 12px rgba(255, 82, 82, 0.1)'
-                }}
-              >
-                {isProcessing ? 'Processing...' : 'Mark as Left'}
-              </button>
-            )}
           </div>
         </div>
       </div>
@@ -172,8 +201,44 @@ export default function SoldierManagement() {
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold text-gray-800">Soldier Management</h2>
         <div className="text-sm text-gray-600">
-          Total Soldiers: {soldiers.length}
+          {showOnlyHome ? (
+            <span>
+              <span className="font-semibold text-green-600">
+                {getHomeSoldiersCount()} Home
+              </span>
+              <span className="text-gray-400"> / {soldiers.length} Total</span>
+            </span>
+          ) : (
+            `Total Soldiers: ${soldiers.length}`
+          )}
         </div>
+      </div>
+
+      {/* All Buttons Above Search */}
+      <div className="flex flex-wrap gap-3 items-center">
+        {/* Home Filter Toggle */}
+        <button
+          onClick={() => setShowOnlyHome(!showOnlyHome)}
+          className={`px-4 py-2 rounded-xl font-semibold transition-all duration-200 hover:scale-105 flex items-center gap-2 ${
+            showOnlyHome 
+              ? 'text-white shadow-lg animate-pulse' 
+              : 'border-2'
+          }`}
+          style={{ 
+            background: showOnlyHome ? colors.primaryGreen : 'transparent',
+            borderColor: showOnlyHome ? 'transparent' : colors.primaryGreen,
+            color: showOnlyHome ? 'white' : colors.primaryGreen
+          }}
+        >
+          <span>🏠</span>
+          {showOnlyHome ? 'Show All Soldiers' : 'Show Only Home'}
+        </button>
+        
+        {showOnlyHome && (
+          <div className="text-sm text-gray-600 bg-green-50 px-3 py-1 rounded-full border border-green-200">
+            {getHomeSoldiersCount()} soldiers home
+          </div>
+        )}
       </div>
 
       {/* Search */}
@@ -184,14 +249,44 @@ export default function SoldierManagement() {
         />
       </div>
 
-      {/* Soldiers List or Search Results */}
+      {/* Soldiers List - Show After Search */}
       {loading ? (
         <div className="text-center py-8">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
           <div className="text-gray-600">Loading soldiers...</div>
         </div>
-      ) : isSearching ? (
-        // Show search results
+      ) : soldiers.length === 0 ? (
+        <div className="text-center py-8 rounded-2xl shadow-sm" style={{ background: colors.sectionBg, color: colors.white }}>
+          No active soldiers found
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {/* Filter Info */}
+          {showOnlyHome && (
+            <div className="text-center py-3 rounded-xl shadow-sm" style={{ background: colors.gold, color: colors.black }}>
+              <div className="font-semibold text-lg">🏠 Showing Only Soldiers Currently Home</div>
+              <div className="text-sm opacity-80">
+                {getHomeSoldiersCount()} of {soldiers.length} soldiers are home
+              </div>
+            </div>
+          )}
+          
+          {/* Soldiers List */}
+          {getFilteredSoldiers().map(soldier => renderSoldierCard(soldier))}
+          
+          {/* No Home Soldiers Message */}
+          {showOnlyHome && getHomeSoldiersCount() === 0 && (
+            <div className="text-center py-8 rounded-2xl shadow-sm" style={{ background: colors.sectionBg, color: colors.white }}>
+              <div className="text-2xl mb-2">🏠</div>
+              <div className="font-semibold text-lg">No soldiers are currently home</div>
+              <div className="text-sm opacity-80">All soldiers are marked as away or not present</div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Search Results */}
+      {isSearching && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold text-gray-800">Search Results</h3>
@@ -199,6 +294,7 @@ export default function SoldierManagement() {
               onClick={() => {
                 setSearchResults([]);
                 setIsSearching(false);
+                setShowOnlyHome(false); // Reset home filter when clearing search
               }}
               className="px-4 py-2 rounded-xl font-semibold transition-all duration-200 hover:scale-105"
               style={{ 
@@ -216,17 +312,9 @@ export default function SoldierManagement() {
             </div>
           ) : (
             <div className="space-y-4">
-              {searchResults.map(soldier => renderSoldierCard(soldier, false))}
+              {searchResults.map(soldier => renderSoldierCard(soldier))}
             </div>
           )}
-        </div>
-      ) : soldiers.length === 0 ? (
-        <div className="text-center py-8 rounded-2xl shadow-sm" style={{ background: colors.sectionBg, color: colors.white }}>
-          No active soldiers found
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {soldiers.map(soldier => renderSoldierCard(soldier, true))}
         </div>
       )}
 
@@ -260,7 +348,7 @@ export default function SoldierManagement() {
                     <div><span className="font-medium">Email:</span> {selectedSoldier.email}</div>
                     <div><span className="font-medium">Phone:</span> {selectedSoldier.phoneNumber}</div>
                     <div><span className="font-medium">Room:</span> {selectedSoldier.roomNumber}</div>
-                    <div><span className="font-medium">Status:</span> {selectedSoldier.status === 'home' ? 'Present' : 'Not Present'}</div>
+                    <div><span className="font-medium">Status:</span> {selectedSoldier.status === 'home' ? '🏠 Home' : '🚪 Away'}</div>
                   </div>
                 </div>
 

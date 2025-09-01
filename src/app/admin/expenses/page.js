@@ -24,33 +24,67 @@ import colors from "@/app/colors";
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
+// Hebrew text converter function
+const convertHebrewToReadable = (text) => {
+  if (!text || typeof text !== 'string') return text;
+  
+  // Hebrew to English transliteration mapping
+  const hebrewMap = {
+    'א': 'A', 'ב': 'B', 'ג': 'G', 'ד': 'D', 'ה': 'H', 'ו': 'V', 'ז': 'Z',
+    'ח': 'Ch', 'ט': 'T', 'י': 'Y', 'כ': 'K', 'ל': 'L', 'מ': 'M', 'נ': 'N',
+    'ס': 'S', 'ע': 'A', 'פ': 'P', 'צ': 'Tz', 'ק': 'K', 'ר': 'R', 'ש': 'Sh',
+    'ת': 'T', 'ם': 'M', 'ן': 'N', 'ץ': 'Tz', 'ף': 'F', 'ץ': 'Tz'
+  };
+  
+  // Check if text contains Hebrew characters
+  const hebrewRegex = /[\u0590-\u05FF]/;
+  if (!hebrewRegex.test(text)) return text;
+  
+  // Convert Hebrew to transliterated text
+  let result = text;
+  Object.entries(hebrewMap).forEach(([hebrew, english]) => {
+    result = result.replace(new RegExp(hebrew, 'g'), english);
+  });
+  
+  // Add indicator that this was Hebrew text
+  return `[HE: ${result}]`;
+};
+
 // PDF generation function for refund requests
 const generatePDF = (refundRequests, dateRange, customFrom, customTo) => {
   // Create a new PDF document
   const doc = new jsPDF();
   
+  // Try to use a font that supports Hebrew characters
+  try {
+    doc.setFont('times', 'normal');
+  } catch (e) {
+    // Fallback to default if times font not available
+    doc.setFont('helvetica', 'normal');
+  }
+  
   // Add title
-  doc.setFontSize(24);
-  doc.setFont('helvetica', 'bold');
-  doc.text('RefundReport', 105, 25, { align: 'center' });
-  
-  // Add generation date and date range
-  doc.setFontSize(12);
-  doc.setFont('helvetica', 'normal');
-  doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 105, 35, { align: 'center' });
-  doc.text(`Date Range: ${getDateRangeText(dateRange, customFrom, customTo)}`, 105, 45, { align: 'center' });
-  
-  // Add summary information
-  doc.setFontSize(16);
-  doc.setFont('helvetica', 'bold');
-  doc.text('Summary', 20, 60);
-  
-  doc.setFontSize(12);
-  doc.setFont('helvetica', 'normal');
-  doc.text(`Approved: ${refundRequests.filter(r => r.status === 'approved').length}`, 20, 70);
-  doc.text(`Denied: ${refundRequests.filter(r => r.status === 'denied').length}`, 20, 80);
-  doc.text(`Pending: ${refundRequests.filter(r => r.status === 'waiting').length}`, 20, 90);
-  doc.text(`Total Amount: ILS ${refundRequests.reduce((sum, r) => sum + (parseFloat(r.amount) || 0), 0).toFixed(2)}`, 20, 100);
+    doc.setFontSize(24);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Refund Report', 105, 25, { align: 'center' });
+    
+    // Add generation date and date range
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Generated on: ${new Date().toLocaleDateString('he-IL')}`, 105, 35, { align: 'center' });
+    doc.text(`Date Range: ${getDateRangeText(dateRange, customFrom, customTo)}`, 105, 45, { align: 'center' });
+    
+    // Add summary information
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Summary', 20, 60);
+    
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Approved: ${refundRequests.filter(r => r.status === 'approved').length}`, 20, 70);
+    doc.text(`Denied: ${refundRequests.filter(r => r.status === 'denied').length}`, 20, 80);
+    doc.text(`Pending: ${refundRequests.filter(r => r.status === 'waiting').length}`, 20, 90);
+    doc.text(`Total Amount: ILS ${refundRequests.reduce((sum, r) => sum + (parseFloat(r.amount) || 0), 0).toFixed(2)}`, 20, 100);
   
   // Prepare table data with status color coding
   const tableData = refundRequests.map(request => {
@@ -72,7 +106,7 @@ const generatePDF = (refundRequests, dateRange, customFrom, customTo) => {
     // Extract only numeric part from room number (remove Hebrew letters)
     const roomNumber = request.ownerRoomNumber ? request.ownerRoomNumber.replace(/[^0-9]/g, '') : 'N/A';
     
-    return [
+              return [
       request.title || 'N/A',
       `ILS ${request.amount || '0'}`,
       request.repaymentMethod || request.reimbursementMethod || 'N/A',
@@ -93,23 +127,29 @@ const generatePDF = (refundRequests, dateRange, customFrom, customTo) => {
     headStyles: {
       fillColor: [37, 99, 235],
       textColor: 255,
-      fontSize: 9,
-      fontStyle: 'bold'
+      fontSize: 10,
+      fontStyle: 'bold',
+      halign: 'center'
     },
     bodyStyles: {
-      fontSize: 8
+      fontSize: 9,
+      halign: 'left'
     },
     columnStyles: {
-      0: { cellWidth: 28 }, // Title
-      1: { cellWidth: 18 }, // Amount
-      2: { cellWidth: 18 }, // Method
-      3: { cellWidth: 22 }, // Name
-      4: { cellWidth: 12 }, // Room
-      5: { cellWidth: 22 }, // Date
-      6: { cellWidth: 18 }, // Status
-      7: { cellWidth: 25 }  // Receipt Photo
+      0: { cellWidth: 32 }, // Title
+      1: { cellWidth: 20 }, // Amount
+      2: { cellWidth: 20 }, // Method
+      3: { cellWidth: 24 }, // Name
+      4: { cellWidth: 14 }, // Room
+      5: { cellWidth: 24 }, // Date
+      6: { cellWidth: 20 }, // Status
+      7: { cellWidth: 28 }  // Receipt Photo
     },
     margin: { top: 115, right: 15, bottom: 20, left: 15 },
+    styles: {
+      lineWidth: 0.5,
+      lineColor: [200, 200, 200]
+    },
     didDrawCell: function(data) {
       // Only process the Receipt Photo column (index 7) and if it's a body cell
       if (data.column.index === 7 && data.section === 'body') {
@@ -134,7 +174,7 @@ const generatePDF = (refundRequests, dateRange, customFrom, customTo) => {
           // Add the clickable link perfectly centered in the cell
           doc.setTextColor(0, 0, 255); // Blue
           doc.setFontSize(8);
-          doc.textWithLink('Receipt', cellCenterX - 10, cellCenterY + 2, { url: photoUrl }); // Better centering
+          doc.textWithLink('Receipt', cellCenterX - 10, cellCenterY + 2, { url: photoUrl });
           
           // Reset text properties
           doc.setTextColor(0, 0, 0);
@@ -143,6 +183,139 @@ const generatePDF = (refundRequests, dateRange, customFrom, customTo) => {
       }
     }
   });
+  
+      // Add receipt photos section at the end
+    const requestsWithPhotos = refundRequests.filter(request => 
+      request.photoUrl || request.receiptPhotoUrl || request.photoPath
+    );
+    
+    console.log('Requests with photos:', requestsWithPhotos.length);
+    console.log('Photo URLs found:', requestsWithPhotos.map(r => ({
+      title: r.title,
+      photoUrl: r.photoUrl,
+      receiptPhotoUrl: r.receiptPhotoUrl,
+      photoPath: r.photoPath
+    })));
+    
+    if (requestsWithPhotos.length > 0) {
+      // Add a new page for photos
+      doc.addPage();
+      
+      doc.setFontSize(16);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Receipt Photos Gallery', 105, 25, { align: 'center' });
+      
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`Total Receipts: ${requestsWithPhotos.length}`, 105, 35, { align: 'center' });
+    
+    let photoY = 50;
+    let photoX = 20;
+    const photoWidth = 60;
+    const photoHeight = 45;
+    const maxPhotosPerRow = 3;
+    let photosInCurrentRow = 0;
+    let photoNumber = 1;
+    
+    for (const request of requestsWithPhotos) {
+      try {
+        const photoUrl = request.photoUrl || request.receiptPhotoUrl || request.photoPath;
+        
+        // Add photo number label above photo
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'bold');
+        doc.text(`#${photoNumber}`, photoX, photoY - 5);
+        
+        // Try to load and add the image
+        console.log(`Attempting to load photo for: ${request.title}`, photoUrl);
+        
+        // For now, create a nice placeholder with photo info
+        // Draw a placeholder rectangle
+        doc.setFillColor(245, 245, 245);
+        doc.rect(photoX, photoY, photoWidth, photoHeight, 'F');
+        doc.setDrawColor(200, 200, 200);
+        doc.rect(photoX, photoY, photoWidth, photoHeight, 'S');
+        
+        // Add photo icon symbol
+        doc.setFontSize(16);
+        doc.setTextColor(150, 150, 150);
+        doc.text('📷', photoX + photoWidth/2 - 8, photoY + photoHeight/2 - 5);
+        
+        // Add photo number label above photo
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(0, 0, 0);
+        doc.text(`#${photoNumber}`, photoX, photoY - 5);
+        
+        console.log('Added photo placeholder #' + photoNumber);
+        
+        // Add request details below photo
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'normal');
+        
+        // Title (truncated if too long)
+        const title = request.title || 'Untitled';
+        const truncatedTitle = title.length > 20 ? title.substring(0, 20) + '...' : title;
+        doc.text(truncatedTitle, photoX, photoY + photoHeight + 5);
+        
+        // Amount
+        doc.text(`ILS ${(request.amount || 0).toFixed(2)}`, photoX, photoY + photoHeight + 8);
+        
+        // Status
+        const status = request.status === 'approved' ? 'Approved' : 
+                      request.status === 'denied' ? 'Denied' : 'Pending';
+        doc.text(status, photoX, photoY + photoHeight + 11);
+        
+        // Owner name
+        doc.text(request.ownerName || 'N/A', photoX, photoY + photoHeight + 14);
+        
+        // Move to next position
+        photosInCurrentRow++;
+        photoNumber++;
+        
+        if (photosInCurrentRow >= maxPhotosPerRow) {
+          photosInCurrentRow = 0;
+          photoY += photoHeight + 50; // Height + details + spacing
+          photoX = 20;
+        } else {
+          photoX += photoWidth + 15; // Width + spacing
+        }
+        
+        // Check if we need a new page
+        if (photoY > 250) {
+          doc.addPage();
+          photoY = 20;
+          photoX = 20;
+          photosInCurrentRow = 0;
+        }
+        
+      } catch (error) {
+        console.warn(`Failed to load photo for request: ${request.title}`, error);
+        // Continue with next photo
+      }
+    }
+    
+          // Add reference table at the bottom
+      const referenceY = photoY + 20;
+      if (referenceY < 280) {
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Photo Reference Table:', 20, referenceY);
+        
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'normal');
+        
+        let refY = referenceY + 10;
+        requestsWithPhotos.forEach((request, index) => {
+          if (refY < 280) {
+            const title = request.title || 'Untitled';
+            const truncatedTitle = title.length > 30 ? title.substring(0, 30) + '...' : title;
+            doc.text(`#${index + 1}: ${truncatedTitle} - ₪${(request.amount || 0).toFixed(2)} - ${request.ownerName || 'N/A'}`, 20, refY);
+            refY += 6;
+          }
+        });
+      }
+  }
   
   // Save the PDF
   const fileName = `RefundReport-${getDateRangeText(dateRange, customFrom, customTo)}.pdf`;
@@ -275,6 +448,7 @@ export default function AdminExpensesPage() {
   const [reportFilters, setReportFilters] = useState({
     dateRange: "all",
     category: "",
+    paymentMethod: "",
     customFrom: "",
     customTo: ""
   });
@@ -384,6 +558,13 @@ export default function AdminExpensesPage() {
     setReportOpen(false);
     setShowSearchResults(false);
     setReportItems([]);
+    setReportFilters({
+      dateRange: 'all',
+      category: '',
+      paymentMethod: '',
+      customFrom: '',
+      customTo: ''
+    });
   };
 
   const handleEditExpense = (expense) => {
@@ -748,6 +929,13 @@ export default function AdminExpensesPage() {
         console.log('After category filter:', expenses.length, 'expenses');
       }
       
+      // Apply payment method filtering in JavaScript
+      if (reportFilters.paymentMethod) {
+        console.log('Filtering by payment method:', reportFilters.paymentMethod);
+        expenses = expenses.filter(expense => expense.reimbursementMethod === reportFilters.paymentMethod);
+        console.log('After payment method filter:', expenses.length, 'expenses');
+      }
+      
       // Apply date filtering in JavaScript
       if (reportFilters.dateRange !== "all") {
         const now = new Date();
@@ -823,11 +1011,28 @@ export default function AdminExpensesPage() {
     return breakdown;
   };
 
+  const getPaymentMethodBreakdown = (items) => {
+    const breakdown = {};
+    items.forEach(item => {
+      const method = item.reimbursementMethod || 'Other';
+      breakdown[method] = (breakdown[method] || 0) + (item.amount || 0);
+    });
+    return breakdown;
+  };
+
   const exportToPDF = () => {
     if (reportItems.length === 0) return;
     
     // Create a new PDF document
     const doc = new jsPDF();
+    
+    // Try to use a font that supports Hebrew characters
+    try {
+      doc.setFont('times', 'normal');
+    } catch (e) {
+      // Fallback to default if times font not available
+      doc.setFont('helvetica', 'normal');
+    }
     
     // Add title
     doc.setFontSize(24);
@@ -837,7 +1042,7 @@ export default function AdminExpensesPage() {
     // Add generation date
     doc.setFontSize(12);
     doc.setFont('helvetica', 'normal');
-    doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 105, 35, { align: 'center' });
+    doc.text(`Generated on: ${new Date().toLocaleDateString('he-IL')}`, 105, 35, { align: 'center' });
     
     // Add summary information
     doc.setFontSize(16);
@@ -851,87 +1056,150 @@ export default function AdminExpensesPage() {
     
     // Prepare table data with better photo indicators
     const tableData = reportItems.map(expense => [
-      expense.title || 'N/A',
-      expense.category || 'N/A',
+      convertHebrewToReadable(expense.title) || 'N/A',
+      convertHebrewToReadable(expense.category) || 'N/A',
       `ILS ${(expense.amount || 0).toFixed(2)}`,
       expense.expenseDate?.toDate?.()?.toLocaleDateString?.() || 'No date',
-      expense.notes || 'N/A',
-      expense.reimbursementMethod || 'N/A',
+      convertHebrewToReadable(expense.notes) || 'N/A',
+      convertHebrewToReadable(expense.reimbursementMethod) || 'N/A',
       expense.photoUrl ? 'Yes' : 'No'
     ]);
     
     // Add table
     autoTable(doc, {
       startY: 85,
-      head: [['Title', 'Category', 'Amount', 'Date', 'Notes', 'Method', 'Photo']],
+      head: [['Title', 'Category', 'Amount', 'Date', 'Notes', 'Payment', 'Photo']],
       body: tableData,
       theme: 'grid',
       headStyles: {
         fillColor: [37, 99, 235],
         textColor: 255,
-        fontSize: 9,
-        fontStyle: 'bold'
+        fontSize: 10,
+        fontStyle: 'bold',
+        halign: 'center'
       },
       bodyStyles: {
-        fontSize: 8
+        fontSize: 9,
+        halign: 'left'
       },
       columnStyles: {
-        0: { cellWidth: 32 }, // Title
-        1: { cellWidth: 20 }, // Category
-        2: { cellWidth: 20 }, // Amount
-        3: { cellWidth: 20 }, // Date
-        4: { cellWidth: 22 }, // Notes
-        5: { cellWidth: 20 }, // Method
+        0: { cellWidth: 35 }, // Title
+        1: { cellWidth: 22 }, // Category
+        2: { cellWidth: 18 }, // Amount
+        3: { cellWidth: 18 }, // Date
+        4: { cellWidth: 20 }, // Notes
+        5: { cellWidth: 20 }, // Payment Method
         6: { cellWidth: 12 }  // Photo
       },
-      margin: { top: 80, right: 15, bottom: 20, left: 15 }
+      margin: { top: 80, right: 15, bottom: 40, left: 15 },
+      styles: {
+        lineWidth: 0.5,
+        lineColor: [200, 200, 200]
+      },
+      didDrawCell: function(data) {
+        // Only process the Photo column (index 6) and if it's a body cell
+        if (data.column.index === 6 && data.section === 'body') {
+          const expenseIndex = data.row.index;
+          const expense = reportItems[expenseIndex];
+          const photoUrl = expense.photoUrl;
+          
+          if (photoUrl && data.cell.text[0] === 'Yes') {
+            // Calculate the center position for the text
+            const cellCenterX = data.cell.x + (data.cell.width / 2);
+            const cellCenterY = data.cell.y + (data.cell.height / 2);
+            
+            // Clear the original text by drawing a white rectangle over it
+            doc.setFillColor(255, 255, 255);
+            doc.rect(data.cell.x, data.cell.y, data.cell.width, data.cell.height, 'F');
+            
+            // Redraw the cell border to match the table's border style
+            doc.setDrawColor(200, 200, 200); // Light gray to match table borders
+            doc.setLineWidth(0.1); // Thin line to match table borders
+            doc.rect(data.cell.x, data.cell.y, data.cell.width, data.cell.height, 'S');
+            
+            // Add the clickable link perfectly centered in the cell
+            doc.setTextColor(0, 0, 255); // Blue
+            doc.setFontSize(8);
+            doc.textWithLink('Receipt', cellCenterX - 8, cellCenterY + 2, { url: photoUrl });
+            
+            // Reset text properties
+            doc.setTextColor(0, 0, 0);
+            doc.setLineWidth(0.1); // Reset line width
+          }
+        }
+      }
     });
     
-    // Add category breakdown
-    const categoryBreakdown = getCategoryBreakdown(reportItems);
-    const breakdownY = 200; // Fixed position since we can't access finalY with function form
-    
-    if (breakdownY < 250) { // Only add if there's space
-      doc.setFontSize(14);
-      doc.setFont('helvetica', 'bold');
-      doc.text('Category Breakdown', 20, breakdownY);
+          // Add category breakdown
+      const categoryBreakdown = getCategoryBreakdown(reportItems);
+      const breakdownY = 250; // Increased position to avoid overlap with table
       
-      doc.setFontSize(10);
-      doc.setFont('helvetica', 'normal');
+      if (breakdownY < 280) { // Only add if there's space
+        doc.setFontSize(14);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Category Breakdown', 20, breakdownY);
+        
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'normal');
+        
+        let yPos = breakdownY + 10;
+        Object.entries(categoryBreakdown)
+          .sort(([,a], [,b]) => b - a)
+          .forEach(([category, amount]) => {
+            if (yPos < 280) { // Check if we have space
+              doc.text(`${convertHebrewToReadable(category)}: ILS ${amount.toFixed(2)}`, 20, yPos);
+              yPos += 7;
+            }
+          });
+      }
       
-      let yPos = breakdownY + 10;
-      Object.entries(categoryBreakdown)
-        .sort(([,a], [,b]) => b - a)
-        .forEach(([category, amount]) => {
-          if (yPos < 280) { // Check if we have space
-            doc.text(`${category}: ILS ${amount.toFixed(2)}`, 20, yPos);
-            yPos += 7;
-          }
-        });
-    }
-    
-    // Save the PDF
-    const fileName = `expenses_report_${new Date().toISOString().slice(0, 10)}.pdf`;
-    doc.save(fileName);
-    
-    // Show success message
-    setSuccess('PDF report downloaded successfully!');
+      // Add payment method breakdown
+      const paymentMethodBreakdown = getPaymentMethodBreakdown(reportItems);
+      const paymentBreakdownY = breakdownY + 50; // Position below category breakdown
+      
+      if (paymentBreakdownY < 280) { // Only add if there's space
+        doc.setFontSize(14);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Payment Method Breakdown', 20, paymentBreakdownY);
+        
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'normal');
+        
+        let yPos = paymentBreakdownY + 10;
+        Object.entries(paymentMethodBreakdown)
+          .sort(([,a], [,b]) => b - a)
+          .forEach(([method, amount]) => {
+            if (yPos < 280) { // Check if we have space
+              doc.text(`${convertHebrewToReadable(method)}: ILS ${amount.toFixed(2)}`, 20, yPos);
+              yPos += 7;
+            }
+          });
+      }
+      
+
+      
+      // Save the PDF
+      const fileName = `expenses_report_${new Date().toISOString().slice(0, 10)}.pdf`;
+      doc.save(fileName);
+      
+      // Show success message
+      setSuccess('PDF report downloaded successfully!');
   };
 
   const exportToExcel = () => {
     if (reportItems.length === 0) return;
     
     // Create CSV content (Excel can open CSV files)
-    const headers = ['Title', 'Category', 'Amount', 'Date', 'Notes', 'Reimbursement Method', 'Photo URL'];
+    const headers = ['Title', 'Category', 'Amount', 'Date', 'Notes', 'Payment Method', 'Photo'];
     const csvContent = [
       headers.join(','),
       ...reportItems.map(expense => [
-        `"${(expense.title || '').replace(/"/g, '""')}"`,
-        `"${(expense.category || '').replace(/"/g, '""')}"`,
+        `"${(convertHebrewToReadable(expense.title) || '').replace(/"/g, '""')}"`,
+        `"${(convertHebrewToReadable(expense.category) || '').replace(/"/g, '""')}"`,
         expense.amount || 0,
         `"${expense.expenseDate?.toDate?.()?.toLocaleDateString?.() || 'No date'}"`,
-        `"${(expense.notes || '').replace(/"/g, '""')}"`,
-        `"${(expense.reimbursementMethod || '').replace(/"/g, '""')}"`,
+        `"${(convertHebrewToReadable(expense.notes) || '').replace(/"/g, '""')}"`,
+        `"${(convertHebrewToReadable(expense.reimbursementMethod) || '').replace(/"/g, '""')}"`,
         `"${expense.photoUrl || 'No photo'}"`
       ].join(','))
     ].join('\n');
@@ -1055,27 +1323,19 @@ export default function AdminExpensesPage() {
             "Save Expense"
           )}
         </button>
+        
+        {/* View Expenses Button */}
+        <button 
+          onClick={()=>{ setReportOpen(true); setShowSearchResults(false); }} 
+          className="w-full mt-3 px-4 py-3 rounded-xl text-white font-semibold text-lg transition-all duration-200 active:scale-95 touch-manipulation" 
+          style={{ background: colors.primaryGreen }}
+        >
+          View Expenses
+        </button>
           </div>
         </div>
 
-        {/* Expenses List with Photos */}
-        <div className="mb-3 rounded-2xl p-5 shadow-xl" style={{ background: "rgba(0,0,0,0.22)" }}>
-          <div className="flex items-center justify-between"><h3 className="text-white font-extrabold text-xl">Expenses</h3></div>
-          <button 
-            onClick={()=>{ setReportOpen(true); setShowSearchResults(false); }} 
-            className="w-full mt-4 px-6 py-4 rounded-full text-white font-bold text-lg transition-all duration-200 active:scale-95 touch-manipulation" 
-            style={{ background: colors.gold }}
-          >
-            View Expenses
-          </button>
-          <button 
-            onClick={()=>{ fetchPendingRequests(); setApprovalOpen(true); }} 
-            className={`w-full mt-3 px-6 py-4 rounded-full font-bold text-lg flex items-center justify-center gap-2 transition-all duration-200 active:scale-95 touch-manipulation ${approvalItems.length>0 ? 'text-white' : ''}`} 
-            style={approvalItems.length>0 ? { background: colors.primaryGreen } : { borderColor: colors.primaryGreen, color: colors.white, borderWidth: 2, borderStyle: 'solid' }}
-          >
-            <span>{`Pending (${approvalItems.length})`}</span>
-          </button>
-        </div>
+
 
         {/* Refund Requests Section */}
         <div className="mb-3 rounded-2xl p-5 shadow-xl" style={{ background: "rgba(0,0,0,0.22)" }}>
@@ -1170,73 +1430,290 @@ export default function AdminExpensesPage() {
       {reportOpen && (
         <div className="fixed inset-0 z-[55] bg-black/50 flex items-center justify-center p-2 sm:p-4 overflow-hidden">
           <div className="rounded-2xl w-full h-full sm:h-auto sm:max-h-[90vh] mx-0 sm:mx-4 p-3 sm:p-5 flex flex-col overflow-hidden" style={{ background: colors.surface }}>
-            <div className="flex items-center justify-between mb-4 border-b pb-3 flex-shrink-0" style={{ borderColor: colors.gray400 }}>
-              <h3 className="text-xl sm:text-2xl font-bold" style={{ color: colors.text }}>View Expenses</h3>
-              <button onClick={handleCloseReportModal} className="text-xl sm:text-2xl font-bold transition-colors duration-200" style={{ color: colors.muted }} onMouseEnter={(e) => e.target.style.color = colors.text} onMouseLeave={(e) => e.target.style.color = colors.muted }>✕</button>
-            </div>
+            <div className="overflow-y-auto flex-1">
+              <div className="flex items-center justify-between mb-4 border-b pb-3" style={{ borderColor: colors.gray400 }}>
+                <h3 className="text-xl sm:text-2xl font-bold" style={{ color: colors.text }}>View Expenses</h3>
+                <button onClick={handleCloseReportModal} className="text-xl sm:text-2xl font-bold transition-colors duration-200" style={{ color: colors.muted }} onMouseEnter={(e) => e.target.style.color = colors.text} onMouseLeave={(e) => e.target.style.color = colors.muted }>✕</button>
+              </div>
             
             {/* Filters and Search Button - Only show when NOT displaying search results */}
             {!showSearchResults && (
               <>
-                {/* Filters */}
-                <div className="grid grid-cols-1 gap-3 sm:gap-4 mb-4 sm:mb-6 p-3 sm:p-4 rounded-lg" style={{ background: colors.background }}>
-                  <div>
-                    <label className="block text-sm font-medium mb-2" style={{ color: colors.text }}>Date Range</label>
-                    <select 
-                      className="w-full px-3 py-2 border rounded-lg text-base"
-                      style={{ borderColor: colors.gray400 }}
-                      value={reportFilters.dateRange}
-                      onChange={(e) => setReportFilters(prev => ({ ...prev, dateRange: e.target.value }))}
+                {/* New Collapsible Filter System */}
+                <div className="space-y-4 mb-6 p-4 rounded-lg" style={{ background: colors.background }}>
+                  <h4 className="text-lg font-semibold mb-4" style={{ color: colors.text }}>Filter Expenses</h4>
+                  
+                  {/* Date Filter */}
+                  <div className="space-y-3">
+                    <button 
+                      onClick={() => setExpandedId(expandedId === 'date' ? null : 'date')}
+                      className="w-full px-3 py-2 rounded-lg font-semibold text-base transition-all duration-200 active:scale-95 touch-manipulation flex items-center justify-between border-2"
+                      style={{ 
+                        borderColor: expandedId === 'date' ? colors.primaryGreen : colors.gold,
+                        color: expandedId === 'date' ? colors.primaryGreen : 'black',
+                        background: 'transparent'
+                      }}
                     >
-                      <option value="all">All Time</option>
-                      <option value="lastDay">Last Day</option>
-                      <option value="lastWeek">Last Week</option>
-                      <option value="lastMonth">Last Month</option>
-                      <option value="last3Months">Last 3 Months</option>
-                      <option value="lastYear">Last Year</option>
-                      <option value="custom">Custom Range</option>
-                    </select>
+                      <span>Date Filter</span>
+                      <span className="text-lg">{expandedId === 'date' ? '▼' : '▶'}</span>
+                    </button>
+                    
+                    {expandedId === 'date' && (
+                      <div className="space-y-3 p-3 rounded-lg border" style={{ borderColor: colors.gray400, background: colors.surface }}>
+                        <div className="grid grid-cols-2 gap-2">
+                          <button 
+                            onClick={() => {
+                              setReportFilters(prev => ({ ...prev, dateRange: 'lastDay' }));
+                            }}
+                            className={`px-3 py-2 rounded-lg font-semibold text-sm transition-all duration-200 active:scale-95 touch-manipulation border-2 ${
+                              reportFilters.dateRange === 'lastDay' 
+                                ? 'text-white' 
+                                : ''
+                            }`}
+                            style={{ 
+                              background: reportFilters.dateRange === 'lastDay' ? colors.primaryGreen : 'transparent',
+                              borderColor: colors.primaryGreen,
+                              color: reportFilters.dateRange === 'lastDay' ? 'white' : colors.primaryGreen
+                            }}
+                          >
+                            Day
+                          </button>
+                          <button 
+                            onClick={() => {
+                              setReportFilters(prev => ({ ...prev, dateRange: 'lastWeek' }));
+                            }}
+                            className={`px-3 py-2 rounded-lg font-semibold text-sm transition-all duration-200 active:scale-95 touch-manipulation border-2 ${
+                              reportFilters.dateRange === 'lastWeek' 
+                                ? 'text-white' 
+                                : ''
+                            }`}
+                            style={{ 
+                              background: reportFilters.dateRange === 'lastWeek' ? colors.primaryGreen : 'transparent',
+                              borderColor: colors.primaryGreen,
+                              color: reportFilters.dateRange === 'lastWeek' ? 'white' : colors.primaryGreen
+                            }}
+                          >
+                            Week
+                          </button>
+                          <button 
+                            onClick={() => {
+                              setReportFilters(prev => ({ ...prev, dateRange: 'lastMonth' }));
+                            }}
+                            className={`px-3 py-2 rounded-lg font-semibold text-sm transition-all duration-200 active:scale-95 touch-manipulation border-2 ${
+                              reportFilters.dateRange === 'lastMonth' 
+                                ? 'text-white' 
+                                : 'white'
+                            }`}
+                            style={{ 
+                              background: reportFilters.dateRange === 'lastMonth' ? colors.primaryGreen : 'transparent',
+                              borderColor: colors.primaryGreen,
+                              color: reportFilters.dateRange === 'lastMonth' ? 'white' : colors.primaryGreen
+                            }}
+                          >
+                            Month
+                          </button>
+                          <button 
+                            onClick={() => {
+                              setReportFilters(prev => ({ ...prev, dateRange: 'custom' }));
+                            }}
+                            className={`px-3 py-2 rounded-lg font-semibold text-sm transition-all duration-200 active:scale-95 touch-manipulation border-2 ${
+                              reportFilters.dateRange === 'custom' 
+                                ? 'text-white' 
+                                : ''
+                            }`}
+                            style={{ 
+                              background: reportFilters.dateRange === 'custom' ? colors.primaryGreen : 'transparent',
+                              borderColor: colors.primaryGreen,
+                              color: reportFilters.dateRange === 'custom' ? 'white' : colors.primaryGreen
+                            }}
+                          >
+                            Select Date
+                          </button>
+                        </div>
+                        
+                        {/* Custom Date Range Inputs */}
+                        {reportFilters.dateRange === 'custom' && (
+                          <div className="grid grid-cols-2 gap-3 pt-3 border-t" style={{ borderColor: colors.gray400 }}>
+                            <div>
+                              <label className="block text-sm font-medium mb-1" style={{ color: colors.text }}>From</label>
+                              <input 
+                                type="date" 
+                                className="w-full px-3 py-2 border rounded-lg text-base"
+                                style={{ borderColor: colors.gray400 }}
+                                value={reportFilters.customFrom}
+                                onChange={(e) => setReportFilters(prev => ({ ...prev, customFrom: e.target.value }))}
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium mb-1" style={{ color: colors.text }}>To</label>
+                              <input 
+                                type="date" 
+                                className="w-full px-3 py-2 border rounded-lg text-base"
+                                style={{ borderColor: colors.gray400 }}
+                                value={reportFilters.customTo}
+                                onChange={(e) => setReportFilters(prev => ({ ...prev, customTo: e.target.value }))}
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                   
-                  {reportFilters.dateRange === "custom" && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-sm font-medium mb-1" style={{ color: colors.text }}>From</label>
-                        <input 
-                          type="date" 
-                          className="w-full px-3 py-2 border rounded-lg text-base"
-                          style={{ borderColor: colors.gray400 }}
-                          value={reportFilters.customFrom}
-                          onChange={(e) => setReportFilters(prev => ({ ...prev, customFrom: e.target.value }))}
-                        />
+                  {/* Category Filter */}
+                  <div className="space-y-3">
+                    <button 
+                      onClick={() => setExpandedId(expandedId === 'category' ? null : 'category')}
+                      className="w-full px-3 py-2 rounded-lg font-semibold text-base transition-all duration-200 active:scale-95 touch-manipulation flex items-center justify-between border-2"
+                      style={{ 
+                        borderColor: expandedId === 'category' ? colors.primaryGreen : colors.gold,
+                        color: expandedId === 'category' ? colors.primaryGreen : 'black',
+                        background: 'transparent'
+                      }}
+                    >
+                      <span>Category Filter</span>
+                      <span className="text-lg">{expandedId === 'category' ? '▼' : '▶'}</span>
+                    </button>
+                    
+                    {expandedId === 'category' && (
+                      <div className="grid grid-cols-2 gap-2 p-3 rounded-lg border" style={{ borderColor: colors.gray400, background: colors.surface }}>
+                        <button 
+                          onClick={() => {
+                            setReportFilters(prev => ({ ...prev, category: '' }));
+                          }}
+                          className={`px-3 py-2 rounded-lg font-semibold text-sm transition-all duration-200 active:scale-95 touch-manipulation border-2 ${
+                            reportFilters.category === '' 
+                              ? 'text-white' 
+                              : ''
+                          }`}
+                          style={{ 
+                            background: reportFilters.category === '' ? colors.primaryGreen : 'transparent',
+                            borderColor: colors.primaryGreen,
+                            color: reportFilters.category === '' ? 'white' : colors.primaryGreen
+                          }}
+                        >
+                          All Categories
+                        </button>
+                        {CATEGORIES.map(category => (
+                          <button 
+                            key={category}
+                            onClick={() => {
+                              setReportFilters(prev => ({ ...prev, category }));
+                            }}
+                            className={`px-3 py-2 rounded-lg font-semibold text-sm transition-all duration-200 active:scale-95 touch-manipulation border-2 ${
+                              reportFilters.category === category 
+                                ? 'text-white' 
+                                : ''
+                            }`}
+                            style={{ 
+                              background: reportFilters.category === category ? colors.primaryGreen : 'transparent',
+                              borderColor: colors.primaryGreen,
+                              color: reportFilters.category === category ? 'white' : colors.primaryGreen
+                            }}
+                          >
+                            {category}
+                          </button>
+                        ))}
                       </div>
-                      <div>
-                        <label className="block text-sm font-medium mb-1" style={{ color: colors.text }}>To</label>
-                        <input 
-                          type="date" 
-                          className="w-full px-3 py-2 border rounded-lg text-base"
-                          style={{ borderColor: colors.gray400 }}
-                          value={reportFilters.customTo}
-                          onChange={(e) => setReportFilters(prev => ({ ...prev, customTo: e.target.value }))}
-                        />
+                    )}
+                  </div>
+                  
+                  {/* Payment Method Filter */}
+                  <div className="space-y-3">
+                    <button 
+                      onClick={() => setExpandedId(expandedId === 'payment' ? null : 'payment')}
+                      className="w-full px-3 py-2 rounded-lg font-semibold text-base transition-all duration-200 active:scale-95 touch-manipulation flex items-center justify-between border-2"
+                      style={{ 
+                        borderColor: expandedId === 'payment' ? colors.primaryGreen : colors.gold,
+                        color: expandedId === 'payment' ? colors.primaryGreen : 'black',
+                        background: 'transparent'
+                      }}
+                    >
+                      <span>Payment Method Filter</span>
+                      <span className="text-lg">{expandedId === 'payment' ? '▼' : '▶'}</span>
+                    </button>
+                    
+                    {expandedId === 'payment' && (
+                      <div className="grid grid-cols-2 gap-2 p-3 rounded-lg border" style={{ borderColor: colors.gray400, background: colors.surface }}>
+                        <button 
+                          onClick={() => {
+                            setReportFilters(prev => ({ ...prev, paymentMethod: '' }));
+                          }}
+                          className={`px-3 py-2 rounded-lg font-semibold text-sm transition-all duration-200 active:scale-95 touch-manipulation border-2 ${
+                            reportFilters.paymentMethod === '' 
+                              ? 'text-white' 
+                              : ''
+                          }`}
+                                                      style={{ 
+                              background: reportFilters.paymentMethod === '' ? colors.primaryGreen : 'transparent',
+                              borderColor: colors.primaryGreen,
+                              color: reportFilters.paymentMethod === '' ? 'white' : colors.primaryGreen
+                            }}
+                        >
+                          All Methods
+                        </button>
+                        {REIMBURSEMENT_METHODS.map(method => (
+                          <button 
+                            key={method}
+                            onClick={() => {
+                              setReportFilters(prev => ({ ...prev, paymentMethod: method }));
+                            }}
+                            className={`px-3 py-2 rounded-lg font-semibold text-sm transition-all duration-200 active:scale-95 touch-manipulation border-2 ${
+                              reportFilters.paymentMethod === method 
+                                ? 'text-white' 
+                                : ''
+                            }`}
+                            style={{ 
+                              background: reportFilters.paymentMethod === method ? colors.primaryGreen : 'transparent',
+                              borderColor: colors.primaryGreen,
+                              color: reportFilters.paymentMethod === method ? 'white' : colors.primaryGreen
+                            }}
+                          >
+                            {method}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Active Filters Display */}
+                  {(reportFilters.dateRange !== 'all' || reportFilters.category || reportFilters.paymentMethod) && (
+                    <div className="p-3 rounded-lg border" style={{ borderColor: colors.gray400, background: colors.surface }}>
+                      <h5 className="text-sm font-semibold mb-2" style={{ color: colors.text }}>Active Filters:</h5>
+                      <div className="flex flex-wrap gap-2">
+                        {reportFilters.dateRange !== 'all' && (
+                          <span className="px-3 py-1 rounded-full text-xs font-semibold text-white" style={{ background: colors.primaryGreen }}>
+                            Date: {reportFilters.dateRange === 'custom' ? 'Custom Range' : 
+                                   reportFilters.dateRange === 'lastDay' ? 'Last Day' :
+                                   reportFilters.dateRange === 'lastWeek' ? 'Last Week' :
+                                   reportFilters.dateRange === 'lastMonth' ? 'Last Month' : 'Custom'}
+                          </span>
+                        )}
+                        {reportFilters.category && (
+                          <span className="px-3 py-1 rounded-full text-xs font-semibold text-white" style={{ background: colors.gold }}>
+                            Category: {reportFilters.category}
+                          </span>
+                        )}
+                        {reportFilters.paymentMethod && (
+                          <span className="px-3 py-1 rounded-full text-xs font-semibold text-white" style={{ background: colors.primaryGreen }}>
+                            Payment: {reportFilters.paymentMethod}
+                          </span>
+                        )}
+                        <button 
+                          onClick={() => setReportFilters({
+                            dateRange: 'all',
+                            category: '',
+                            paymentMethod: '',
+                            customFrom: '',
+                            customTo: ''
+                          })}
+                          className="px-2 py-1 rounded-full text-xs font-semibold text-white bg-red-500 hover:bg-red-600 transition-colors"
+                        >
+                          Clear All
+                        </button>
                       </div>
                     </div>
                   )}
-                  
-                  <div>
-                    <label className="block text-sm font-medium mb-2" style={{ color: colors.text }}>Category</label>
-                    <select 
-                      className="w-full px-3 py-2 border rounded-lg text-base"
-                      style={{ borderColor: colors.gray400 }}
-                      value={reportFilters.category}
-                      onChange={(e) => setReportFilters(prev => ({ ...prev, category: e.target.value }))}
-                    >
-                      <option value="">All Categories</option>
-                      {CATEGORIES.map(category => (
-                        <option key={category} value={category}>{category}</option>
-                      ))}
-                    </select>
-                  </div>
                 </div>
 
                 {/* Search Button */}
@@ -1251,7 +1728,8 @@ export default function AdminExpensesPage() {
                     className="w-full sm:w-auto px-6 py-3 border-2 font-bold text-base sm:text-lg rounded-lg transition-colors duration-200"
                     style={{ 
                       borderColor: colors.gold, 
-                      color: colors.gold,
+                      color: 'black',
+                      background: 'transparent',
                       opacity: reportLoading ? 0.5 : 1
                     }}
                     onMouseEnter={(e) => {
@@ -1263,11 +1741,11 @@ export default function AdminExpensesPage() {
                     onMouseLeave={(e) => {
                       if (!reportLoading) {
                         e.target.style.background = 'transparent';
-                        e.target.style.color = colors.gold;
+                        e.target.style.color = 'black';
                       }
                     }}
                   >
-                    🔍 Search Expenses
+                    Search Expenses
                   </button>
                 </div>
               </>
@@ -1291,6 +1769,9 @@ export default function AdminExpensesPage() {
                             <div className="flex-1">
                               <h5 className="text-lg sm:text-xl font-bold mb-2" style={{ color: colors.text }}>{expense.title}</h5>
                               <p className="text-sm sm:text-base font-semibold mb-1" style={{ color: colors.primaryGreen }}>{expense.category}</p>
+                              <p className="text-sm sm:text-base font-medium mb-1" style={{ color: colors.muted }}>
+                                💳 {expense.reimbursementMethod || 'N/A'}
+                              </p>
                               <p className="text-base sm:text-lg font-bold mb-2" style={{ color: colors.text }}>{amountFormatted(expense.amount)}</p>
                               <p className="text-xs sm:text-sm font-medium" style={{ color: colors.muted }}>
                                 📅 {expense.expenseDate?.toDate?.()?.toLocaleDateString?.() || 'No date'}
@@ -1385,7 +1866,7 @@ export default function AdminExpensesPage() {
             {showSearchResults && reportItems.length > 0 && (
               <div className="flex-1 overflow-y-auto min-h-0">
                 {/* Summary Stats - Fixed */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 flex-shrink-0">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 flex-shrink-0">
                   <div className="p-4 rounded-lg text-center" style={{ background: colors.background }}>
                     <div className="text-2xl font-bold" style={{ color: colors.primaryGreen }}>{reportItems.length}</div>
                     <div className="text-sm" style={{ color: colors.muted }}>Total Expenses</div>
@@ -1393,6 +1874,10 @@ export default function AdminExpensesPage() {
                   <div className="p-4 rounded-lg text-center" style={{ background: colors.background }}>
                     <div className="text-2xl font-bold" style={{ color: colors.gold }}>{amountFormatted(getTotalAmount(reportItems))}</div>
                     <div className="text-sm" style={{ color: colors.muted }}>Total Amount</div>
+                  </div>
+                  <div className="p-4 rounded-lg text-center" style={{ background: colors.background }}>
+                    <div className="text-2xl font-bold" style={{ color: colors.primaryGreen }}>{Object.keys(getPaymentMethodBreakdown(reportItems)).length}</div>
+                    <div className="text-sm" style={{ color: colors.muted }}>Payment Methods</div>
                   </div>
                 </div>
                 
@@ -1445,6 +1930,21 @@ export default function AdminExpensesPage() {
                   </div>
                 </div>
                 
+                {/* Payment Method Breakdown */}
+                <div className="mb-6">
+                  <h4 className="text-lg font-semibold mb-3" style={{ color: colors.text }}>Payment Method Breakdown</h4>
+                  <div className="space-y-2">
+                    {Object.entries(getPaymentMethodBreakdown(reportItems))
+                      .sort(([,a], [,b]) => b - a)
+                      .map(([method, amount]) => (
+                        <div key={method} className="flex justify-between items-center p-3 rounded-lg" style={{ background: colors.background }}>
+                          <span className="font-medium" style={{ color: colors.text }}>{method}</span>
+                          <span className="font-bold" style={{ color: colors.text }}>{amountFormatted(amount)}</span>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+                
                 {/* Detailed List */}
                 <div>
                   <h4 className="text-lg font-semibold mb-3" style={{ color: colors.text }}>Expense Details</h4>
@@ -1455,6 +1955,9 @@ export default function AdminExpensesPage() {
                           <div className="flex-1">
                             <h5 className="text-xl font-bold mb-2" style={{ color: colors.text }}>{expense.title}</h5>
                             <p className="text-base font-semibold mb-1" style={{ color: colors.primaryGreen }}>{expense.category}</p>
+                            <p className="text-sm font-medium mb-1" style={{ color: colors.muted }}>
+                              💳 {expense.reimbursementMethod || 'N/A'}
+                            </p>
                             <p className="text-sm font-medium mb-2" style={{ color: colors.muted }}>
                               📅 {expense.expenseDate?.toDate?.()?.toLocaleDateString?.() || 'No date'}
                             </p>
@@ -1536,7 +2039,16 @@ export default function AdminExpensesPage() {
             {showSearchResults && (
               <div className="flex justify-center mb-4 sm:mb-6">
                 <button 
-                  onClick={() => setShowSearchResults(false)}
+                  onClick={() => {
+                    setShowSearchResults(false);
+                    setReportFilters({
+                      dateRange: 'all',
+                      category: '',
+                      paymentMethod: '',
+                      customFrom: '',
+                      customTo: ''
+                    });
+                  }}
                   className="px-4 sm:px-6 py-3 border-2 font-bold text-base sm:text-lg rounded-lg transition-colors duration-200"
                   style={{ borderColor: colors.primaryGreen, color: colors.primaryGreen }}
                   onMouseEnter={(e) => {
@@ -1552,6 +2064,7 @@ export default function AdminExpensesPage() {
                 </button>
               </div>
             )}
+            </div>
           </div>
         </div>
       )}
@@ -1780,129 +2293,131 @@ export default function AdminExpensesPage() {
       {pastRefundsOpen && (
         <div className="fixed inset-0 z-[60] bg-black/50 flex items-center justify-center p-2 sm:p-4">
           <div className="bg-white rounded-2xl w-full h-full sm:h-auto sm:max-w-4xl mx-0 sm:mx-4 p-3 sm:p-5 max-h-[90vh] flex flex-col">
-            <div className="flex items-center justify-between mb-4 border-b pb-3">
-              <h3 className="text-xl sm:text-2xl font-bold text-gray-800">Past Refund Requests</h3>
-              <button onClick={() => setPastRefundsOpen(false)} className="text-gray-600 text-2xl">✕</button>
-            </div>
-            
-            {/* Statistics */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6 p-4 bg-gray-50 rounded-lg">
-              <div className="text-center">
-                <div className="text-2xl font-bold text-green-600">
-                  {refundRequests.filter(r => r.status === 'approved').length}
-                </div>
-                <div className="text-sm text-gray-600">Approved</div>
+            <div className="overflow-y-auto flex-1">
+              <div className="flex items-center justify-between mb-4 border-b pb-3">
+                <h3 className="text-xl sm:text-2xl font-bold text-gray-800">Past Refund Requests</h3>
+                <button onClick={() => setPastRefundsOpen(false)} className="text-gray-600 text-2xl">✕</button>
               </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-red-600">
-                  {refundRequests.filter(r => r.status === 'denied').length}
+              
+              {/* Statistics */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6 p-4 bg-gray-50 rounded-lg">
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-green-600">
+                    {refundRequests.filter(r => r.status === 'approved').length}
+                  </div>
+                  <div className="text-sm text-gray-600">Approved</div>
                 </div>
-                <div className="text-sm text-gray-600">Denied</div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-blue-600">
-                  {refundRequests.filter(r => r.status === 'waiting').length}
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-red-600">
+                    {refundRequests.filter(r => r.status === 'denied').length}
+                  </div>
+                  <div className="text-sm text-gray-600">Denied</div>
                 </div>
-                <div className="text-sm text-gray-600">Pending</div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-blue-600">
+                    {refundRequests.filter(r => r.status === 'waiting').length}
+                  </div>
+                  <div className="text-sm text-gray-600">Pending</div>
+                </div>
               </div>
-            </div>
-            
-            {/* Search */}
-            <div className="mb-4">
-              <input
-                type="text"
-                placeholder="Search by name..."
-                value={refundSearchTerm}
-                onChange={(e) => setRefundSearchTerm(e.target.value)}
-                className="w-full px-4 py-2 border rounded-lg"
-              />
-            </div>
-            
-            {/* Past refunds list */}
-            <div className="flex-1 overflow-y-auto space-y-3">
-              {refundRequests
-                .filter(request => 
-                  request.status !== 'waiting' && 
-                  (refundSearchTerm === '' || 
-                   request.ownerName?.toLowerCase().includes(refundSearchTerm.toLowerCase()))
-                )
-                .sort((a, b) => {
-                  const dateA = a.createdAt?.toDate?.() || new Date(a.createdAt);
-                  const dateB = b.createdAt?.toDate?.() || new Date(b.createdAt);
-                  return dateB - dateA; // Latest first
-                })
-                .map(request => (
-                  <div key={request.id} className="border rounded-lg p-4 hover:bg-gray-50">
-                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-                                             <div className="flex-1">
-                         <h5 className="font-bold text-xl text-gray-800 mb-2">{request.title}</h5>
-                         <p className="text-gray-700 text-lg font-semibold mb-1">Amount: ₪{request.amount}</p>
-                         <p className="text-gray-600 text-base font-medium mb-1">Method: {request.repaymentMethod}</p>
-                         <p className="text-gray-600 text-base font-medium mb-1">From: {request.ownerName} (Room {request.ownerRoomNumber})</p>
-                         <p className="text-gray-500 text-base mb-1">Date: {request.expenseDate?.toDate?.()?.toLocaleDateString?.() || 'No date'}</p>
-                         {request.status === 'approved' && request.receiptPhotoUrl && (
-                           <button
-                             onClick={() => {
-                               setSelectedPhoto({ url: request.receiptPhotoUrl, title: `Receipt for ${request.title}` });
-                               setPhotoViewerOpen(true);
-                             }}
-                             className="text-blue-600 hover:text-blue-800 text-base font-medium underline"
-                           >
-                             📷 Show Receipt
-                           </button>
-                         )}
-                       </div>
-                      <div className="flex flex-col gap-2">
-                        <span className={`px-3 py-1 rounded-full text-xs font-semibold text-center ${
-                          request.status === 'approved' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                        }`}>
-                          {request.status}
-                        </span>
-                        
-                        {/* Edit button for past requests */}
-                        <button
-                          onClick={() => {
-                            setApprovingRefundId(request.id);
-                            setApprovingRefundData(request);
-                            setApproveModalOpen(true);
-                          }}
-                          className="px-3 py-1 rounded text-xs font-semibold border-2"
-                          style={{ 
-                            borderColor: colors.gold, 
-                            color: colors.gold,
-                            background: 'transparent'
-                          }}
-                        >
-                          ✏️ Edit
-                        </button>
+              
+              {/* Search */}
+              <div className="mb-4">
+                <input
+                  type="text"
+                  placeholder="Search by name..."
+                  value={refundSearchTerm}
+                  onChange={(e) => setRefundSearchTerm(e.target.value)}
+                  className="w-full px-4 py-2 border rounded-lg"
+                />
+              </div>
+              
+              {/* Past refunds list */}
+              <div className="space-y-3">
+                {refundRequests
+                  .filter(request => 
+                    request.status !== 'waiting' && 
+                    (refundSearchTerm === '' || 
+                     request.ownerName?.toLowerCase().includes(refundSearchTerm.toLowerCase()))
+                  )
+                  .sort((a, b) => {
+                    const dateA = a.createdAt?.toDate?.() || new Date(a.createdAt);
+                    const dateB = b.createdAt?.toDate?.() || new Date(b.createdAt);
+                    return dateB - dateA; // Latest first
+                  })
+                  .map(request => (
+                    <div key={request.id} className="border rounded-lg p-4 hover:bg-gray-50">
+                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                                               <div className="flex-1">
+                           <h5 className="font-bold text-xl text-gray-800 mb-2">{request.title}</h5>
+                           <p className="text-gray-700 text-lg font-semibold mb-1">Amount: ₪{request.amount}</p>
+                           <p className="text-gray-600 text-base font-medium mb-1">Method: {request.repaymentMethod}</p>
+                           <p className="text-gray-600 text-base font-medium mb-1">From: {request.ownerName} (Room {request.ownerRoomNumber})</p>
+                           <p className="text-gray-500 text-base mb-1">Date: {request.expenseDate?.toDate?.()?.toLocaleDateString?.() || 'No date'}</p>
+                           {request.status === 'approved' && request.receiptPhotoUrl && (
+                             <button
+                               onClick={() => {
+                                 setSelectedPhoto({ url: request.receiptPhotoUrl, title: `Receipt for ${request.title}` });
+                                 setPhotoViewerOpen(true);
+                               }}
+                               className="text-blue-600 hover:text-blue-800 text-base font-medium underline"
+                             >
+                               📷 Show Receipt
+                             </button>
+                           )}
+                         </div>
+                        <div className="flex flex-col gap-2">
+                          <span className={`px-3 py-1 rounded-full text-xs font-semibold text-center ${
+                            request.status === 'approved' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                          }`}>
+                            {request.status}
+                          </span>
+                          
+                          {/* Edit button for past requests */}
+                          <button
+                            onClick={() => {
+                              setApprovingRefundId(request.id);
+                              setApprovingRefundData(request);
+                              setApproveModalOpen(true);
+                            }}
+                            className="px-3 py-1 rounded text-xs font-semibold border-2"
+                            style={{ 
+                              borderColor: colors.gold, 
+                              color: colors.gold,
+                              background: 'transparent'
+                            }}
+                          >
+                            ✏️ Edit
+                          </button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
-            </div>
-            
-            <div className="flex justify-between pt-4 border-t">
-              <button 
-                onClick={() => {
-                  // Set default custom dates when opening modal
-                  const now = new Date();
-                  const pastMonth = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
-                  setExportCustomFrom(pastMonth.toISOString().slice(0, 16));
-                  setExportCustomTo(now.toISOString().slice(0, 16));
-                  setExportModalOpen(true);
-                }}
-                className="px-6 py-2 rounded-lg font-semibold text-white"
-                style={{ background: colors.primaryGreen }}
-              >
-                📊 Export as PDF
-              </button>
-              <button 
-                onClick={() => setPastRefundsOpen(false)}
-                className="px-6 py-2 rounded-lg font-semibold text-white"
-                style={{ background: colors.gold }}
-              >
-                Close
-              </button>
+                  ))}
+              </div>
+              
+              <div className="flex justify-between pt-4 border-t mt-6">
+                <button 
+                  onClick={() => {
+                    // Set default custom dates when opening modal
+                    const now = new Date();
+                    const pastMonth = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
+                    setExportCustomFrom(pastMonth.toISOString().slice(0, 16));
+                    setExportCustomTo(now.toISOString().slice(0, 16));
+                    setExportModalOpen(true);
+                  }}
+                  className="px-6 py-2 rounded-lg font-semibold text-white"
+                  style={{ background: colors.primaryGreen }}
+                >
+                  📊 Export as PDF
+                </button>
+                <button 
+                  onClick={() => setPastRefundsOpen(false)}
+                  className="px-6 py-2 rounded-lg font-semibold text-white"
+                  style={{ background: colors.gold }}
+                >
+                  Close
+                </button>
+              </div>
             </div>
           </div>
         </div>

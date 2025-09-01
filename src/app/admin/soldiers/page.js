@@ -72,7 +72,7 @@ export default function AdminSoldiersPage() {
       </div>
 
       {/* Admin Bottom Navigation */}
-      <AdminBottomNavBar />
+      <AdminBottomNavBar active="soldiers" />
     </main>
   );
 }
