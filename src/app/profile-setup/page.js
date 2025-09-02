@@ -6,6 +6,7 @@ import { doc, setDoc } from 'firebase/firestore';
 import { createQuestionnaireFields } from '@/lib/database';
 import { signOut } from 'firebase/auth';
 import { useTranslation } from 'react-i18next';
+import LanguageSwitcher from '@/components/LanguageSwitcher';
 import colors from '../colors';
 
 export default function ProfileSetup() {
@@ -56,6 +57,7 @@ export default function ProfileSetup() {
 
   return (
     <main className="min-h-screen flex items-center justify-center font-body px-4 phone-lg:px-0" style={{ background: colors.white }}>
+      <LanguageSwitcher className="absolute top-4 right-4 bg-surface p-2 rounded-full text-white text-xl hover:text-text" />
       <div
         className="w-full max-w-xs phone-md:max-w-sm phone-lg:max-w-md mx-auto 
           bg-transparent rounded-none shadow-none p-0

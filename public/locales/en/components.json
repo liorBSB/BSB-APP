@@ -1,0 +1,45 @@
+{
+  "edit_field_modal": {
+    "edit": "Edit",
+    "save": "Save",
+    "cancel": "Cancel"
+  },
+  "add_item_modal": {
+    "add_new": "Add New",
+    "title": "Title",
+    "body": "Body",
+    "start_time": "Start Time",
+    "end_time": "End Time",
+    "save": "Save",
+    "cancel": "Cancel"
+  },
+  "questionnaire_modal": {
+    "personal_information_questionnaire": "Personal Information Questionnaire",
+    "progress": "Progress",
+    "questions": "Questions",
+    "next": "Next",
+    "previous": "Previous",
+    "complete": "Complete",
+    "close": "Close",
+    "type_your_answer": "Type your answer..."
+  },
+  "date_picker_modal": {
+    "choose_date": "Choose Date",
+    "from": "From",
+    "to": "To",
+    "select": "Select",
+    "cancel": "Cancel"
+  },
+  "bottom_nav_bar": {
+    "home": "Home",
+    "report": "Report",
+    "settings": "Settings"
+  },
+  "photo_upload": {
+    "take_photo": "Take Photo",
+    "choose_from_gallery": "Choose from Gallery",
+    "remove_photo": "Remove Photo",
+    "photo_uploaded": "Photo uploaded successfully",
+    "upload_failed": "Upload failed"
+  }
+}

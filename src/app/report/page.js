@@ -1,6 +1,8 @@
 "use client";
 import { useTranslation } from 'react-i18next';
 import BottomNavBar from '@/components/BottomNavBar';
+import LanguageSwitcher from '@/components/LanguageSwitcher';
+import PhotoUpload from '@/components/PhotoUpload';
 import { useState, useEffect, useRef } from 'react';
 import colors from '../colors';
 import { auth, db, storage } from '@/lib/firebase';
@@ -10,83 +12,27 @@ import { ref as storageRef, uploadBytesResumable, getDownloadURL } from 'firebas
 export default function ReportPage() {
   const { t, i18n } = useTranslation('report');
   const [desc, setDesc] = useState('');
+  const [selectedHouse, setSelectedHouse] = useState('');
+  const [selectedFloor, setSelectedFloor] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
+  const [submitSuccess, setSubmitSuccess] = useState('');
   const [refundOpen, setRefundOpen] = useState(false);
   const [refundSaving, setRefundSaving] = useState(false);
   const [refundError, setRefundError] = useState('');
   const [refundSuccess, setRefundSuccess] = useState('');
   const [refundForm, setRefundForm] = useState({ title: '', amount: '', category: 'transportation', method: 'bit', expenseDate: '' });
-  const [uploading, setUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [uploadError, setUploadError] = useState('');
-  const [uploadSuccess, setUploadSuccess] = useState('');
-  const fileInputRef = useRef(null);
+  const [uploadedPhotoUrl, setUploadedPhotoUrl] = useState('');
+  const [uploadedPhotoPath, setUploadedPhotoPath] = useState('');
 
-  useEffect(() => {
-    const savedLang = typeof window !== 'undefined' ? localStorage.getItem('lang') : null;
-    if (savedLang && savedLang !== i18n.language) {
-      i18n.changeLanguage(savedLang);
-      document.documentElement.dir = savedLang === 'he' ? 'rtl' : 'ltr';
-    }
-  }, [i18n]);
-
-  const handleLanguageSwitch = () => {
-    const nextLang = i18n.language === 'en' ? 'he' : 'en';
-    i18n.changeLanguage(nextLang);
-    if (typeof window !== 'undefined') localStorage.setItem('lang', nextLang);
-    document.documentElement.dir = nextLang === 'he' ? 'rtl' : 'ltr';
+  const handlePhotoUploaded = (photoUrl, photoPath) => {
+    setUploadedPhotoUrl(photoUrl);
+    setUploadedPhotoPath(photoPath);
   };
 
-  const triggerFilePicker = () => {
-    setUploadError('');
-    setUploadSuccess('');
-    if (fileInputRef.current) fileInputRef.current.click();
-  };
-
-  const handleFileSelected = async (event) => {
-    try {
-      setUploadError('');
-      setUploadSuccess('');
-      const file = event.target.files?.[0];
-      if (!file) return;
-      const user = auth.currentUser;
-      if (!user) { setUploadError('You must be logged in'); return; }
-      if (!file.type.startsWith('image/')) { setUploadError('Please select an image file'); return; }
-      if (file.size > 10 * 1024 * 1024) { setUploadError('File too large (max 10MB)'); return; }
-
-      setUploading(true);
-      setUploadProgress(0);
-      const path = `reports/${user.uid}/${Date.now()}_${file.name}`;
-      const ref = storageRef(storage, path);
-      // Debug info to validate bucket and path in case of stuck uploads
-      try { console.log('Upload to bucket:', storage.app?.options?.storageBucket, 'ref.bucket:', ref.bucket, 'path:', path); } catch(_) {}
-      const task = uploadBytesResumable(ref, file, { contentType: file.type });
-
-      await new Promise((resolve, reject) => {
-        task.on('state_changed', (snap) => {
-          if (snap.totalBytes > 0) {
-            setUploadProgress(Math.round((snap.bytesTransferred / snap.totalBytes) * 100));
-          }
-        }, reject, resolve);
-      });
-
-      const downloadURL = await getDownloadURL(task.snapshot.ref);
-
-      // Save minimal metadata for later linking
-      await addDoc(collection(db, 'reportUploads'), {
-        ownerUid: user.uid,
-        storagePath: path,
-        downloadURL,
-        createdAt: serverTimestamp(),
-      });
-
-      setUploadSuccess('Photo uploaded');
-      if (fileInputRef.current) fileInputRef.current.value = '';
-    } catch (e) {
-      setUploadError(`Failed to upload photo: ${e?.message || ''}`.trim());
-    } finally {
-      setUploading(false);
-      setUploadProgress(0);
-    }
+  const handlePhotoRemoved = () => {
+    setUploadedPhotoUrl('');
+    setUploadedPhotoPath('');
   };
 
   const validateRefund = () => {
@@ -96,6 +42,67 @@ export default function ReportPage() {
     if (!refundForm.method) return 'Please choose a repayment method';
     if (!refundForm.expenseDate) return 'Please choose the expense date';
     return '';
+  };
+
+  const handleReportSubmit = async () => {
+    setSubmitError(''); setSubmitSuccess('');
+    
+    // Validate form
+    if (!desc.trim()) {
+      setSubmitError('Please describe the problem');
+      return;
+    }
+    if (!selectedHouse) {
+      setSubmitError('Please select a house');
+      return;
+    }
+    if (!selectedFloor) {
+      setSubmitError('Please select a floor');
+      return;
+    }
+    
+    try {
+      setSubmitting(true);
+      const user = auth.currentUser;
+      if (!user) {
+        setSubmitError('You must be logged in');
+        return;
+      }
+      
+      const userSnap = await getDoc(doc(db, 'users', user.uid));
+      const userData = userSnap.exists() ? userSnap.data() : {};
+      
+      const payload = {
+        ownerUid: user.uid,
+        ownerName: userData.fullName || '',
+        ownerRoomNumber: userData.roomNumber || '',
+        description: desc.trim(),
+        house: selectedHouse,
+        floor: selectedFloor,
+        photoUrl: uploadedPhotoUrl || '',
+        photoPath: uploadedPhotoPath || '',
+        status: 'pending',
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        softDeleted: false,
+      };
+      
+      await addDoc(collection(db, 'problemReports'), payload);
+      setSubmitSuccess('Problem report submitted successfully');
+      
+      // Reset form
+      setDesc('');
+      setSelectedHouse('');
+      setSelectedFloor('');
+      setUploadedPhotoUrl('');
+      setUploadedPhotoPath('');
+      
+    } catch (e) {
+      setSubmitError('Failed to submit problem report');
+      console.error('Error submitting report:', e);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleRefundSave = async () => {
@@ -129,24 +136,106 @@ export default function ReportPage() {
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-blue-200/60 to-green-100/60 font-body flex flex-col items-center pt-10 pb-32 px-2 phone-sm:px-2 phone-md:px-4 phone-lg:px-6">
-      <button onClick={handleLanguageSwitch} className="absolute top-4 right-4 bg-surface p-2 rounded-full text-white text-xl hover:text-text">{i18n.language === 'en' ? 'עברית' : 'EN'}</button>
+      <LanguageSwitcher />
       <div className="w-full max-w-md">
         <div className="rounded-3xl p-10 mb-8 shadow-lg flex flex-col items-center" style={{ background: 'rgba(0,0,0,0.38)' }}>
           <h2 className="text-3xl font-extrabold mb-8 text-white text-center tracking-wide">{t('report_a_problem')}</h2>
-          <div className="mb-8 w-full">
+          
+          {/* Error and Success Messages */}
+          {submitError && <div className="mb-4 w-full text-red-200 text-sm bg-red-500/20 rounded px-3 py-2">{submitError}</div>}
+          {submitSuccess && <div className="mb-4 w-full text-green-200 text-sm bg-green-500/20 rounded px-3 py-2">{submitSuccess}</div>}
+          
+          {/* House Selector */}
+          <div className="mb-6 w-full">
+            <label className="block text-lg mb-2 text-white font-semibold">{t('select_house')}</label>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setSelectedHouse(selectedHouse === 'new_house' ? '' : 'new_house')}
+                className={`flex-1 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 hover:scale-105 ${
+                  selectedHouse === 'new_house' 
+                    ? 'text-white' 
+                    : 'text-white'
+                }`}
+                style={{ 
+                  background: selectedHouse === 'new_house' ? colors.primaryGreen : 'rgba(255, 255, 255, 0.1)',
+                  border: selectedHouse === 'new_house' ? 'none' : `2px solid rgba(255, 255, 255, 0.3)`,
+                  color: selectedHouse === 'new_house' ? colors.white : colors.white,
+                  boxShadow: selectedHouse === 'new_house' ? '0 4px 12px rgba(7, 99, 50, 0.3)' : 'none'
+                }}
+              >
+                {t('houses.new_house')}
+              </button>
+              <button
+                onClick={() => setSelectedHouse(selectedHouse === 'original_house' ? '' : 'original_house')}
+                className={`flex-1 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 hover:scale-105 ${
+                  selectedHouse === 'original_house' 
+                    ? 'text-white' 
+                    : 'text-white'
+                }`}
+                style={{ 
+                  background: selectedHouse === 'original_house' ? colors.primaryGreen : 'rgba(255, 255, 255, 0.1)',
+                  border: selectedHouse === 'original_house' ? 'none' : `2px solid rgba(255, 255, 255, 0.3)`,
+                  color: selectedHouse === 'original_house' ? colors.white : colors.white,
+                  boxShadow: selectedHouse === 'original_house' ? '0 4px 12px rgba(7, 99, 50, 0.3)' : 'none'
+                }}
+              >
+                {t('houses.original_house')}
+              </button>
+            </div>
+          </div>
+
+          {/* Floor Selector */}
+          <div className="mb-6 w-full">
+            <label className="block text-lg mb-2 text-white font-semibold">{t('select_floor')}</label>
+            <div className="grid grid-cols-3 gap-2">
+              {['-1', '0', '1', '2', '3'].map((floor) => (
+                <button
+                  key={floor}
+                  onClick={() => setSelectedFloor(selectedFloor === floor ? '' : floor)}
+                  className={`px-3 py-3 rounded-xl text-sm font-semibold transition-all duration-200 hover:scale-105 ${
+                    selectedFloor === floor 
+                      ? 'text-white' 
+                      : 'text-white'
+                  }`}
+                  style={{ 
+                    background: selectedFloor === floor ? colors.primaryGreen : 'rgba(255, 255, 255, 0.1)',
+                    border: selectedFloor === floor ? 'none' : `2px solid rgba(255, 255, 255, 0.3)`,
+                    color: selectedFloor === floor ? colors.white : colors.white,
+                    boxShadow: selectedFloor === floor ? '0 4px 12px rgba(7, 99, 50, 0.3)' : 'none'
+                  }}
+                >
+                  {t(`floors.${floor}`)}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Problem Description */}
+          <div className="mb-6 w-full">
             <label className="block text-lg mb-2 text-white font-semibold">{t('describe_problem')}</label>
             <textarea className="w-full border border-white/30 px-4 py-3 rounded-xl text-black bg-white text-lg placeholder-black/50 focus:outline-none focus:border-gold transition" rows={5} value={desc} onChange={e => setDesc(e.target.value)} placeholder={t('describe_problem')} style={{ background: colors.white, color: 'black' }} />
           </div>
-          {/* Upload photo section */}
-          <div className="w-full mb-4">
-            {uploadError && <div className="mb-3 text-red-200 text-sm bg-red-500/20 rounded px-3 py-2">{uploadError}</div>}
-            {uploadSuccess && <div className="mb-3 text-green-200 text-sm bg-green-500/20 rounded px-3 py-2">{uploadSuccess}</div>}
-            <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileSelected} />
-            <button onClick={triggerFilePicker} disabled={uploading} className="w-full bg-white/15 hover:bg-white/25 text-white py-3 rounded-xl font-semibold text-lg disabled:opacity-60">
-              {uploading ? `Uploading… ${uploadProgress}%` : 'Upload photo'}
-            </button>
+          
+          {/* Photo Upload Section */}
+          <div className="w-full mb-6">
+            <PhotoUpload
+              onPhotoUploaded={handlePhotoUploaded}
+              onPhotoRemoved={handlePhotoRemoved}
+              currentPhotoUrl={uploadedPhotoUrl}
+              uploadPath="reports"
+              maxSize={10 * 1024 * 1024}
+              acceptedTypes={['image/*']}
+            />
           </div>
-          <button className="w-full bg-[#EDC381] hover:bg-[#d4b06a] text-white py-4 rounded-full font-bold text-xl transition">{t('submit')}</button>
+          
+          {/* Submit Button */}
+          <button 
+            onClick={handleReportSubmit} 
+            disabled={submitting} 
+            className="w-full bg-[#EDC381] hover:bg-[#d4b06a] text-white py-4 rounded-full font-bold text-xl transition disabled:opacity-60"
+          >
+            {submitting ? 'Submitting...' : t('submit')}
+          </button>
         </div>
       </div>
       

@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { ref as storageRef, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-import { storage } from '@/lib/firebase';
+import { storage, auth } from '@/lib/firebase';
 import colors from '@/app/colors';
 
 export default function PhotoUpload({ 
@@ -211,9 +211,15 @@ export default function PhotoUpload({
       setUploadProgress(0);
 
       // Create unique path for the photo
+      const user = auth.currentUser;
+      if (!user) {
+        setUploadError('You must be logged in to upload photos');
+        return;
+      }
+      
       const timestamp = Date.now();
       const fileName = file.name || `${timestamp}_photo.jpg`;
-      const path = `${uploadPath}/${fileName}`;
+      const path = `${uploadPath}/${user.uid}/${fileName}`;
       const ref = storageRef(storage, path);
 
       // Upload the file
@@ -277,9 +283,15 @@ export default function PhotoUpload({
       setUploadProgress(0);
 
       // Create unique path for the photo
+      const user = auth.currentUser;
+      if (!user) {
+        setUploadError('You must be logged in to upload photos');
+        return;
+      }
+      
       const timestamp = Date.now();
       const fileName = `${timestamp}_${file.name}`;
-      const path = `${uploadPath}/${fileName}`;
+      const path = `${uploadPath}/${user.uid}/${fileName}`;
       const ref = storageRef(storage, path);
 
       // Upload the file

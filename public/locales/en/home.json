@@ -8,7 +8,6 @@
     "viewAll": "View All",
     "vote": "Vote",
     "coming": "Coming",
-    "notComing": "Not Coming",
     "maybe": "Maybe",
     "surveysToFill": "Surveys to Fill",
     "fillNow": "Fill Now",
@@ -34,6 +33,14 @@
     "submit": "Submit",
     "savedSuccessfully": "Saved successfully!",
     "saveError": "Error saving. Please try again.",
-    "saving": "Saving..."
+    "saving": "Saving...",
+    "completeQuestionnairePrompt": "Please complete the questionnaire to complete your profile",
+    "profileComplete": "Profile complete! You can still edit your information.",
+    "questionsRemaining": "You have {{remaining}} questions remaining to complete your profile",
+    "startQuestionnaire": "Start Questionnaire",
+    "continueQuestionnaire": "Continue Questionnaire",
+    "notComing": "Not Coming",
+    "cleanRoom": "Clean your room?",
+    "changeSheets": "Change your sheets?"
 }
   

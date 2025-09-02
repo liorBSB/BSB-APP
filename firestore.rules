@@ -53,17 +53,23 @@ service cloud.firestore {
       allow delete: if isSignedIn() && isAdmin(request.auth.uid);
     }
 
-    // Minimal metadata for user report uploads
-    // Created when a user uploads a photo to Storage under reports/{uid}/...
-    match /reportUploads/{docId} {
+    // Problem reports (created by soldiers; reviewed by admins)
+    match /problemReports/{reportId} {
       allow create: if isSignedIn();
-      allow read: if isSignedIn();
-      // Only the existing owner or admin can update/delete
-      allow update, delete: if isSignedIn() && (
-        isAdmin(request.auth.uid) ||
-        (resource.data.ownerUid == request.auth.uid)
+      allow read: if isSignedIn() && (
+        resource.data.ownerUid == request.auth.uid ||
+        isAdmin(request.auth.uid)
       );
+      // Owners can update until status is terminal; admins can always update
+      allow update: if isSignedIn() && (
+        isAdmin(request.auth.uid) ||
+        (resource.data.ownerUid == request.auth.uid && resource.data.status in ['pending'])
+      );
+      // Soft delete flag only; restrict hard delete to admins
+      allow delete: if isSignedIn() && isAdmin(request.auth.uid);
     }
+
+
 
     // Admin approval requests for admin access
     match /approvalRequests/{reqId} {

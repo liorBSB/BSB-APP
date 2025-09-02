@@ -314,11 +314,11 @@ export default function HomePage() {
                   const remaining = total - answered;
                   
                   if (answered === 0) {
-                    return "Please complete the questionnaire to complete your profile";
+                    return t('completeQuestionnairePrompt');
                   } else if (answered === total) {
-                    return "Profile complete! You can still edit your information.";
+                    return t('profileComplete');
                   } else {
-                    return `You have ${remaining} questions remaining to complete your profile`;
+                    return t('questionsRemaining', { remaining });
                   }
                 })()}
               </p>
@@ -384,7 +384,7 @@ export default function HomePage() {
                     });
                   });
                   
-                  return answered === 0 ? "Start Questionnaire" : "Continue Questionnaire";
+                  return answered === 0 ? t('startQuestionnaire') : t('continueQuestionnaire');
                 })()}
               </button>
             </div>
@@ -482,100 +482,134 @@ export default function HomePage() {
           </button>
         </div>
 
-        {/* Upcoming Events */}
-        <CollapsibleSection
-          title={t('upcomingEvents')}
-          headerBg={colors.sectionBg}
-          headerText={colors.white}
-          contentBg="rgba(0,0,0,0.18)"
-          titleClassName="text-xl font-bold"
-        >
-          {loadingEvents ? (
-            <div className="text-center text-muted py-2">{t('loading')}</div>
-          ) : futureEvents.length === 0 ? (
-            <div className="text-center text-muted py-2">{t('noUpcomingEvents')}</div>
-          ) : (
-            futureEvents.map((event, idx) => (
-              <div key={event.id} className="relative mb-3">
-                <ListItem
-                  icon="📅"
-                  title={event.title}
-                  subtitle={event.endTime && `When: ${new Date(event.endTime.seconds ? event.endTime.seconds * 1000 : event.endTime).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit' })} ${new Date(event.endTime.seconds ? event.endTime.seconds * 1000 : event.endTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`}
-                  statusText={event.status || ''}
-                  statusColor="bg-green-700"
-                  titleClassName="font-bold text-lg"
-                  subtitleClassName="text-white opacity-80"
-                />
-                <button
-                  className={`absolute top-5 ${isRTL ? 'left-8' : 'right-8'} px-3 py-1 rounded-lg bg-[#EDC381] text-white font-semibold text-xs shadow-md`}
-                  onClick={() => { setSelectedEvent(event); setModalOpen(true); }}
-                  style={{ zIndex: 2 }}
-                >
-                  {t('respond')}
-                </button>
-              </div>
-            ))
-          )}
-        </CollapsibleSection>
-
-        {/* Surveys to Fill */}
-        <CollapsibleSection
-          title={t('surveysToFill')}
-          headerBg={colors.sectionBg}
-          headerText={colors.white}
-          contentBg="rgba(0,0,0,0.18)"
-          titleClassName="text-xl font-bold"
-        >
-          {loadingSurveys ? (
-            <div className="text-center text-muted py-2">{t('loading')}</div>
-          ) : futureSurveys.length === 0 ? (
-            <div className="text-center text-muted py-2">{t('noSurveys')}</div>
-          ) : (
-            futureSurveys.map((survey, idx) => (
-              <div key={survey.id} className="relative mb-3">
-                <ListItem
-                  icon="📝"
-                  title={survey.title}
-                  subtitle={survey.endTime ? `Due Date: ${new Date(survey.endTime.seconds ? survey.endTime.seconds * 1000 : survey.endTime).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit' })} ${new Date(survey.endTime.seconds ? survey.endTime.seconds * 1000 : survey.endTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}` : ''}
-                  statusText={''}
-                  statusColor="bg-green-700"
-                  titleClassName="font-bold text-lg"
-                  subtitleClassName="text-white opacity-80"
-                />
-                <button
-                  className={`absolute top-5 ${isRTL ? 'left-8' : 'right-8'} px-3 py-1 rounded-lg bg-[#EDC381] text-white font-semibold text-xs shadow-md`}
-                  onClick={() => { setSelectedSurvey(survey); setSurveyModalOpen(true); }}
-                  style={{ zIndex: 2 }}
-                >
-                  {t('fillNow')}
-                </button>
-              </div>
-            ))
-          )}
-        </CollapsibleSection>
-
-        {/* Important Messages as a horizontal carousel */}
-        <div className="mb-4">
-          <div className="flex items-center px-4 py-2 rounded-t-lg shadow-sm select-none" style={{ background: colors.sectionBg, color: colors.white }}>
-            <span className="font-semibold text-base">{t('importantMessages')}</span>
+        {/* Events Section */}
+        <div className="mb-8">
+          <div className="flex items-center px-4 py-3 rounded-t-lg shadow-sm select-none" style={{ background: colors.sectionBg, color: colors.white }}>
+            <span className="font-semibold text-lg flex-1 text-left" style={{ color: colors.white }}>
+              {t('upcomingEvents')}
+            </span>
           </div>
-          <div className="rounded-b-lg p-4 overflow-x-auto flex gap-4" style={{ background: 'rgba(0,0,0,0.00)' }}>
-            {loadingMessages ? (
-              <div className="text-center text-muted py-2">{t('loading')}</div>
-            ) : futureMessages.length === 0 ? (
-              <div className="text-center text-muted py-2">{t('no_important_messages')}</div>
+          <div className="rounded-b-lg p-5" style={{ background: 'rgba(0,0,0,0.18)' }}>
+            {loadingEvents ? (
+              <div className="text-center text-muted py-3">{t('loading')}</div>
+            ) : futureEvents.length === 0 ? (
+              <div className="text-center text-muted py-3">{t('noUpcomingEvents')}</div>
             ) : (
-              futureMessages.map(msg => (
-                <div key={msg.id} className="min-w-[220px] max-w-xs p-4 rounded-lg" style={{ background: colors.white, color: colors.primaryGreen, borderColor: colors.gray400 }}>
-                  <div className="flex flex-col gap-2">
-                    <h3 className="font-bold text-lg" style={{ color: colors.primaryGreen }}>{msg.title}</h3>
-                    <p className="text-sm" style={{ color: colors.black }}>{msg.body}</p>
-                    <div className="flex flex-col gap-1 text-xs" style={{ color: colors.gray400 }}>
-                      {msg.startDate && (
-                        <span>Start: {new Date(msg.startDate.seconds * 1000).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit' })} {new Date(msg.startDate.seconds * 1000).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</span>
+              futureEvents.map(event => (
+                <div key={event.id} className="relative mb-5 bg-blue-50 rounded-xl shadow-md p-6">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1 pr-4">
+                      <div className="font-bold text-xl text-[#076332] mb-3 leading-tight line-clamp-2">{event.title}</div>
+                      {event.body && <div className="text-base font-medium text-gray-700 mb-4 leading-relaxed line-clamp-2">{event.body}</div>}
+                      {event.endTime && (
+                        <div className="text-sm font-semibold" style={{ color: '#fff', background: '#076332', borderRadius: 6, padding: '4px 10px', display: 'inline-block' }}>
+                          {new Date(event.endTime.seconds ? event.endTime.seconds * 1000 : event.endTime).toLocaleDateString('en-US', { 
+                            weekday: 'short', 
+                            month: 'short', 
+                            day: 'numeric',
+                            hour: '2-digit', 
+                            minute: '2-digit' 
+                          })}
+                        </div>
                       )}
-                      {msg.endTime && (
-                        <span>End: {new Date(msg.endTime.seconds ? msg.endTime.seconds * 1000 : msg.endTime).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit' })} {new Date(msg.endTime.seconds ? msg.endTime.seconds * 1000 : msg.endTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</span>
+                    </div>
+                    <button
+                      className="px-3 py-1 rounded-lg bg-[#EDC381] text-white font-semibold text-xs shadow-md"
+                      onClick={() => { setSelectedEvent(event); setModalOpen(true); }}
+                    >
+                      {t('respond')}
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* Surveys Section */}
+        <div className="mb-8">
+          <div className="flex items-center px-4 py-3 rounded-t-lg shadow-sm select-none" style={{ background: colors.sectionBg, color: colors.white }}>
+            <span className="font-semibold text-lg flex-1 text-left" style={{ color: colors.white }}>
+              {t('surveysToFill')}
+            </span>
+          </div>
+          <div className="rounded-b-lg p-5" style={{ background: 'rgba(0,0,0,0.18)' }}>
+            {loadingSurveys ? (
+              <div className="text-center text-muted py-3">{t('loading')}</div>
+            ) : futureSurveys.length === 0 ? (
+              <div className="text-center text-muted py-3">{t('noSurveys')}</div>
+            ) : (
+              futureSurveys.map(survey => (
+                <div key={survey.id} className="relative mb-5 bg-blue-50 rounded-xl shadow-md p-6">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1 pr-4">
+                      <div className="font-bold text-xl text-[#076332] mb-3 leading-tight line-clamp-2">{survey.title}</div>
+                      {survey.body && <div className="text-base font-medium text-gray-700 mb-4 leading-relaxed line-clamp-2">{survey.body}</div>}
+                      {survey.endTime && (
+                        <div className="text-sm font-semibold" style={{ color: '#fff', background: '#076332', borderRadius: 6, padding: '4px 10px', display: 'inline-block' }}>
+                          Due: {new Date(survey.endTime.seconds ? survey.endTime.seconds * 1000 : survey.endTime).toLocaleDateString('en-US', { 
+                            weekday: 'short', 
+                            month: 'short', 
+                            day: 'numeric',
+                            hour: '2-digit', 
+                            minute: '2-digit' 
+                          })}
+                        </div>
+                      )}
+                    </div>
+                    <button
+                      className="px-3 py-1 rounded-lg bg-[#EDC381] text-white font-semibold text-xs shadow-md"
+                      onClick={() => { setSelectedSurvey(survey); setSurveyModalOpen(true); }}
+                    >
+                      {t('fillNow')}
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* Messages Section */}
+        <div className="mb-8">
+          <div className="flex items-center px-4 py-3 rounded-t-lg shadow-sm select-none" style={{ background: colors.sectionBg, color: colors.white }}>
+            <span className="font-semibold text-lg flex-1 text-left" style={{ color: colors.white }}>
+              {t('importantMessages')}
+            </span>
+          </div>
+          <div className="rounded-b-lg p-5" style={{ background: 'rgba(0,0,0,0.18)' }}>
+            {loadingMessages ? (
+              <div className="text-center text-muted py-3">{t('loading')}</div>
+            ) : futureMessages.length === 0 ? (
+              <div className="text-center text-muted py-3">{t('no_important_messages')}</div>
+            ) : (
+              futureMessages.map(message => (
+                <div key={message.id} className="relative mb-5 bg-blue-50 rounded-xl shadow-md p-6">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1 pr-4">
+                      <div className="font-bold text-xl text-[#076332] mb-3 leading-tight line-clamp-2">{message.title}</div>
+                      {message.body && <div className="text-base font-medium text-gray-700 mb-4 leading-relaxed line-clamp-2">{message.body}</div>}
+                      {message.startTime && (
+                        <div className="text-sm font-semibold mb-2" style={{ color: '#fff', background: '#076332', borderRadius: 6, padding: '4px 10px', display: 'inline-block' }}>
+                          Start: {new Date(message.startTime.seconds ? message.startTime.seconds * 1000 : message.startTime).toLocaleDateString('en-US', { 
+                            weekday: 'short', 
+                            month: 'short', 
+                            day: 'numeric',
+                            hour: '2-digit', 
+                            minute: '2-digit' 
+                          })}
+                        </div>
+                      )}
+                      {message.endTime && (
+                        <div className="text-sm font-semibold" style={{ color: '#fff', background: '#076332', borderRadius: 6, padding: '4px 10px', display: 'inline-block' }}>
+                          End: {new Date(message.endTime.seconds ? message.endTime.seconds * 1000 : message.endTime).toLocaleDateString('en-US', { 
+                            weekday: 'short', 
+                            month: 'short', 
+                            day: 'numeric',
+                            hour: '2-digit', 
+                            minute: '2-digit' 
+                          })}
+                        </div>
                       )}
                     </div>
                   </div>
@@ -619,7 +653,7 @@ export default function HomePage() {
                 style={{ background: 'transparent', color: colors.black, border: `1px solid ${colors.red}` }}
                 onClick={() => setModalOpen(false)}
               >
-                Not Coming
+                {t('notComing')}
               </button>
               <button
                 className="mt-2 text-gray-500 underline"
@@ -657,7 +691,7 @@ export default function HomePage() {
                 style={{ background: 'transparent', color: colors.black, border: `2px solid ${colors.red}` }}
                 onClick={() => setSurveyModalOpen(false)}
               >
-                Not Coming
+                {t('notComing')}
               </button>
               <button
                 className="mt-2 text-gray-500 underline"
@@ -678,7 +712,7 @@ export default function HomePage() {
             </div>
             <div className="flex flex-col gap-8">
               <div className="flex items-center justify-between">
-                <span className="font-medium text-black">Clean your room?</span>
+                <span className="font-medium text-black">{t('cleanRoom')}</span>
                 <button
                   className={`w-14 h-8 rounded-full flex items-center transition-colors duration-200`}
                   onClick={() => setCleanRoom(val => !val)}
@@ -691,7 +725,7 @@ export default function HomePage() {
                 </button>
               </div>
               <div className="flex items-center justify-between">
-                <span className="font-medium text-black">Change your sheets?</span>
+                <span className="font-medium text-black">{t('changeSheets')}</span>
                 <button
                   className={`w-14 h-8 rounded-full flex items-center transition-colors duration-200`}
                   onClick={() => setChangeSheets(val => !val)}

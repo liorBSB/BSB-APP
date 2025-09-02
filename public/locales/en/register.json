@@ -1,0 +1,43 @@
+{
+  "register": "Register",
+  "create_account": "Create Account",
+  "full_name": "Full Name",
+  "email": "Email",
+  "password": "Password",
+  "confirm_password": "Confirm Password",
+  "phone_number": "Phone Number",
+  "personal_number": "Personal Number",
+  "room_number": "Room Number",
+  "user_type": "User Type",
+  "soldier": "Soldier",
+  "admin": "Admin",
+  "crew": "Crew",
+  "register_button": "Register",
+  "already_have_account": "Already have an account?",
+  "login_here": "Login here",
+  "registration_successful": "Registration successful!",
+  "registration_failed": "Registration failed. Please try again.",
+  "passwords_dont_match": "Passwords don't match",
+  "fill_all_fields": "Please fill in all fields",
+  "invalid_email": "Invalid email address",
+  "password_too_short": "Password must be at least 6 characters",
+  "pending_approval": {
+    "title": "Registration Pending Approval",
+    "message": "Your registration has been submitted and is pending approval from an administrator.",
+    "check_back_later": "Please check back later or contact support if you have any questions.",
+    "logout": "Logout"
+  },
+  "selection": {
+    "title": "Select User Type",
+    "choose_type": "Please choose your user type:",
+    "soldier_description": "Regular soldier user",
+    "admin_description": "Administrator with full access",
+    "crew_description": "Crew member with limited access"
+  },
+  "consent": {
+    "title": "Terms and Conditions",
+    "agree": "I agree to the terms and conditions",
+    "continue": "Continue",
+    "back": "Back"
+  }
+}

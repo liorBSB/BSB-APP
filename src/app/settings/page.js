@@ -9,6 +9,7 @@ import BottomNavBar from '@/components/BottomNavBar';
 import EditFieldModal from '@/components/EditFieldModal';
 import QuestionnaireEditor from '@/components/QuestionnaireEditor';
 import PhotoUpload from '@/components/PhotoUpload';
+import LanguageSwitcher from '@/components/LanguageSwitcher';
 import colors from '../colors';
 
 export default function SettingsPage() {
@@ -35,12 +36,6 @@ export default function SettingsPage() {
   });
 
   useEffect(() => {
-    // On mount, set language from localStorage if available
-    const savedLang = typeof window !== 'undefined' ? localStorage.getItem('lang') : null;
-    if (savedLang && savedLang !== i18n.language) {
-      i18n.changeLanguage(savedLang);
-      document.documentElement.dir = savedLang === 'he' ? 'rtl' : 'ltr';
-    }
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         const userRef = doc(db, 'users', user.uid);
@@ -57,7 +52,7 @@ export default function SettingsPage() {
       setLoading(false);
     });
     return () => unsubscribe();
-  }, [i18n]);
+  }, []);
 
   const handleSaveField = async (field, value) => {
     setSaving(true);
@@ -88,12 +83,7 @@ export default function SettingsPage() {
     email: t('email'),
   };
 
-  const handleLanguageSwitch = () => {
-    const nextLang = i18n.language === 'en' ? 'he' : 'en';
-    i18n.changeLanguage(nextLang);
-    if (typeof window !== 'undefined') localStorage.setItem('lang', nextLang);
-    document.documentElement.dir = nextLang === 'he' ? 'rtl' : 'ltr';
-  };
+
 
   const handleProfileUpdate = (updatedAnswers) => {
     // Update local fields with the new answers if they match our basic fields
@@ -151,12 +141,7 @@ export default function SettingsPage() {
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-blue-200/60 to-green-100/60 font-body flex flex-col items-center pt-10 pb-32 px-2 phone-sm:px-2 phone-md:px-4 phone-lg:px-6">
-      <button
-        onClick={handleLanguageSwitch}
-        className="absolute top-4 right-4 bg-surface p-2 rounded-full text-white text-xl hover:text-text"
-      >
-        {i18n.language === 'en' ? 'עברית' : 'EN'}
-      </button>
+      <LanguageSwitcher />
       <div className="w-full max-w-md">
         {/* Personal ID Button - Above Settings */}
         <div className="rounded-3xl p-8 mb-6 shadow-lg flex flex-col items-center" style={{ background: 'rgba(0,0,0,0.38)' }}>
@@ -165,7 +150,7 @@ export default function SettingsPage() {
             className="w-full py-5 px-6 bg-transparent font-bold text-xl border-2 rounded-xl hover:bg-white/10 transition-colors flex items-center justify-center gap-3"
             style={{ borderColor: colors.gold, color: colors.gold }}
           >
-            Personal ID
+{t('personal_id')}
           </button>
         </div>
 
@@ -198,7 +183,7 @@ export default function SettingsPage() {
                   onClick={() => setQuestionnaireEditorOpen(true)}
                   className="w-full py-4 px-6 bg-transparent text-white font-bold text-lg border-2 border-white rounded-xl hover:bg-white/10 transition-colors"
                 >
-                  Edit Full Profile
+{t('edit_full_profile')}
                 </button>
               </div>
               
@@ -208,7 +193,7 @@ export default function SettingsPage() {
                   onClick={() => router.back()}
                   className="w-full py-4 px-6 bg-transparent text-white font-bold text-lg border-2 border-white rounded-xl hover:bg-white/10 transition-colors"
                 >
-                  ← Go Back
+{t('go_back')}
                 </button>
               </div>
               
@@ -221,7 +206,7 @@ export default function SettingsPage() {
           onClick={() => { auth.signOut(); router.push('/'); }}
           style={{ width: '100%', background: 'transparent', color: colors.primaryGreen, fontWeight: 700, border: `2.5px solid ${colors.primaryGreen}`, borderRadius: 999, padding: '1.2rem 0', fontSize: 22, boxShadow: '0 2px 8px rgba(0,0,0,0.08)', marginTop: 18 }}
         >
-          Log Out
+{t('logout')}
         </button>
       </div>
       <EditFieldModal
@@ -254,7 +239,7 @@ export default function SettingsPage() {
               
               {/* Header */}
               <div className="text-center mb-6 pt-2">
-                <h3 className="text-2xl font-bold text-gray-800 mb-3">Habayit Shel Benji Card</h3>
+                <h3 className="text-2xl font-bold text-gray-800 mb-3">{t('habayit_shel_benji_card')}</h3>
               </div>
               
               {/* Logo */}
@@ -288,16 +273,16 @@ export default function SettingsPage() {
                 
                 {!personalIdData.profilePhotoUrl && (
                   <div className="mt-3 text-center">
-                    <p className="text-gray-600 text-sm mb-2 font-medium">Photo Required</p>
+                    <p className="text-gray-600 text-sm mb-2 font-medium">{t('photo_required')}</p>
                     <button
                       onClick={() => setShowPhotoUpload(true)}
                       className="px-4 py-2 rounded-lg font-semibold text-white text-sm transition-all hover:scale-105"
                       style={{ background: colors.gold, boxShadow: '0 4px 12px rgba(237, 195, 129, 0.3)' }}
                     >
-                      Add Photo
+{t('add_photo')}
                     </button>
                     {hasDeclinedPhoto && (
-                      <p className="text-red-500 text-sm mt-2 font-medium">Please add a photo to continue</p>
+                      <p className="text-red-500 text-sm mt-2 font-medium">{t('please_add_photo')}</p>
                     )}
                   </div>
                 )}
@@ -306,28 +291,28 @@ export default function SettingsPage() {
               {/* All Fields - Stacked Vertically */}
               <div className="space-y-4 mb-6">
                 <div className="text-center pb-3">
-                  <div className="text-xs text-gray-500 uppercase tracking-wider font-semibold mb-1">Full Name</div>
-                  <div className="text-lg font-semibold text-gray-800">{fields.name || 'Not specified'}</div>
+                  <div className="text-xs text-gray-500 uppercase tracking-wider font-semibold mb-1">{t('full_name')}</div>
+                  <div className="text-lg font-semibold text-gray-800">{fields.name || t('not_specified')}</div>
                 </div>
                 
                 <div className="text-center pb-3">
-                  <div className="text-xs text-gray-500 uppercase tracking-wider font-semibold mb-1">Room Number</div>
-                  <div className="text-lg font-semibold text-gray-800">{fields.room || 'Not specified'}</div>
+                  <div className="text-xs text-gray-500 uppercase tracking-wider font-semibold mb-1">{t('room_number')}</div>
+                  <div className="text-lg font-semibold text-gray-800">{fields.room || t('not_specified')}</div>
                 </div>
                 
                 <div className="text-center pb-3">
-                  <div className="text-xs text-gray-500 uppercase tracking-wider font-semibold mb-1">Personal Army ID</div>
-                  <div className="text-lg font-semibold text-gray-800">{personalIdData.personalNumber || 'Not specified'}</div>
+                  <div className="text-xs text-gray-500 uppercase tracking-wider font-semibold mb-1">{t('personal_army_id')}</div>
+                  <div className="text-lg font-semibold text-gray-800">{personalIdData.personalNumber || t('not_specified')}</div>
                 </div>
                 
                 <div className="text-center pb-3">
-                  <div className="text-xs text-gray-500 uppercase tracking-wider font-semibold mb-1">Phone Number</div>
-                  <div className="text-lg font-semibold text-gray-800">{personalIdData.phone || 'Not specified'}</div>
+                  <div className="text-xs text-gray-500 uppercase tracking-wider font-semibold mb-1">{t('phone_number')}</div>
+                  <div className="text-lg font-semibold text-gray-800">{personalIdData.phone || t('not_specified')}</div>
                 </div>
                 
                 <div className="text-center pb-3">
-                  <div className="text-xs text-gray-500 uppercase tracking-wider font-semibold mb-1">Email</div>
-                  <div className="text-lg font-semibold text-gray-800">{fields.email || 'Not specified'}</div>
+                  <div className="text-xs text-gray-500 uppercase tracking-wider font-semibold mb-1">{t('email')}</div>
+                  <div className="text-lg font-semibold text-gray-800">{fields.email || t('not_specified')}</div>
                 </div>
               </div>
 
@@ -342,7 +327,7 @@ export default function SettingsPage() {
                     boxShadow: '0 6px 20px rgba(0,0,0,0.15)'
                   }}
                 >
-                  Close
+{t('close')}
                 </button>
               </div>
             </div>
@@ -355,8 +340,8 @@ export default function SettingsPage() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
           <div className="bg-white rounded-2xl max-w-md w-full p-6">
             <div className="text-center mb-6">
-              <h3 className="text-xl font-bold text-gray-800 mb-2">Add Profile Photo</h3>
-              <p className="text-gray-600">Take a photo or upload from your device</p>
+              <h3 className="text-xl font-bold text-gray-800 mb-2">{t('add_profile_photo')}</h3>
+              <p className="text-gray-600">{t('take_photo_or_upload')}</p>
             </div>
             
             <PhotoUpload
@@ -378,7 +363,7 @@ export default function SettingsPage() {
                 className="px-6 py-2 rounded-lg font-semibold text-white"
                 style={{ background: colors.gold }}
               >
-                Cancel
+{t('cancel')}
               </button>
             </div>
           </div>

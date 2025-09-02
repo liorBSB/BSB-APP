@@ -1,7 +1,9 @@
 "use client";
 
+import '@/i18n';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslation } from 'react-i18next';
 import { collection, addDoc, getDocs, query, orderBy, doc, getDoc, updateDoc, where, deleteDoc } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import colors from '../../colors';
@@ -12,9 +14,11 @@ import { onAuthStateChanged } from 'firebase/auth';
 import EditFieldModal from '@/components/EditFieldModal';
 import PencilIcon from '@/components/PencilIcon';
 import AddItemModal from '@/components/AddItemModal';
+import LanguageSwitcher from '@/components/LanguageSwitcher';
 
 export default function AdminHomePage() {
   const router = useRouter();
+  const { t } = useTranslation('admin');
   const [events, setEvents] = useState([]);
   const [surveys, setSurveys] = useState([]);
   const [messages, setMessages] = useState([]);
@@ -154,7 +158,7 @@ export default function AdminHomePage() {
   if (isCheckingProfile) {
     return (
       <main className="min-h-screen bg-gradient-to-br from-blue-200/60 to-green-100/60 font-body flex items-center justify-center">
-        <div className="text-center text-muted">Loading...</div>
+        <div className="text-center text-muted">{t('loading', 'Loading...')}</div>
       </main>
     );
   }
@@ -225,11 +229,12 @@ export default function AdminHomePage() {
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-blue-200/60 to-green-100/60 font-body flex flex-col items-center pt-6 pb-40 px-4">
+      <LanguageSwitcher />
       <div className="w-full max-w-md">
         {/* Header */}
         <div className="w-full max-w-md px-5 pt-6 pb-4 mb-2">
           <h1 className="text-2xl font-bold text-black mb-1">
-            Welcome,
+Welcome,
           </h1>
           <p className="text-2xl font-bold text-black">
             {adminData?.firstName && adminData?.lastName ? `${adminData.firstName} ${adminData.lastName}` : ''}
@@ -246,7 +251,7 @@ export default function AdminHomePage() {
             style={{ minWidth: 0, background: colors.sectionBg }}
           >
             <div className="text-2xl font-extrabold text-white mb-1">75</div>
-            <div className="text-xs font-semibold text-white/80">Soldiers Home</div>
+            <div className="text-xs font-semibold text-white/80">{t('soldiers_home', 'Soldiers Home')}</div>
           </button>
           <button
             onClick={() => router.push('/admin/expenses')}
@@ -254,14 +259,14 @@ export default function AdminHomePage() {
             style={{ minWidth: 0, background: colors.sectionBg }}
           >
             <div className="text-2xl font-extrabold text-white mb-1">20</div>
-            <div className="text-xs font-semibold text-white/80">Refund Requests</div>
+            <div className="text-xs font-semibold text-white/80">{t('refund_requests', 'Refund Requests')}</div>
           </button>
           <button
             className="flex-1 flex flex-col items-center justify-center rounded-2xl shadow-lg py-5 cursor-default"
             style={{ minWidth: 0, background: colors.sectionBg }}
           >
             <div className="text-2xl font-extrabold text-white mb-1">5</div>
-            <div className="text-xs font-semibold text-white/80">Pending Problems</div>
+            <div className="text-xs font-semibold text-white/80">{t('pending_problems', 'Pending Problems')}</div>
           </button>
         </div>
 
@@ -271,25 +276,25 @@ export default function AdminHomePage() {
         <div className="mb-8">
           <div className="flex items-center px-4 py-3 rounded-t-lg shadow-sm select-none" style={{ background: colors.sectionBg, color: colors.white }}>
             <button
-              className="font-semibold text-lg flex-1 text-left focus:outline-none bg-transparent border-none"
+              className="font-semibold text-lg flex-1 focus:outline-none bg-transparent border-none"
               onClick={() => setOpenEvents((prev) => !prev)}
-              style={{ color: colors.white }}
+              style={{ color: colors.white, textAlign: 'start' }}
             >
-              Events
+{t('events', 'Events')}
             </button>
             <button
               onClick={() => openAddModal('event')}
               className="px-3 py-1 rounded-lg font-semibold transition focus:outline-none"
               style={{ color: colors.primaryGreen, background: 'none', boxShadow: 'none' }}
             >
-              + Add Event
++ {t('add_event', 'Add Event')}
             </button>
           </div>
           <div className="rounded-b-lg p-5" style={{ background: 'rgba(0,0,0,0.18)' }}>
             {loading ? (
-              <div className="text-center text-muted py-3">Loading...</div>
+              <div className="text-center text-muted py-3">{t('loading', 'Loading...')}</div>
             ) : events.length === 0 ? (
-              <div className="text-center text-muted py-3">No upcoming events</div>
+              <div className="text-center text-muted py-3">{t('no_events', 'No upcoming events')}</div>
             ) : openEvents ? (
               events.map(event => (
                 <div key={event.id} className="relative mb-5 bg-blue-50 rounded-xl shadow-md p-6">
@@ -348,25 +353,25 @@ export default function AdminHomePage() {
         <div className="mb-8">
           <div className="flex items-center px-4 py-3 rounded-t-lg shadow-sm select-none" style={{ background: colors.sectionBg, color: colors.white }}>
             <button
-              className="font-semibold text-lg flex-1 text-left focus:outline-none bg-transparent border-none"
+              className="font-semibold text-lg flex-1 focus:outline-none bg-transparent border-none"
               onClick={() => setOpenSurveys((prev) => !prev)}
-              style={{ color: colors.white }}
+              style={{ color: colors.white, textAlign: 'start' }}
             >
-              Surveys
+{t('surveys', 'Surveys')}
             </button>
             <button
               onClick={() => openAddModal('survey')}
               className="px-3 py-1 rounded-lg font-semibold transition focus:outline-none"
               style={{ color: colors.primaryGreen, background: 'none', boxShadow: 'none' }}
             >
-              + Add Survey
++ {t('add_survey', 'Add Survey')}
             </button>
           </div>
           <div className="rounded-b-lg p-5" style={{ background: 'rgba(0,0,0,0.18)' }}>
             {loading ? (
-              <div className="text-center text-muted py-3">Loading...</div>
+              <div className="text-center text-muted py-3">{t('loading', 'Loading...')}</div>
             ) : surveys.length === 0 ? (
-              <div className="text-center text-muted py-3">No surveys to fill</div>
+              <div className="text-center text-muted py-3">{t('no_surveys', 'No surveys to fill')}</div>
             ) : openSurveys ? (
               surveys.map(survey => (
                 <div key={survey.id} className="relative mb-5 bg-blue-50 rounded-xl shadow-md p-6">
@@ -425,25 +430,25 @@ export default function AdminHomePage() {
         <div className="mb-8">
           <div className="flex items-center px-4 py-3 rounded-t-lg shadow-sm select-none" style={{ background: colors.sectionBg, color: colors.white }}>
             <button
-              className="font-semibold text-lg flex-1 text-left focus:outline-none bg-transparent border-none"
+              className="font-semibold text-lg flex-1 focus:outline-none bg-transparent border-none"
               onClick={() => setOpenMessages((prev) => !prev)}
-              style={{ color: colors.white }}
+              style={{ color: colors.white, textAlign: 'start' }}
             >
-              Messages
+{t('messages', 'Messages')}
             </button>
             <button
               onClick={() => openAddModal('message')}
               className="px-3 py-1 rounded-lg font-semibold transition focus:outline-none"
               style={{ color: colors.primaryGreen, background: 'none', boxShadow: 'none' }}
             >
-              + Add Message
++ {t('add_message', 'Add Message')}
             </button>
           </div>
           <div className="rounded-b-lg p-5" style={{ background: 'rgba(0,0,0,0.18)' }}>
             {loading ? (
-              <div className="text-center text-muted py-3">Loading...</div>
+              <div className="text-center text-muted py-3">{t('loading', 'Loading...')}</div>
             ) : messages.length === 0 ? (
-              <div className="text-center text-muted py-3">No important messages</div>
+              <div className="text-center text-muted py-3">{t('no_messages', 'No important messages')}</div>
             ) : openMessages ? (
               messages.map(message => (
                 <div key={message.id} className="relative mb-5 bg-blue-50 rounded-xl shadow-md p-6">
@@ -664,12 +669,12 @@ export default function AdminHomePage() {
       <div className="mb-16">
         <div className="flex items-center px-4 py-2 rounded-t-lg shadow-sm select-none" style={{ background: colors.sectionBg, color: colors.white }}>
           <button
-            className="font-semibold text-base flex-1 text-left focus:outline-none bg-transparent border-none"
+            className="font-semibold text-base flex-1 focus:outline-none bg-transparent border-none"
             onClick={() => setOpenApprovalRequests((prev) => !prev)}
-            style={{ color: colors.white }}
-          >
-            Approval Requests
-          </button>
+            style={{ color: colors.white, textAlign: 'start' }}
+                      >
+{t('approval_requests', 'Approval Requests')}
+            </button>
           <div className="text-sm text-white/80">
             {approvalRequests.length} pending
           </div>
@@ -677,9 +682,9 @@ export default function AdminHomePage() {
         {openApprovalRequests && (
           <div className="rounded-b-lg p-4" style={{ background: 'rgba(0,0,0,0.18)' }}>
             {loading ? (
-              <div className="text-center text-muted py-2">Loading...</div>
+              <div className="text-center text-muted py-2">{t('loading', 'Loading...')}</div>
             ) : approvalRequests.length === 0 ? (
-              <div className="text-center text-muted py-2">No pending approval requests</div>
+              <div className="text-center text-muted py-2">{t('no_pending_approvals', 'No pending approval requests')}</div>
             ) : (
               approvalRequests.map(request => (
                 <div key={request.id} className="relative mb-5 bg-blue-50 rounded-xl shadow-md p-6">
@@ -703,7 +708,7 @@ export default function AdminHomePage() {
                       className="flex-1 px-3 py-2 rounded-lg text-white font-semibold disabled:opacity-50"
                       style={{ background: colors.primaryGreen }}
                     >
-                      {processingApproval ? 'Processing...' : 'Approve'}
+{processingApproval ? t('processing', 'Processing...') : t('approve', 'Approve')}
                     </button>
                     <button
                       onClick={() => handleReject(request.id, request.userId)}
@@ -711,7 +716,7 @@ export default function AdminHomePage() {
                       className="flex-1 px-3 py-2 rounded-lg border-2 font-semibold disabled:opacity-50"
                       style={{ borderColor: colors.primaryGreen, color: colors.primaryGreen }}
                     >
-                      {processingApproval ? 'Processing...' : 'Reject'}
+{processingApproval ? t('processing', 'Processing...') : t('reject', 'Reject')}
                     </button>
                   </div>
                 </div>

@@ -2,17 +2,33 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { collection, getDocs, query, orderBy, addDoc, doc, getDoc, serverTimestamp } from 'firebase/firestore';
+import { useTranslation } from 'react-i18next';
+import { collection, getDocs, query, orderBy, addDoc, doc, getDoc, serverTimestamp, updateDoc, where } from 'firebase/firestore';
 import { ref as storageRef, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { db, storage, auth } from '@/lib/firebase';
 import colors from '../../colors';
 import AdminBottomNavBar from '@/components/AdminBottomNavBar';
+import PhotoUpload from '@/components/PhotoUpload';
 
 export default function AdminReportPage() {
   const router = useRouter();
+  const { t, i18n } = useTranslation('report');
   const [reports, setReports] = useState([]);
+  const [problemReports, setProblemReports] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [problemsLoading, setProblemsLoading] = useState(true);
+  
+  // Report a Problem Form State
   const [desc, setDesc] = useState('');
+  const [selectedHouse, setSelectedHouse] = useState('');
+  const [selectedFloor, setSelectedFloor] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
+  const [submitSuccess, setSubmitSuccess] = useState('');
+  const [uploadedPhotoUrl, setUploadedPhotoUrl] = useState('');
+  const [uploadedPhotoPath, setUploadedPhotoPath] = useState('');
+  
+  // Refund Form State
   const [refundOpen, setRefundOpen] = useState(false);
   const [refundSaving, setRefundSaving] = useState(false);
   const [refundError, setRefundError] = useState('');
@@ -23,9 +39,17 @@ export default function AdminReportPage() {
   const [uploadError, setUploadError] = useState('');
   const [uploadSuccess, setUploadSuccess] = useState('');
   const fileInputRef = useRef(null);
+  
+  // Modal states
+  const [photoModalOpen, setPhotoModalOpen] = useState(false);
+  const [selectedPhoto, setSelectedPhoto] = useState('');
+  const [formerProblemsOpen, setFormerProblemsOpen] = useState(false);
+  const [fixedReports, setFixedReports] = useState([]);
 
   useEffect(() => {
     fetchReports();
+    fetchProblemReports();
+    fetchFixedReports();
   }, []);
 
   const fetchReports = async () => {
@@ -38,6 +62,129 @@ export default function AdminReportPage() {
     } catch (error) {
       console.error('Error fetching reports:', error);
       setLoading(false);
+    }
+  };
+
+  const fetchProblemReports = async () => {
+    try {
+      const problemReportsQuery = query(collection(db, 'problemReports'), orderBy('createdAt', 'desc'));
+      const problemReportsSnapshot = await getDocs(problemReportsQuery);
+      const problemReportsData = problemReportsSnapshot.docs
+        .map(doc => ({ id: doc.id, ...doc.data() }))
+        .filter(report => report.status !== 'fixed');
+      setProblemReports(problemReportsData);
+      setProblemsLoading(false);
+    } catch (error) {
+      console.error('Error fetching problem reports:', error);
+      setProblemsLoading(false);
+    }
+  };
+
+  const fetchFixedReports = async () => {
+    try {
+      const fixedReportsQuery = query(collection(db, 'problemReports'), orderBy('createdAt', 'desc'));
+      const fixedReportsSnapshot = await getDocs(fixedReportsQuery);
+      const fixedReportsData = fixedReportsSnapshot.docs
+        .map(doc => ({ id: doc.id, ...doc.data() }))
+        .filter(report => report.status === 'fixed');
+      setFixedReports(fixedReportsData);
+    } catch (error) {
+      console.error('Error fetching fixed reports:', error);
+    }
+  };
+
+  const markAsFixed = async (reportId) => {
+    try {
+      const reportRef = doc(db, 'problemReports', reportId);
+      await updateDoc(reportRef, {
+        status: 'fixed',
+        updatedAt: serverTimestamp()
+      });
+      
+      // Refresh the reports
+      fetchProblemReports();
+      fetchFixedReports();
+    } catch (error) {
+      console.error('Error marking report as fixed:', error);
+    }
+  };
+
+  const openPhotoModal = (photoUrl) => {
+    setSelectedPhoto(photoUrl);
+    setPhotoModalOpen(true);
+  };
+
+  const handlePhotoUploaded = (photoUrl, photoPath) => {
+    setUploadedPhotoUrl(photoUrl);
+    setUploadedPhotoPath(photoPath);
+  };
+
+  const handlePhotoRemoved = () => {
+    setUploadedPhotoUrl('');
+    setUploadedPhotoPath('');
+  };
+
+  const handleReportSubmit = async () => {
+    setSubmitError(''); setSubmitSuccess('');
+    
+    // Validate form
+    if (!desc.trim()) {
+      setSubmitError('Please describe the problem');
+      return;
+    }
+    if (!selectedHouse) {
+      setSubmitError('Please select a house');
+      return;
+    }
+    if (!selectedFloor) {
+      setSubmitError('Please select a floor');
+      return;
+    }
+    
+    try {
+      setSubmitting(true);
+      const user = auth.currentUser;
+      if (!user) {
+        setSubmitError('You must be logged in to submit a report');
+        return;
+      }
+      
+      const userSnap = await getDoc(doc(db, 'users', user.uid));
+      const userData = userSnap.exists() ? userSnap.data() : {};
+      
+      const payload = {
+        ownerUid: user.uid,
+        ownerName: userData.fullName || '',
+        ownerRoomNumber: userData.roomNumber || '',
+        description: desc.trim(),
+        house: selectedHouse,
+        floor: selectedFloor,
+        photoUrl: uploadedPhotoUrl || '',
+        photoPath: uploadedPhotoPath || '',
+        status: 'pending',
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        softDeleted: false,
+      };
+      
+      await addDoc(collection(db, 'problemReports'), payload);
+      setSubmitSuccess('Problem report submitted successfully');
+      
+      // Reset form
+      setDesc('');
+      setSelectedHouse('');
+      setSelectedFloor('');
+      setUploadedPhotoUrl('');
+      setUploadedPhotoPath('');
+      
+      // Refresh the problem reports list
+      fetchProblemReports();
+      
+    } catch (e) {
+      setSubmitError('Failed to submit problem report. Please try again');
+      console.error('Error submitting report:', e);
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -148,42 +295,113 @@ export default function AdminReportPage() {
       <div className="w-full max-w-md">
         <div className="w-full max-w-md rounded-2xl px-5 pt-6 pb-4 mb-6 bg-white/10 backdrop-blur-md shadow-sm">
           <h1 className="text-2xl font-bold text-text">Reports</h1>
-          <p className="text-sm text-muted">View all submitted reports</p>
+          <p className="text-sm text-muted">View and manage all submitted reports</p>
         </div>
 
-        {/* Report Creation Form */}
-        <div className="w-full max-w-md rounded-2xl p-6 mb-6" style={{ background: colors.sectionBg }}>
-          <h2 className="text-2xl font-bold text-white mb-4 text-center">Report a Problem</h2>
-          <div className="mb-4">
-            <label className="block text-lg mb-2 text-white font-semibold">Describe the problem</label>
-            <textarea 
-              className="w-full border border-white/30 px-4 py-3 rounded-xl text-black bg-white text-lg placeholder-black/50 focus:outline-none focus:border-gold transition" 
-              rows={5} 
-              value={desc} 
-              onChange={e => setDesc(e.target.value)} 
-              placeholder="Describe the problem..." 
-              style={{ background: colors.white, color: 'black' }} 
+        {/* Report a Problem Form - Same as Soldiers */}
+        <div className="rounded-3xl p-10 mb-8 shadow-lg flex flex-col items-center" style={{ background: 'rgba(0,0,0,0.38)' }}>
+          <h2 className="text-3xl font-extrabold mb-8 text-white text-center tracking-wide">Report a Problem</h2>
+          
+          {/* Error and Success Messages */}
+          {submitError && <div className="mb-4 w-full text-red-200 text-sm bg-red-500/20 rounded px-3 py-2">{submitError}</div>}
+          {submitSuccess && <div className="mb-4 w-full text-green-200 text-sm bg-green-500/20 rounded px-3 py-2">{submitSuccess}</div>}
+          
+          {/* House Selector */}
+          <div className="mb-6 w-full">
+            <label className="block text-lg mb-2 text-white font-semibold">Select House</label>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setSelectedHouse(selectedHouse === 'new_house' ? '' : 'new_house')}
+                className={`flex-1 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 hover:scale-105 ${
+                  selectedHouse === 'new_house' 
+                    ? 'text-white' 
+                    : 'text-white'
+                }`}
+                style={{ 
+                  background: selectedHouse === 'new_house' ? colors.primaryGreen : 'rgba(255, 255, 255, 0.1)',
+                  border: selectedHouse === 'new_house' ? 'none' : `2px solid rgba(255, 255, 255, 0.3)`,
+                  color: selectedHouse === 'new_house' ? colors.white : colors.white,
+                  boxShadow: selectedHouse === 'new_house' ? '0 4px 12px rgba(7, 99, 50, 0.3)' : 'none'
+                }}
+              >
+                New House
+              </button>
+              <button
+                onClick={() => setSelectedHouse(selectedHouse === 'original_house' ? '' : 'original_house')}
+                className={`flex-1 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 hover:scale-105 ${
+                  selectedHouse === 'original_house' 
+                    ? 'text-white' 
+                    : 'text-white'
+                }`}
+                style={{ 
+                  background: selectedHouse === 'original_house' ? colors.primaryGreen : 'rgba(255, 255, 255, 0.1)',
+                  border: selectedHouse === 'original_house' ? 'none' : `2px solid rgba(255, 255, 255, 0.3)`,
+                  color: selectedHouse === 'original_house' ? colors.white : colors.white,
+                  boxShadow: selectedHouse === 'original_house' ? '0 4px 12px rgba(7, 99, 50, 0.3)' : 'none'
+                }}
+              >
+                Original House
+              </button>
+            </div>
+          </div>
+
+          {/* Floor Selector */}
+          <div className="mb-6 w-full">
+            <label className="block text-lg mb-2 text-white font-semibold">Select Floor</label>
+            <div className="grid grid-cols-3 gap-2">
+              {['-1', '0', '1', '2', '3'].map((floor) => (
+                <button
+                  key={floor}
+                  onClick={() => setSelectedFloor(selectedFloor === floor ? '' : floor)}
+                  className={`px-3 py-3 rounded-xl text-sm font-semibold transition-all duration-200 hover:scale-105 ${
+                    selectedFloor === floor 
+                      ? 'text-white' 
+                      : 'text-white'
+                  }`}
+                  style={{ 
+                    background: selectedFloor === floor ? colors.primaryGreen : 'rgba(255, 255, 255, 0.1)',
+                    border: selectedFloor === floor ? 'none' : `2px solid rgba(255, 255, 255, 0.3)`,
+                    color: selectedFloor === floor ? colors.white : colors.white,
+                    boxShadow: selectedFloor === floor ? '0 4px 12px rgba(7, 99, 50, 0.3)' : 'none'
+                  }}
+                >
+                  {floor === '-1' ? 'Floor -1' : 
+                   floor === '0' ? 'Ground Floor' : 
+                   `Floor ${floor}`}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Problem Description */}
+          <div className="mb-6 w-full">
+            <label className="block text-lg mb-2 text-white font-semibold">Problem Description</label>
+            <textarea className="w-full border border-white/30 px-4 py-3 rounded-xl text-black bg-white text-lg placeholder-black/50 focus:outline-none focus:border-gold transition" rows={5} value={desc} onChange={e => setDesc(e.target.value)} placeholder="Please describe the problem in detail..." style={{ background: colors.white, color: 'black' }} />
+          </div>
+          
+          {/* Photo Upload Section */}
+          <div className="w-full mb-6">
+            <PhotoUpload
+              onPhotoUploaded={handlePhotoUploaded}
+              onPhotoRemoved={handlePhotoRemoved}
+              currentPhotoUrl={uploadedPhotoUrl}
+              uploadPath="reports"
+              maxSize={10 * 1024 * 1024}
+              acceptedTypes={['image/*']}
             />
           </div>
           
-          {/* Upload photo section */}
-          <div className="w-full mb-4">
-            {uploadError && <div className="mb-3 text-red-200 text-sm bg-red-500/20 rounded px-3 py-2">{uploadError}</div>}
-            {uploadSuccess && <div className="mb-3 text-green-200 text-sm bg-green-500/20 rounded px-3 py-2">{uploadSuccess}</div>}
-            <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileSelected} />
-            <button 
-              onClick={triggerFilePicker} 
-              disabled={uploading} 
-              className="w-full bg-white/15 hover:bg-white/25 text-white py-3 rounded-xl font-semibold text-lg disabled:opacity-60"
-            >
-              {uploading ? `Uploading… ${uploadProgress}%` : 'Upload photo'}
-            </button>
-          </div>
-          
-          <button className="w-full bg-[#EDC381] hover:bg-[#d4b06a] text-white py-4 rounded-full font-bold text-xl transition">
-            Submit Report
+          {/* Submit Button */}
+          <button 
+            onClick={handleReportSubmit} 
+            disabled={submitting} 
+            className="w-full bg-[#EDC381] hover:bg-[#d4b06a] text-white py-4 rounded-full font-bold text-xl transition disabled:opacity-60"
+          >
+            {submitting ? 'Submitting...' : 'Submit Report'}
           </button>
         </div>
+
+
 
         {/* Request Refund Section */}
         <div className="w-full max-w-md rounded-2xl p-4 mb-6" style={{ background: colors.sectionBg }}>
@@ -198,27 +416,59 @@ export default function AdminReportPage() {
 
         {/* View Reports Section */}
         <div className="w-full max-w-md rounded-2xl p-4 mb-6" style={{ background: colors.sectionBg }}>
-          <h3 className="text-lg font-semibold text-white mb-4">All Reports</h3>
-          {loading ? (
-            <div className="text-center text-white py-4">Loading...</div>
-          ) : reports.length === 0 ? (
-            <div className="text-center text-white py-4">No reports found</div>
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-semibold text-white">All Reports</h3>
+            <button
+              onClick={() => setFormerProblemsOpen(true)}
+              className="bg-white/15 hover:bg-white/25 text-white px-4 py-2 rounded-xl font-semibold text-sm transition-all duration-200 hover:scale-105"
+            >
+              View Fixed
+            </button>
+          </div>
+          {problemsLoading ? (
+            <div className="text-center text-white py-4">Loading reports...</div>
+          ) : problemReports.length === 0 ? (
+            <div className="text-center text-white py-4">No reports available</div>
           ) : (
-            reports.map(report => (
+            problemReports.map(report => (
               <div key={report.id} className="bg-white/10 rounded-lg p-4 mb-4">
                 <div className="flex justify-between items-start mb-2">
-                  <div>
-                    <h3 className="text-lg font-semibold text-white">{report.title}</h3>
-                    <p className="text-sm text-white/80">{report.description}</p>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 text-sm text-white/80 mb-2">
+                      <span>House: {report.house === 'new_house' ? 'New House' : 'Original House'}</span>
+                      <span>•</span>
+                      <span>Floor: {report.floor === '-1' ? 'Floor -1' : report.floor === '0' ? 'Ground Floor' : `Floor ${report.floor}`}</span>
+                    </div>
+                    <p className="text-sm text-white/80 mb-2">{report.description}</p>
+                    <div className="flex items-center gap-2 text-xs text-white/60">
+                      <span>By: {report.ownerName}</span>
+                      <span>•</span>
+                      <span>Room: {report.ownerRoomNumber}</span>
+                      <span>•</span>
+                      <span>Status: {report.status}</span>
+                    </div>
                   </div>
-                  <span className="text-xs text-white/60">
+                  <span className="text-xs text-white/60 ml-2">
                     {report.createdAt?.toDate().toLocaleDateString()}
                   </span>
                 </div>
-                <div className="flex items-center gap-2 text-sm text-white/80">
-                  <span>Room: {report.roomNumber}</span>
-                  <span>•</span>
-                  <span>Status: {report.status}</span>
+                {report.photoUrl && (
+                  <div className="mt-3">
+                    <img 
+                      src={report.photoUrl} 
+                      alt="Problem report photo" 
+                      className="w-full h-32 object-cover rounded-lg cursor-pointer hover:opacity-80 transition-opacity"
+                      onClick={() => openPhotoModal(report.photoUrl)}
+                    />
+                  </div>
+                )}
+                <div className="mt-3">
+                  <button
+                    onClick={() => markAsFixed(report.id)}
+                    className="w-full bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-lg font-semibold text-sm transition-colors"
+                  >
+                    Mark as Fixed
+                  </button>
                 </div>
               </div>
             ))
@@ -287,6 +537,87 @@ export default function AdminReportPage() {
               >
                 {refundSaving ? 'Submitting...' : 'Submit Request'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Photo Modal */}
+      {photoModalOpen && (
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden">
+            <div className="flex items-center justify-between p-4 border-b">
+              <h3 className="text-lg font-bold">Problem Report Photo</h3>
+              <button 
+                onClick={() => setPhotoModalOpen(false)} 
+                className="text-gray-600 hover:text-gray-800 text-2xl"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="p-4">
+              <img 
+                src={selectedPhoto} 
+                alt="Problem report photo" 
+                className="w-full h-auto max-h-[70vh] object-contain rounded-lg"
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Former Problems Modal */}
+      {formerProblemsOpen && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md max-h-[80vh] overflow-hidden">
+            <div className="flex items-center justify-between p-4 border-b">
+              <h3 className="text-lg font-bold">Fixed Problems</h3>
+              <button 
+                onClick={() => setFormerProblemsOpen(false)} 
+                className="text-gray-600 hover:text-gray-800 text-2xl"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="p-4 overflow-y-auto max-h-[60vh]">
+              {fixedReports.length === 0 ? (
+                <div className="text-center text-gray-500 py-8">No fixed problems yet</div>
+              ) : (
+                fixedReports.map(report => (
+                  <div key={report.id} className="bg-gray-50 rounded-lg p-4 mb-4">
+                    <div className="flex justify-between items-start mb-2">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 text-sm text-gray-600 mb-2">
+                          <span>House: {report.house === 'new_house' ? 'New House' : 'Original House'}</span>
+                          <span>•</span>
+                          <span>Floor: {report.floor === '-1' ? 'Floor -1' : report.floor === '0' ? 'Ground Floor' : `Floor ${report.floor}`}</span>
+                        </div>
+                        <p className="text-sm text-gray-800 mb-2">{report.description}</p>
+                        <div className="flex items-center gap-2 text-xs text-gray-500">
+                          <span>By: {report.ownerName}</span>
+                          <span>•</span>
+                          <span>Room: {report.ownerRoomNumber}</span>
+                          <span>•</span>
+                          <span className="text-green-600 font-semibold">FIXED</span>
+                        </div>
+                      </div>
+                      <span className="text-xs text-gray-400 ml-2">
+                        {report.createdAt?.toDate().toLocaleDateString()}
+                      </span>
+                    </div>
+                    {report.photoUrl && (
+                      <div className="mt-3">
+                        <img 
+                          src={report.photoUrl} 
+                          alt="Problem report photo" 
+                          className="w-full h-24 object-cover rounded-lg cursor-pointer hover:opacity-80 transition-opacity"
+                          onClick={() => openPhotoModal(report.photoUrl)}
+                        />
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>

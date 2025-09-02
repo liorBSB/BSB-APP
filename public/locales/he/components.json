@@ -1,0 +1,45 @@
+{
+  "edit_field_modal": {
+    "edit": "ערוך",
+    "save": "שמור",
+    "cancel": "ביטול"
+  },
+  "add_item_modal": {
+    "add_new": "הוסף חדש",
+    "title": "כותרת",
+    "body": "תוכן",
+    "start_time": "שעת התחלה",
+    "end_time": "שעת סיום",
+    "save": "שמור",
+    "cancel": "ביטול"
+  },
+  "questionnaire_modal": {
+    "personal_information_questionnaire": "שאלון מידע אישי",
+    "progress": "התקדמות",
+    "questions": "שאלות",
+    "next": "הבא",
+    "previous": "הקודם",
+    "complete": "השלם",
+    "close": "סגור",
+    "type_your_answer": "הקלד את התשובה שלך..."
+  },
+  "date_picker_modal": {
+    "choose_date": "בחר תאריך",
+    "from": "מ",
+    "to": "עד",
+    "select": "בחר",
+    "cancel": "ביטול"
+  },
+  "bottom_nav_bar": {
+    "home": "בית",
+    "report": "דיווח",
+    "settings": "הגדרות"
+  },
+  "photo_upload": {
+    "take_photo": "צלם תמונה",
+    "choose_from_gallery": "בחר מהגלריה",
+    "remove_photo": "הסר תמונה",
+    "photo_uploaded": "התמונה הועלתה בהצלחה",
+    "upload_failed": "העלאה נכשלה"
+  }
+}

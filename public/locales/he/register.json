@@ -1,0 +1,43 @@
+{
+  "register": "הרשמה",
+  "create_account": "צור חשבון",
+  "full_name": "שם מלא",
+  "email": "אימייל",
+  "password": "סיסמה",
+  "confirm_password": "אשר סיסמה",
+  "phone_number": "מספר טלפון",
+  "personal_number": "מספר אישי",
+  "room_number": "מספר חדר",
+  "user_type": "סוג משתמש",
+  "soldier": "חייל",
+  "admin": "מנהל",
+  "crew": "צוות",
+  "register_button": "הרשמה",
+  "already_have_account": "יש לך כבר חשבון?",
+  "login_here": "התחבר כאן",
+  "registration_successful": "ההרשמה הצליחה!",
+  "registration_failed": "ההרשמה נכשלה. נסה שוב.",
+  "passwords_dont_match": "הסיסמאות לא תואמות",
+  "fill_all_fields": "אנא מלא את כל השדות",
+  "invalid_email": "כתובת אימייל לא תקינה",
+  "password_too_short": "הסיסמה חייבת להיות לפחות 6 תווים",
+  "pending_approval": {
+    "title": "הרשמה ממתינה לאישור",
+    "message": "ההרשמה שלך נשלחה וממתינה לאישור מהמנהל.",
+    "check_back_later": "אנא בדוק מאוחר יותר או פנה לתמיכה אם יש לך שאלות.",
+    "logout": "התנתק"
+  },
+  "selection": {
+    "title": "בחר סוג משתמש",
+    "choose_type": "אנא בחר את סוג המשתמש שלך:",
+    "soldier_description": "משתמש חייל רגיל",
+    "admin_description": "מנהל עם גישה מלאה",
+    "crew_description": "חבר צוות עם גישה מוגבלת"
+  },
+  "consent": {
+    "title": "תנאים והגבלות",
+    "agree": "אני מסכים לתנאים וההגבלות",
+    "continue": "המשך",
+    "back": "חזור"
+  }
+}

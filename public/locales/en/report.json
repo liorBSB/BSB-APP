@@ -1,8 +1,8 @@
 {
   "report_a_problem": "Report a Problem",
-  "describe_problem": "Describe the problem",
+  "describe_problem": "What's the problem?",
   "add_photo": "Add photo",
-  "submit": "Submit",
+  "submit": "Send Report",
   "request_refund": "Request Refund",
   "what_for": "What for?",
   "amount": "Amount (₪)",
@@ -10,8 +10,21 @@
   "repayment_method": "Repayment Method",
   "expense_date": "Expense Date",
   "submit_request": "Submit Request",
-  "submitting": "Submitting...",
+  "submitting": "Sending...",
   "request_submitted": "Request submitted",
+  "select_house": "Which house?",
+  "select_floor": "Which floor?",
+  "houses": {
+    "new_house": "New House",
+    "original_house": "Original House"
+  },
+  "floors": {
+    "-1": "Floor -1",
+    "0": "Ground Floor",
+    "1": "Floor 1",
+    "2": "Floor 2",
+    "3": "Floor 3"
+  },
   "categories": {
     "transportation": "🚗 Transportation",
     "food": "🍽️ Food & Dining",
