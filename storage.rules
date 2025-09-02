@@ -19,8 +19,8 @@ service firebase.storage {
     }
 
     // Expenses photos uploaded by admins
-    // Path: expenses/{fileName}
-    match /expenses/{fileName} {
+    // Path: expenses/{userId}/{fileName}
+    match /expenses/{userId}/{fileName} {
       allow read: if isSignedIn();
       allow write: if isSignedIn() && isAdmin(request.auth.uid)
                   && request.resource.size < 10 * 1024 * 1024
