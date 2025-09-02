@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { auth, db } from '../../../lib/firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, onSnapshot } from 'firebase/firestore';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
 import colors from '../../colors';
 
@@ -12,22 +12,27 @@ export default function PendingApprovalPage() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    const checkUserStatus = async () => {
+    const user = auth.currentUser;
+    if (!user) {
+      setError('No authenticated user found');
+      setLoading(false);
+      return;
+    }
+
+    // Set up real-time listener for user status changes
+    const userRef = doc(db, 'users', user.uid);
+    const unsubscribe = onSnapshot(userRef, (userDoc) => {
       try {
-        const user = auth.currentUser;
-        if (!user) {
-          setError('No authenticated user found');
+        if (!userDoc.exists()) {
+          setError('User document not found. Please complete your profile setup first.');
           setLoading(false);
           return;
         }
 
-        // Check if user is already approved
-        const userRef = doc(db, 'users', user.uid);
-        const userDoc = await getDoc(userRef);
         const userData = userDoc.data();
 
         if (userData?.userType === 'admin') {
-          // User is already approved, redirect to admin home
+          // User is approved, redirect to admin home
           router.push('/admin/home');
           return;
         }
@@ -46,9 +51,14 @@ export default function PendingApprovalPage() {
         setError('Failed to check user status. Please try again.');
         setLoading(false);
       }
-    };
+    }, (error) => {
+      console.error('Error setting up user listener:', error);
+      setError('Failed to monitor user status. Please try again.');
+      setLoading(false);
+    });
 
-    checkUserStatus();
+    // Cleanup listener on unmount
+    return () => unsubscribe();
   }, [router]);
 
   const handleSignOut = async () => {

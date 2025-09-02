@@ -665,66 +665,108 @@ Welcome,
         </div>
       )}
 
-      {/* Approval Requests Section */}
-      <div className="mb-16">
-        <div className="flex items-center px-4 py-2 rounded-t-lg shadow-sm select-none" style={{ background: colors.sectionBg, color: colors.white }}>
-          <button
-            className="font-semibold text-base flex-1 focus:outline-none bg-transparent border-none"
-            onClick={() => setOpenApprovalRequests((prev) => !prev)}
-            style={{ color: colors.white, textAlign: 'start' }}
-                      >
-{t('approval_requests', 'Approval Requests')}
+              {/* Approval Requests Section */}
+        <div className="mb-8">
+          <div className="flex items-center px-4 py-3 rounded-t-lg shadow-sm select-none" style={{ background: colors.sectionBg, color: colors.white }}>
+            <button
+              className="font-semibold text-lg flex-1 focus:outline-none bg-transparent border-none"
+              onClick={() => setOpenApprovalRequests((prev) => !prev)}
+              style={{ color: colors.white, textAlign: 'start' }}
+            >
+              {t('approval_requests', 'Approval Requests')}
             </button>
-          <div className="text-sm text-white/80">
-            {approvalRequests.length} pending
+            <div className="text-sm text-white/80">
+              {approvalRequests.length} pending
+            </div>
           </div>
-        </div>
-        {openApprovalRequests && (
-          <div className="rounded-b-lg p-4" style={{ background: 'rgba(0,0,0,0.18)' }}>
+          <div className="rounded-b-lg p-5" style={{ background: 'rgba(0,0,0,0.18)' }}>
             {loading ? (
-              <div className="text-center text-muted py-2">{t('loading', 'Loading...')}</div>
+              <div className="text-center text-muted py-3">{t('loading', 'Loading...')}</div>
             ) : approvalRequests.length === 0 ? (
-              <div className="text-center text-muted py-2">{t('no_pending_approvals', 'No pending approval requests')}</div>
-            ) : (
+              <div className="text-center text-muted py-3">{t('no_pending_approvals', 'No pending approval requests')}</div>
+            ) : openApprovalRequests ? (
               approvalRequests.map(request => (
                 <div key={request.id} className="relative mb-5 bg-blue-50 rounded-xl shadow-md p-6">
-                  <div className="flex items-start gap-3 mb-3">
-                    <span className="text-2xl">👤</span>
-                    <div className="flex-1">
-                      <div className="font-bold text-lg text-[#076332]">{request.userName}</div>
-                      <div className="text-sm text-gray-600">{request.userEmail}</div>
-                      {request.jobTitle && (
-                        <div className="text-sm text-gray-600">Job: {request.jobTitle}</div>
-                      )}
-                      <div className="text-xs text-gray-500 mt-1">
-                        Requested: {request.createdAt?.toDate?.()?.toLocaleDateString() || 'Unknown date'}
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1 pr-4">
+                      <div className="flex items-start gap-3 mb-3">
+                        <span className="text-2xl">👤</span>
+                        <div className="flex-1">
+                          <div className="font-bold text-xl text-[#076332] mb-2">{request.userName}</div>
+                          <div className="text-base font-medium text-gray-700 mb-2">{request.userEmail}</div>
+                          {request.jobTitle && (
+                            <div className="text-base font-medium text-gray-700 mb-2">Job: {request.jobTitle}</div>
+                          )}
+                          <div className="text-sm font-semibold" style={{ color: '#fff', background: '#076332', borderRadius: 6, padding: '4px 10px', display: 'inline-block' }}>
+                            Requested: {request.createdAt?.toDate?.()?.toLocaleDateString() || 'Unknown date'}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex gap-2 mt-4">
+                        <button
+                          onClick={() => handleApprove(request.id, request.userId)}
+                          disabled={processingApproval}
+                          className="flex-1 px-3 py-2 rounded-lg text-white font-semibold disabled:opacity-50"
+                          style={{ background: colors.primaryGreen }}
+                        >
+                          {processingApproval ? t('processing', 'Processing...') : t('approve', 'Approve')}
+                        </button>
+                        <button
+                          onClick={() => handleReject(request.id, request.userId)}
+                          disabled={processingApproval}
+                          className="flex-1 px-3 py-2 rounded-lg border-2 font-semibold disabled:opacity-50"
+                          style={{ borderColor: colors.primaryGreen, color: colors.primaryGreen }}
+                        >
+                          {processingApproval ? t('processing', 'Processing...') : t('reject', 'Reject')}
+                        </button>
                       </div>
                     </div>
                   </div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => handleApprove(request.id, request.userId)}
-                      disabled={processingApproval}
-                      className="flex-1 px-3 py-2 rounded-lg text-white font-semibold disabled:opacity-50"
-                      style={{ background: colors.primaryGreen }}
-                    >
-{processingApproval ? t('processing', 'Processing...') : t('approve', 'Approve')}
-                    </button>
-                    <button
-                      onClick={() => handleReject(request.id, request.userId)}
-                      disabled={processingApproval}
-                      className="flex-1 px-3 py-2 rounded-lg border-2 font-semibold disabled:opacity-50"
-                      style={{ borderColor: colors.primaryGreen, color: colors.primaryGreen }}
-                    >
-{processingApproval ? t('processing', 'Processing...') : t('reject', 'Reject')}
-                    </button>
-                  </div>
                 </div>
               ))
+            ) : (
+              approvalRequests.length > 0 && (
+                <div className="relative mb-5 bg-blue-50 rounded-xl shadow-md p-6">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1 pr-4">
+                      <div className="flex items-start gap-3 mb-3">
+                        <span className="text-2xl">👤</span>
+                        <div className="flex-1">
+                          <div className="font-bold text-xl text-[#076332] mb-2">{approvalRequests[0].userName}</div>
+                          <div className="text-base font-medium text-gray-700 mb-2">{approvalRequests[0].userEmail}</div>
+                          {approvalRequests[0].jobTitle && (
+                            <div className="text-base font-medium text-gray-700 mb-2">Job: {approvalRequests[0].jobTitle}</div>
+                          )}
+                          <div className="text-sm font-semibold" style={{ color: '#fff', background: '#076332', borderRadius: 6, padding: '4px 10px', display: 'inline-block' }}>
+                            Requested: {approvalRequests[0].createdAt?.toDate?.()?.toLocaleDateString() || 'Unknown date'}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex gap-2 mt-4">
+                        <button
+                          onClick={() => handleApprove(approvalRequests[0].id, approvalRequests[0].userId)}
+                          disabled={processingApproval}
+                          className="flex-1 px-3 py-2 rounded-lg text-white font-semibold disabled:opacity-50"
+                          style={{ background: colors.primaryGreen }}
+                        >
+                          {processingApproval ? t('processing', 'Processing...') : t('approve', 'Approve')}
+                        </button>
+                        <button
+                          onClick={() => handleReject(approvalRequests[0].id, approvalRequests[0].userId)}
+                          disabled={processingApproval}
+                          className="flex-1 px-3 py-2 rounded-lg border-2 font-semibold disabled:opacity-50"
+                          style={{ borderColor: colors.primaryGreen, color: colors.primaryGreen }}
+                        >
+                          {processingApproval ? t('processing', 'Processing...') : t('reject', 'Reject')}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )
             )}
           </div>
-        )}
-      </div>
+        </div>
 
       <AdminBottomNavBar active="home" />
     </main>
