@@ -21,7 +21,7 @@ export default function RedirectPage() {
       const userDoc = await getDoc(userRef);
       
       if (!userDoc.exists()) {
-        // Show modal to offer navigation to register instead of immediate redirect
+        // Show missing user page instead of modal
         setMissingUser(true);
         return;
       }
@@ -62,66 +62,67 @@ export default function RedirectPage() {
     return () => unsubscribe();
   }, [router]);
 
+  // Show missing user page instead of modal
+  if (missingUser) {
+    return (
+      <main className="min-h-screen flex items-center justify-center font-body px-4" style={{ background: colors.white }}>
+        <div className="w-full max-w-md mx-auto">
+          <div className="text-center mb-8">
+            <div className="w-20 h-20 mx-auto rounded-full flex items-center justify-center mb-6" style={{ background: colors.primaryGreen }}>
+              <svg width="40" height="40" fill="none" viewBox="0 0 24 24">
+                <path d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </div>
+            <h2 className="text-2xl font-bold mb-2" style={{ color: colors.primaryGreen }}>No account found</h2>
+            <p className="text-gray-600 mb-8">We couldn&apos;t find your account. Would you like to create one now?</p>
+          </div>
+          
+          <div className="space-y-4">
+            <button
+              onClick={() => {
+                window.location.href = '/register';
+              }}
+              className="w-full rounded-full py-4 font-semibold text-lg"
+              style={{ 
+                background: colors.gold, 
+                color: colors.black,
+                minHeight: '56px',
+                cursor: 'pointer',
+                touchAction: 'manipulation',
+                WebkitTapHighlightColor: 'transparent'
+              }}
+            >
+              Go to Register
+            </button>
+            <button
+              onClick={async () => {
+                await signOut(auth);
+                window.location.href = '/';
+              }}
+              className="w-full rounded-full py-4 font-semibold border-2 text-lg"
+              style={{ 
+                borderColor: colors.primaryGreen, 
+                color: colors.primaryGreen,
+                minHeight: '56px',
+                cursor: 'pointer',
+                touchAction: 'manipulation',
+                WebkitTapHighlightColor: 'transparent'
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main className="min-h-screen flex items-center justify-center font-body" style={{ background: colors.white }}>
       <div className="flex flex-col items-center justify-center">
         <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-primaryGreen mb-6" style={{ borderColor: colors.primaryGreen }}></div>
         <div style={{ color: colors.primaryGreen, fontWeight: 600, fontSize: 22 }}>Checking your account...</div>
       </div>
-
-      {missingUser && (
-        <div 
-          className="fixed inset-0 bg-black/40 flex items-center justify-center px-4 z-50"
-          style={{ 
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            width: '100vw',
-            height: '100vh',
-            minHeight: '100vh',
-            touchAction: 'none'
-          }}
-        >
-          <div 
-            className="w-full max-w-md bg-white rounded-2xl shadow-lg p-6 mx-4"
-            style={{
-              maxWidth: 'calc(100vw - 2rem)',
-              touchAction: 'auto'
-            }}
-          >
-            <h2 className="text-xl font-bold mb-2" style={{ color: colors.primaryGreen }}>No account found</h2>
-            <p className="text-sm text-gray-600 mb-6">We couldn&apos;t find your account. Would you like to create one now?</p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => router.replace('/register')}
-                className="flex-1 rounded-full py-3 font-semibold touch-manipulation"
-                style={{ 
-                  background: colors.gold, 
-                  color: colors.black,
-                  minHeight: '44px',
-                  touchAction: 'manipulation'
-                }}
-              >
-                Go to Register
-              </button>
-              <button
-                onClick={async () => { await signOut(auth); router.replace('/'); }}
-                className="flex-1 rounded-full py-3 font-semibold border touch-manipulation"
-                style={{ 
-                  borderColor: colors.primaryGreen, 
-                  color: colors.primaryGreen,
-                  minHeight: '44px',
-                  touchAction: 'manipulation'
-                }}
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </main>
   );
 } 

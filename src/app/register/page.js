@@ -16,19 +16,16 @@ export default function RegisterPage() {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (!user) return;
-      try {
-        const ref = doc(db, 'users', user.uid);
-        const snap = await getDoc(ref);
-        if (snap.exists()) {
-          // Existing account → go to app
-          router.push('/home');
-        } else {
-          // No Firestore user yet → stay on signup; prefill email if available
-          if (user.email) setEmail(user.email);
+      if (user) {
+        // Check if user has a document in Firestore
+        const userRef = doc(db, 'users', user.uid);
+        const userDoc = await getDoc(userRef);
+        
+        if (userDoc.exists()) {
+          // User has a document, redirect to check their status
+          router.push('/redirect');
         }
-      } catch (_) {
-        // On error, stay on signup
+        // If no document exists, let them stay on register page
       }
     });
     return () => unsubscribe();
@@ -61,29 +58,25 @@ export default function RegisterPage() {
 
   const handleGoogleSignIn = async () => {
     try {
-      const result = await signInWithPopup(auth, googleProvider);
-      const user = result.user;
-      const userRef = doc(db, 'users', user.uid);
-      const docSnap = await getDoc(userRef);
-      if (!docSnap.exists()) {
-        await setDoc(userRef, {
-          uid: user.uid,
-          email: user.email,
-          fullName: user.displayName,
-          userType: 'user', // Will be updated if choosing worker flow
-          status: 'home',
-          roomNumber: '',
-          roomLetter: '',
-          isAdmin: false,
-          questionnaireComplete: false,
-          createdAt: new Date()
-        });
-        router.push('/register/selection');
-      } else {
-        router.push('/home');
-      }
+      await signInWithPopup(auth, googleProvider);
+      // Don't redirect here - let the onAuthStateChanged handle it
     } catch (error) {
-      console.error('Google Sign-In Error:', error.message);
+      console.error('Google Sign-In Error:', error);
+      
+      // Handle specific Google sign-in errors
+      if (error.code === 'auth/popup-closed-by-user') {
+        // User closed the popup - this is normal, no need to show error
+        return;
+      } else if (error.code === 'auth/cancelled-popup-request') {
+        // User cancelled the popup request - also normal
+        return;
+      } else if (error.code === 'auth/popup-blocked') {
+        setError('Popup was blocked by your browser. Please allow popups for this site and try again.');
+      } else if (error.code === 'auth/network-request-failed') {
+        setError('Network error. Please check your internet connection and try again.');
+      } else {
+        setError('Google sign-in failed. Please try again.');
+      }
     }
   };
 
