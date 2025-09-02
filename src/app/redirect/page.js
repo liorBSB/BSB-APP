@@ -70,22 +70,51 @@ export default function RedirectPage() {
       </div>
 
       {missingUser && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center px-4">
-          <div className="w-full max-w-md bg-white rounded-2xl shadow-lg p-6">
+        <div 
+          className="fixed inset-0 bg-black/40 flex items-center justify-center px-4 z-50"
+          style={{ 
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            width: '100vw',
+            height: '100vh',
+            minHeight: '100vh',
+            touchAction: 'none'
+          }}
+        >
+          <div 
+            className="w-full max-w-md bg-white rounded-2xl shadow-lg p-6 mx-4"
+            style={{
+              maxWidth: 'calc(100vw - 2rem)',
+              touchAction: 'auto'
+            }}
+          >
             <h2 className="text-xl font-bold mb-2" style={{ color: colors.primaryGreen }}>No account found</h2>
             <p className="text-sm text-gray-600 mb-6">We couldn&apos;t find your account. Would you like to create one now?</p>
             <div className="flex gap-3">
               <button
                 onClick={() => router.replace('/register')}
-                className="flex-1 rounded-full py-3 font-semibold"
-                style={{ background: colors.gold, color: colors.black }}
+                className="flex-1 rounded-full py-3 font-semibold touch-manipulation"
+                style={{ 
+                  background: colors.gold, 
+                  color: colors.black,
+                  minHeight: '44px',
+                  touchAction: 'manipulation'
+                }}
               >
                 Go to Register
               </button>
               <button
                 onClick={async () => { await signOut(auth); router.replace('/'); }}
-                className="flex-1 rounded-full py-3 font-semibold border"
-                style={{ borderColor: colors.primaryGreen, color: colors.primaryGreen }}
+                className="flex-1 rounded-full py-3 font-semibold border touch-manipulation"
+                style={{ 
+                  borderColor: colors.primaryGreen, 
+                  color: colors.primaryGreen,
+                  minHeight: '44px',
+                  touchAction: 'manipulation'
+                }}
               >
                 Cancel
               </button>
