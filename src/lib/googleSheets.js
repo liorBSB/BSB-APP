@@ -113,15 +113,8 @@ async function exportToGoogleSheets(exportData) {
     // Get configuration
     const config = getSheetsConfig();
     
-    // If Google Sheets is not configured, log a warning and return success
-    // This allows the soldier marking process to continue without failing
     if (!config.spreadsheetId) {
-      console.warn('Google Sheets ID missing. Skipping export to Google Sheets. Please configure NEXT_PUBLIC_GOOGLE_SHEETS_ID in your environment variables.');
-      return {
-        success: true,
-        message: 'Google Sheets export skipped - configuration missing',
-        skipped: true
-      };
+      throw new Error('Google Sheets ID missing. Please check your .env.local file.');
     }
     
     // Use GET request with query parameters to avoid CORS issues entirely
@@ -195,8 +188,7 @@ export const validateSheetsConnection = async () => {
     if (!config.spreadsheetId) {
       return {
         valid: false,
-        message: 'Google Sheets configuration missing. Please set NEXT_PUBLIC_GOOGLE_SHEETS_ID in your environment variables.',
-        configurable: true
+        message: 'Google Sheets configuration missing'
       };
     }
     
