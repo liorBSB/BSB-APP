@@ -7,6 +7,7 @@ export default function AddItemModal({ open, onClose, onSave, type = 'event', lo
     body: '',
     startTime: '',
     endTime: '',
+    link: '',
   });
 
   const handleChange = (e) => {
@@ -47,6 +48,19 @@ export default function AddItemModal({ open, onClose, onSave, type = 'event', lo
               required
             />
           </div>
+          {type === 'survey' && (
+            <div className="mb-4">
+              <label className="block text-gray-700 font-semibold mb-2">Link (Optional)</label>
+              <input
+                type="url"
+                name="link"
+                value={form.link}
+                onChange={handleChange}
+                placeholder="https://example.com"
+                className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-primaryGreen"
+              />
+            </div>
+          )}
           <div className="mb-4">
             <label className="block text-gray-700 font-semibold mb-2">Start Time</label>
             <input

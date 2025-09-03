@@ -22,7 +22,13 @@ service cloud.firestore {
     // Events shown on home; admins manage
     match /events/{eventId} {
       allow read: if isSignedIn();
-      allow create, update, delete: if isSignedIn() && isAdmin(request.auth.uid);
+      allow create, delete: if isSignedIn() && isAdmin(request.auth.uid);
+      // Allow users to update events for response tracking (coming/maybe/notComing arrays)
+      allow update: if isSignedIn() && (
+        isAdmin(request.auth.uid) ||
+        // Allow users to update only the response arrays
+        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['coming', 'maybe', 'notComing']))
+      );
     }
 
     // Surveys shown on home; admins manage

@@ -4,7 +4,7 @@ import '@/i18n';
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import i18n from '@/i18n';
-import { doc, updateDoc, collection, getDoc, getDocs, query, where, orderBy, onSnapshot } from 'firebase/firestore';
+import { doc, updateDoc, collection, getDoc, getDocs, query, where, orderBy, onSnapshot, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import WelcomeHeader from '@/components/home/WelcomeHeader';
 import CollapsibleSection from '@/components/home/CollapsibleSection';
@@ -36,6 +36,7 @@ export default function HomePage() {
   const [loadingMessages, setLoadingMessages] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState(null);
+  const [eventResponse, setEventResponse] = useState(null);
   const [leftForBaseModalOpen, setLeftForBaseModalOpen] = useState(false);
   const [cleanRoom, setCleanRoom] = useState(null);
   const [changeSheets, setChangeSheets] = useState(null);
@@ -105,6 +106,17 @@ export default function HomePage() {
     };
   }, [router]);
 
+  const fetchEvents = async () => {
+    setLoadingEvents(true);
+    const now = new Date();
+    const eventsRef = collection(db, 'events');
+    const q = query(eventsRef, where('endTime', '>=', now), orderBy('endTime', 'asc'));
+    const querySnapshot = await getDocs(q);
+    const eventsData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    setEvents(eventsData);
+    setLoadingEvents(false);
+  };
+
   useEffect(() => {
     // Only fetch data if profile is complete
     if (!profileComplete) return;
@@ -128,16 +140,6 @@ export default function HomePage() {
     //     console.error('Error loading soldier data:', error);
     //   }
     // };
-
-    const fetchEvents = async () => {
-      setLoadingEvents(true);
-      const now = new Date();
-      const eventsRef = collection(db, 'events');
-      const q = query(eventsRef, where('endTime', '>=', now), orderBy('endTime', 'asc'));
-      const querySnapshot = await getDocs(q);
-      setEvents(querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-      setLoadingEvents(false);
-    };
 
     const fetchSurveys = async () => {
       setLoadingSurveys(true);
@@ -178,6 +180,67 @@ export default function HomePage() {
     const nextLang = i18n.language === 'en' ? 'he' : 'en';
     i18n.changeLanguage(nextLang);
     document.documentElement.dir = nextLang === 'he' ? 'rtl' : 'ltr';
+  };
+
+  const handleEventResponse = async (response) => {
+    if (!selectedEvent || !auth.currentUser) return;
+    
+    try {
+      const eventRef = doc(db, 'events', selectedEvent.id);
+      const userResponseData = {
+        userId: auth.currentUser.uid,
+        fullName: userData?.fullName || 'Unknown',
+        roomNumber: userData?.roomNumber || 'Unknown'
+      };
+      
+      // First, get the current event document to check if arrays exist
+      const eventDoc = await getDoc(eventRef);
+      const eventData = eventDoc.data();
+      
+      // Initialize arrays if they don't exist
+      const currentComing = eventData?.coming || [];
+      const currentMaybe = eventData?.maybe || [];
+      const currentNotComing = eventData?.notComing || [];
+      
+      // Remove user from all arrays (if they exist)
+      const updatedComing = currentComing.filter(r => r.userId !== auth.currentUser.uid);
+      const updatedMaybe = currentMaybe.filter(r => r.userId !== auth.currentUser.uid);
+      const updatedNotComing = currentNotComing.filter(r => r.userId !== auth.currentUser.uid);
+      
+      // Add user to the selected response array
+      if (response === 'coming') {
+        updatedComing.push(userResponseData);
+      } else if (response === 'maybe') {
+        updatedMaybe.push(userResponseData);
+      } else if (response === 'notComing') {
+        updatedNotComing.push(userResponseData);
+      }
+      
+      // Update the document with all arrays
+      await updateDoc(eventRef, {
+        coming: updatedComing,
+        maybe: updatedMaybe,
+        notComing: updatedNotComing
+      });
+      
+      // Refresh events data to show updated response
+      await fetchEvents();
+      
+      setEventResponse(response);
+      // Close modal after a short delay to show the response
+      setTimeout(() => {
+        setModalOpen(false);
+        setEventResponse(null);
+      }, 2000);
+    } catch (error) {
+      console.error('Error saving event response:', error);
+      // Still show feedback even if save fails
+      setEventResponse(response);
+      setTimeout(() => {
+        setModalOpen(false);
+        setEventResponse(null);
+      }, 2000);
+    }
   };
 
   // const handleQuestionnaireComplete = async () => { // Temporarily disabled
@@ -497,13 +560,13 @@ export default function HomePage() {
             ) : (
               futureEvents.map(event => (
                 <div key={event.id} className="relative mb-5 bg-blue-50 rounded-xl shadow-md p-6">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1 pr-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1 min-w-0">
                       <div className="font-bold text-xl text-[#076332] mb-3 leading-tight line-clamp-2">{event.title}</div>
                       {event.body && <div className="text-base font-medium text-gray-700 mb-4 leading-relaxed line-clamp-2">{event.body}</div>}
-                      {event.endTime && (
-                        <div className="text-sm font-semibold" style={{ color: '#fff', background: '#076332', borderRadius: 6, padding: '4px 10px', display: 'inline-block' }}>
-                          {new Date(event.endTime.seconds ? event.endTime.seconds * 1000 : event.endTime).toLocaleDateString('en-US', { 
+                      {event.startTime && (
+                        <div className="text-sm font-semibold text-gray-600 mb-1">
+                          Start: {new Date(event.startTime.seconds ? event.startTime.seconds * 1000 : event.startTime).toLocaleDateString('en-US', { 
                             weekday: 'short', 
                             month: 'short', 
                             day: 'numeric',
@@ -512,13 +575,51 @@ export default function HomePage() {
                           })}
                         </div>
                       )}
+                      {event.endTime && (
+                        <div className="text-sm font-semibold text-gray-600">
+                          End: {new Date(event.endTime.seconds ? event.endTime.seconds * 1000 : event.endTime).toLocaleDateString('en-US', { 
+                            weekday: 'short', 
+                            month: 'short', 
+                            day: 'numeric',
+                            hour: '2-digit', 
+                            minute: '2-digit' 
+                          })}
+                        </div>
+                      )}
+                      {(() => {
+                        const userResponse = event.coming?.find(r => r.userId === auth.currentUser?.uid) ||
+                                           event.maybe?.find(r => r.userId === auth.currentUser?.uid) ||
+                                           event.notComing?.find(r => r.userId === auth.currentUser?.uid);
+                        
+                        if (userResponse) {
+                          const responseType = event.coming?.find(r => r.userId === auth.currentUser?.uid) ? 'coming' :
+                                             event.maybe?.find(r => r.userId === auth.currentUser?.uid) ? 'maybe' : 'notComing';
+                          return (
+                            <div className="mt-3 flex items-center gap-2">
+                              <span className="text-sm font-medium text-gray-700">Your response:</span>
+                              <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                                responseType === 'coming' ? 'bg-green-100 text-green-800' :
+                                responseType === 'maybe' ? 'bg-yellow-100 text-yellow-800' :
+                                'bg-red-100 text-red-800'
+                              }`}>
+                                {responseType === 'coming' && '✅ Coming'}
+                                {responseType === 'maybe' && '🤔 Maybe'}
+                                {responseType === 'notComing' && '❌ Not Coming'}
+                              </span>
+                            </div>
+                          );
+                        }
+                        return null;
+                      })()}
                     </div>
-                    <button
-                      className="px-3 py-1 rounded-lg bg-[#EDC381] text-white font-semibold text-xs shadow-md"
-                      onClick={() => { setSelectedEvent(event); setModalOpen(true); }}
-                    >
-                      {t('respond')}
-                    </button>
+                    <div className="flex-shrink-0 flex items-center">
+                      <button
+                        className="px-4 py-2 rounded-lg bg-[#EDC381] text-white font-semibold text-sm shadow-md hover:bg-[#D4A574] transition-colors"
+                        onClick={() => { setSelectedEvent(event); setModalOpen(true); }}
+                      >
+                        {t('respond')}
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))
@@ -541,28 +642,40 @@ export default function HomePage() {
             ) : (
               futureSurveys.map(survey => (
                 <div key={survey.id} className="relative mb-5 bg-blue-50 rounded-xl shadow-md p-6">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1 pr-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1 min-w-0">
                       <div className="font-bold text-xl text-[#076332] mb-3 leading-tight line-clamp-2">{survey.title}</div>
                       {survey.body && <div className="text-base font-medium text-gray-700 mb-4 leading-relaxed line-clamp-2">{survey.body}</div>}
                       {survey.endTime && (
-                        <div className="text-sm font-semibold" style={{ color: '#fff', background: '#076332', borderRadius: 6, padding: '4px 10px', display: 'inline-block' }}>
-                          Due: {new Date(survey.endTime.seconds ? survey.endTime.seconds * 1000 : survey.endTime).toLocaleDateString('en-US', { 
+                        <div className="text-sm font-semibold text-gray-600">
+                          Due Date: {new Date(survey.endTime.seconds ? survey.endTime.seconds * 1000 : survey.endTime).toLocaleDateString('en-US', { 
                             weekday: 'short', 
                             month: 'short', 
-                            day: 'numeric',
-                            hour: '2-digit', 
-                            minute: '2-digit' 
+                            day: 'numeric'
                           })}
                         </div>
                       )}
                     </div>
-                    <button
-                      className="px-3 py-1 rounded-lg bg-[#EDC381] text-white font-semibold text-xs shadow-md"
-                      onClick={() => { setSelectedSurvey(survey); setSurveyModalOpen(true); }}
-                    >
-                      {t('fillNow')}
-                    </button>
+                    <div className="flex-shrink-0 flex items-center">
+                      <button
+                        className="px-4 py-2 rounded-lg bg-[#EDC381] text-white font-semibold text-sm shadow-md hover:bg-[#D4A574] transition-colors"
+                        onClick={() => {
+                          if (survey.link && survey.link.trim() !== '') {
+                            // Ensure the link has a protocol
+                            let linkUrl = survey.link.trim();
+                            if (!linkUrl.startsWith('http://') && !linkUrl.startsWith('https://')) {
+                              linkUrl = 'https://' + linkUrl;
+                            }
+                            window.open(linkUrl, '_blank', 'noopener,noreferrer');
+                          } else {
+                            setSelectedSurvey(survey);
+                            setSurveyModalOpen(true);
+                          }
+                        }}
+                      >
+                        {t('fillNow')}
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))
@@ -590,7 +703,7 @@ export default function HomePage() {
                       <div className="font-bold text-xl text-[#076332] mb-3 leading-tight line-clamp-2">{message.title}</div>
                       {message.body && <div className="text-base font-medium text-gray-700 mb-4 leading-relaxed line-clamp-2">{message.body}</div>}
                       {message.startTime && (
-                        <div className="text-sm font-semibold mb-2" style={{ color: '#fff', background: '#076332', borderRadius: 6, padding: '4px 10px', display: 'inline-block' }}>
+                        <div className="text-sm font-semibold text-gray-600 mb-1">
                           Start: {new Date(message.startTime.seconds ? message.startTime.seconds * 1000 : message.startTime).toLocaleDateString('en-US', { 
                             weekday: 'short', 
                             month: 'short', 
@@ -601,7 +714,7 @@ export default function HomePage() {
                         </div>
                       )}
                       {message.endTime && (
-                        <div className="text-sm font-semibold" style={{ color: '#fff', background: '#076332', borderRadius: 6, padding: '4px 10px', display: 'inline-block' }}>
+                        <div className="text-sm font-semibold text-gray-600">
                           End: {new Date(message.endTime.seconds ? message.endTime.seconds * 1000 : message.endTime).toLocaleDateString('en-US', { 
                             weekday: 'short', 
                             month: 'short', 
@@ -630,33 +743,90 @@ export default function HomePage() {
 
       {/* Render the modal at the root of the page */}
       {modalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 shadow-lg min-w-[280px]">
-            <h2 className="text-lg font-bold mb-4 text-center">{selectedEvent?.title}</h2>
-            <div className="flex flex-col gap-3">
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-gray-200">
+              <h2 className="text-xl font-bold text-[#076332] text-center">{selectedEvent?.title}</h2>
+            </div>
+            
+            {/* Content */}
+            <div className="p-6">
+              {eventResponse ? (
+                <div className="text-center">
+                  <div className="mb-6">
+                    <div className={`inline-flex items-center justify-center w-16 h-16 rounded-full mb-4 ${
+                      eventResponse === 'coming' ? 'bg-green-100' :
+                      eventResponse === 'maybe' ? 'bg-yellow-100' :
+                      'bg-red-100'
+                    }`}>
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                        eventResponse === 'coming' ? 'bg-green-500' :
+                        eventResponse === 'maybe' ? 'bg-yellow-500' :
+                        'bg-red-500'
+                      }`}>
+                        <div className={`w-4 h-4 rounded-full ${
+                          eventResponse === 'coming' ? 'bg-white' :
+                          eventResponse === 'maybe' ? 'bg-white' :
+                          'bg-white'
+                        }`}></div>
+                      </div>
+                    </div>
+                    <h3 className="text-lg font-semibold text-gray-800 mb-2">
+                      {eventResponse === 'coming' && t('coming')}
+                      {eventResponse === 'maybe' && t('maybe')}
+                      {eventResponse === 'notComing' && t('notComing')}
+                    </h3>
+                    <p className="text-sm text-gray-600">
+                      {eventResponse === 'coming' && 'Your response has been recorded. We look forward to seeing you!'}
+                      {eventResponse === 'maybe' && 'Thank you for your response. We will keep you updated.'}
+                      {eventResponse === 'notComing' && 'Thank you for letting us know. We hope to see you at future events.'}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <p className="text-gray-700 text-center mb-6">Please let us know if you will be attending this event:</p>
+                  
+                  <button
+                    className="w-full py-3 px-4 rounded-lg font-semibold text-white transition-all duration-200 hover:opacity-90 shadow-md"
+                    style={{ background: colors.primaryGreen }}
+                    onClick={() => handleEventResponse('coming')}
+                  >
+                    {t('coming')}
+                  </button>
+                  
+                  <button
+                    className="w-full py-3 px-4 rounded-lg font-semibold transition-all duration-200 hover:opacity-90 border-2"
+                    style={{ 
+                      background: 'transparent', 
+                      color: colors.gold, 
+                      borderColor: colors.gold 
+                    }}
+                    onClick={() => handleEventResponse('maybe')}
+                  >
+                    {t('maybe')}
+                  </button>
+                  
+                  <button
+                    className="w-full py-3 px-4 rounded-lg font-semibold transition-all duration-200 hover:opacity-90 border-2"
+                    style={{ 
+                      background: 'transparent', 
+                      color: colors.red, 
+                      borderColor: colors.red 
+                    }}
+                    onClick={() => handleEventResponse('notComing')}
+                  >
+                    {t('notComing')}
+                  </button>
+                </div>
+              )}
+            </div>
+            
+            {/* Footer */}
+            <div className="px-6 py-4 border-t border-gray-200">
               <button
-                className="font-semibold rounded px-8 py-2"
-                style={{ background: colors.primaryGreen, color: colors.white }}
-                onClick={() => setModalOpen(false)}
-              >
-                {t('coming')}
-              </button>
-              <button
-                className="font-semibold rounded px-8 py-2"
-                style={{ background: 'transparent', color: colors.black, border: `1px solid ${colors.gold}` }}
-                onClick={() => setModalOpen(false)}
-              >
-                {t('maybe')}
-              </button>
-              <button
-                className="font-semibold rounded px-8 py-2"
-                style={{ background: 'transparent', color: colors.black, border: `1px solid ${colors.red}` }}
-                onClick={() => setModalOpen(false)}
-              >
-                {t('notComing')}
-              </button>
-              <button
-                className="mt-2 text-gray-500 underline"
+                className="w-full py-2 text-gray-500 hover:text-gray-700 transition-colors text-sm font-medium"
                 onClick={() => setModalOpen(false)}
               >
                 {t('close')}

@@ -43,18 +43,24 @@ export default function AdminHomePage() {
   const [editModal, setEditModal] = useState({ open: false, type: '', item: null, form: {} });
   const [addLoading, setAddLoading] = useState(false);
   const [processingApproval, setProcessingApproval] = useState(false);
+  const [responseListModal, setResponseListModal] = useState({ open: false, event: null });
 
   const fetchData = async () => {
     try {
-      const eventsQuery = query(collection(db, 'events'), orderBy('endTime', 'desc'));
+      const now = new Date();
+      
+      // Only fetch events that haven't ended yet
+      const eventsQuery = query(collection(db, 'events'), where('endTime', '>=', now), orderBy('endTime', 'asc'));
       const eventsSnapshot = await getDocs(eventsQuery);
       setEvents(eventsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
 
-      const surveysQuery = query(collection(db, 'surveys'), orderBy('endTime', 'desc'));
+      // Only fetch surveys that haven't ended yet
+      const surveysQuery = query(collection(db, 'surveys'), where('endTime', '>=', now), orderBy('endTime', 'asc'));
       const surveysSnapshot = await getDocs(surveysQuery);
       setSurveys(surveysSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
 
-      const messagesQuery = query(collection(db, 'messages'), orderBy('endTime', 'desc'));
+      // Only fetch messages that haven't ended yet
+      const messagesQuery = query(collection(db, 'messages'), where('endTime', '>=', now), orderBy('endTime', 'asc'));
       const messagesSnapshot = await getDocs(messagesQuery);
       setMessages(messagesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
 
@@ -174,6 +180,12 @@ export default function AdminHomePage() {
         endTime: form.endTime ? new Date(form.endTime) : null,
         createdAt: new Date(),
       };
+      
+      // Add link field for surveys
+      if (modalType === 'survey') {
+        data.link = form.link || '';
+      }
+      
       await addDoc(collection(db, collectionName), data);
       setShowAddModal(false);
       setAddLoading(false);
@@ -302,9 +314,20 @@ Welcome,
                     <div className="flex-1 pr-4">
                       <div className="font-bold text-xl text-[#076332] mb-3 leading-tight line-clamp-2">{event.title}</div>
                       {event.body && <div className="text-base font-medium text-gray-700 mb-4 leading-relaxed line-clamp-2">{event.body}</div>}
+                      {event.startTime && (
+                        <div className="text-sm font-semibold text-gray-600 mb-1">
+                          Start: {new Date(event.startTime.seconds ? event.startTime.seconds * 1000 : event.startTime).toLocaleDateString('en-US', { 
+                            weekday: 'short', 
+                            month: 'short', 
+                            day: 'numeric',
+                            hour: '2-digit', 
+                            minute: '2-digit' 
+                          })}
+                        </div>
+                      )}
                       {event.endTime && (
-                        <div className="text-sm font-semibold" style={{ color: '#fff', background: '#076332', borderRadius: 6, padding: '4px 10px', display: 'inline-block' }}>
-                          {new Date(event.endTime.seconds ? event.endTime.seconds * 1000 : event.endTime).toLocaleDateString('en-US', { 
+                        <div className="text-sm font-semibold text-gray-600">
+                          End: {new Date(event.endTime.seconds ? event.endTime.seconds * 1000 : event.endTime).toLocaleDateString('en-US', { 
                             weekday: 'short', 
                             month: 'short', 
                             day: 'numeric',
@@ -314,9 +337,17 @@ Welcome,
                         </div>
                       )}
                     </div>
-                    <button onClick={() => handleEditClick('event', event)} className="flex-shrink-0 p-2 rounded-full hover:bg-gray-100">
-                      <PencilIcon />
-                    </button>
+                    <div className="flex-shrink-0 flex items-center gap-2">
+                      <button 
+                        onClick={() => setResponseListModal({ open: true, event })}
+                        className="px-3 py-1 rounded-lg bg-blue-500 text-white font-semibold text-xs shadow-md hover:bg-blue-600 transition-colors"
+                      >
+                        Responses
+                      </button>
+                      <button onClick={() => handleEditClick('event', event)} className="p-2 rounded-full hover:bg-gray-100">
+                        <PencilIcon />
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))
@@ -327,9 +358,20 @@ Welcome,
                     <div className="flex-1 pr-4">
                       <div className="font-bold text-xl text-[#076332] mb-3 leading-tight line-clamp-2">{events[0].title}</div>
                       {events[0].body && <div className="text-base font-medium text-gray-700 mb-4 leading-relaxed line-clamp-2">{events[0].body}</div>}
+                      {events[0].startTime && (
+                        <div className="text-sm font-semibold text-gray-600 mb-1">
+                          Start: {new Date(events[0].startTime.seconds ? events[0].startTime.seconds * 1000 : events[0].startTime).toLocaleDateString('en-US', { 
+                            weekday: 'short', 
+                            month: 'short', 
+                            day: 'numeric',
+                            hour: '2-digit', 
+                            minute: '2-digit' 
+                          })}
+                        </div>
+                      )}
                       {events[0].endTime && (
-                        <div className="text-sm font-semibold" style={{ color: '#fff', background: '#076332', borderRadius: 6, padding: '4px 10px', display: 'inline-block' }}>
-                          {new Date(events[0].endTime.seconds ? events[0].endTime.seconds * 1000 : events[0].endTime).toLocaleDateString('en-US', { 
+                        <div className="text-sm font-semibold text-gray-600">
+                          End: {new Date(events[0].endTime.seconds ? events[0].endTime.seconds * 1000 : events[0].endTime).toLocaleDateString('en-US', { 
                             weekday: 'short', 
                             month: 'short', 
                             day: 'numeric',
@@ -339,9 +381,17 @@ Welcome,
                         </div>
                       )}
                     </div>
-                    <button onClick={() => handleEditClick('event', events[0])} className="flex-shrink-0 p-2 rounded-full hover:bg-gray-100">
-                      <PencilIcon />
-                    </button>
+                    <div className="flex-shrink-0 flex items-center gap-2">
+                      <button 
+                        onClick={() => setResponseListModal({ open: true, event: events[0] })}
+                        className="px-3 py-1 rounded-lg bg-blue-500 text-white font-semibold text-xs shadow-md hover:bg-blue-600 transition-colors"
+                      >
+                        Responses
+                      </button>
+                      <button onClick={() => handleEditClick('event', events[0])} className="p-2 rounded-full hover:bg-gray-100">
+                        <PencilIcon />
+                      </button>
+                    </div>
                   </div>
                 </div>
               )
@@ -380,14 +430,17 @@ Welcome,
                       <div className="font-bold text-xl text-[#076332] mb-3 leading-tight line-clamp-2">{survey.title}</div>
                       {survey.body && <div className="text-base font-medium text-gray-700 mb-4 leading-relaxed line-clamp-2">{survey.body}</div>}
                       {survey.endTime && (
-                        <div className="text-sm font-semibold" style={{ color: '#fff', background: '#076332', borderRadius: 6, padding: '4px 10px', display: 'inline-block' }}>
-                          Due: {new Date(survey.endTime.seconds ? survey.endTime.seconds * 1000 : survey.endTime).toLocaleDateString('en-US', { 
+                        <div className="text-sm font-semibold text-gray-600 mb-1">
+                          Due Date: {new Date(survey.endTime.seconds ? survey.endTime.seconds * 1000 : survey.endTime).toLocaleDateString('en-US', { 
                             weekday: 'short', 
                             month: 'short', 
-                            day: 'numeric',
-                            hour: '2-digit', 
-                            minute: '2-digit' 
+                            day: 'numeric'
                           })}
+                        </div>
+                      )}
+                      {survey.link && (
+                        <div className="text-sm font-semibold text-blue-600">
+                          Link: <a href={survey.link} target="_blank" rel="noopener noreferrer" className="underline hover:text-blue-800">{survey.link}</a>
                         </div>
                       )}
                     </div>
@@ -405,14 +458,17 @@ Welcome,
                       <div className="font-bold text-xl text-[#076332] mb-3 leading-tight line-clamp-2">{surveys[0].title}</div>
                       {surveys[0].body && <div className="text-base font-medium text-gray-700 mb-4 leading-relaxed line-clamp-2">{surveys[0].body}</div>}
                       {surveys[0].endTime && (
-                        <div className="text-sm font-semibold" style={{ color: '#fff', background: '#076332', borderRadius: 6, padding: '4px 10px', display: 'inline-block' }}>
-                          Due: {new Date(surveys[0].endTime.seconds ? surveys[0].endTime.seconds * 1000 : surveys[0].endTime).toLocaleDateString('en-US', { 
+                        <div className="text-sm font-semibold text-gray-600 mb-1">
+                          Due Date: {new Date(surveys[0].endTime.seconds ? surveys[0].endTime.seconds * 1000 : surveys[0].endTime).toLocaleDateString('en-US', { 
                             weekday: 'short', 
                             month: 'short', 
-                            day: 'numeric',
-                            hour: '2-digit', 
-                            minute: '2-digit' 
+                            day: 'numeric'
                           })}
+                        </div>
+                      )}
+                      {surveys[0].link && (
+                        <div className="text-sm font-semibold text-blue-600">
+                          Link: <a href={surveys[0].link} target="_blank" rel="noopener noreferrer" className="underline hover:text-blue-800">{surveys[0].link}</a>
                         </div>
                       )}
                     </div>
@@ -457,7 +513,7 @@ Welcome,
                       <div className="font-bold text-xl text-[#076332] mb-3 leading-tight line-clamp-2">{message.title}</div>
                       {message.body && <div className="text-base font-medium text-gray-700 mb-4 leading-relaxed line-clamp-2">{message.body}</div>}
                       {message.startTime && (
-                        <div className="text-sm font-semibold mb-2" style={{ color: '#fff', background: '#076332', borderRadius: 6, padding: '4px 10px', display: 'inline-block' }}>
+                        <div className="text-sm font-semibold text-gray-600 mb-1">
                           Start: {new Date(message.startTime.seconds ? message.startTime.seconds * 1000 : message.startTime).toLocaleDateString('en-US', { 
                             weekday: 'short', 
                             month: 'short', 
@@ -468,7 +524,7 @@ Welcome,
                         </div>
                       )}
                       {message.endTime && (
-                        <div className="text-sm font-semibold" style={{ color: '#fff', background: '#076332', borderRadius: 6, padding: '4px 10px', display: 'inline-block' }}>
+                        <div className="text-sm font-semibold text-gray-600">
                           End: {new Date(message.endTime.seconds ? message.endTime.seconds * 1000 : message.endTime).toLocaleDateString('en-US', { 
                             weekday: 'short', 
                             month: 'short', 
@@ -493,7 +549,7 @@ Welcome,
                       <div className="font-bold text-xl text-[#076332] mb-3 leading-tight line-clamp-2">{messages[0].title}</div>
                       {messages[0].body && <div className="text-base font-medium text-gray-700 mb-4 leading-relaxed line-clamp-2">{messages[0].body}</div>}
                       {messages[0].startTime && (
-                        <div className="text-sm font-semibold mb-2" style={{ color: '#fff', background: '#076332', borderRadius: 6, padding: '4px 10px', display: 'inline-block' }}>
+                        <div className="text-sm font-semibold text-gray-600 mb-1">
                           Start: {new Date(messages[0].startTime.seconds ? messages[0].startTime.seconds * 1000 : messages[0].startTime).toLocaleDateString('en-US', { 
                             weekday: 'short', 
                             month: 'short', 
@@ -504,7 +560,7 @@ Welcome,
                         </div>
                       )}
                       {messages[0].endTime && (
-                        <div className="text-sm font-semibold" style={{ color: '#fff', background: '#076332', borderRadius: 6, padding: '4px 10px', display: 'inline-block' }}>
+                        <div className="text-sm font-semibold text-gray-600">
                           End: {new Date(messages[0].endTime.seconds ? messages[0].endTime.seconds * 1000 : messages[0].endTime).toLocaleDateString('en-US', { 
                             weekday: 'short', 
                             month: 'short', 
@@ -550,6 +606,104 @@ Welcome,
         type={modalType}
         loading={addLoading}
       />
+
+      {/* Response List Modal */}
+      {responseListModal.open && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-lg max-h-[85vh] overflow-hidden">
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-gray-200">
+              <div className="flex justify-between items-center">
+                <h2 className="text-xl font-bold text-[#076332]">Event Responses</h2>
+                <button
+                  onClick={() => setResponseListModal({ open: false, event: null })}
+                  className="text-gray-400 hover:text-gray-600 text-2xl font-bold"
+                >
+                  ×
+                </button>
+              </div>
+              <h3 className="text-lg font-semibold text-gray-800 mt-2">{responseListModal.event?.title}</h3>
+            </div>
+            
+            {/* Content */}
+            <div className="p-6 overflow-y-auto max-h-[calc(85vh-120px)]">
+              <div className="space-y-6">
+                {/* Coming List */}
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="text-lg font-bold text-green-600">COMING</h4>
+                    <span className="text-sm font-bold text-gray-600">
+                      {responseListModal.event?.coming?.length || 0}
+                    </span>
+                  </div>
+                  <div className="border border-gray-200 rounded-lg p-4 max-h-40 overflow-y-auto">
+                    {responseListModal.event?.coming?.length > 0 ? (
+                      <div className="space-y-2">
+                        {responseListModal.event.coming.map((person, index) => (
+                          <div key={index} className="flex justify-between items-center py-2 px-3 bg-gray-50 rounded">
+                            <span className="font-semibold text-gray-800">{person.fullName}</span>
+                            <span className="text-sm font-medium text-gray-600">Room {person.roomNumber}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-4 text-gray-500 font-medium">No responses yet</div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Maybe List */}
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="text-lg font-bold text-yellow-600">MAYBE</h4>
+                    <span className="text-sm font-bold text-gray-600">
+                      {responseListModal.event?.maybe?.length || 0}
+                    </span>
+                  </div>
+                  <div className="border border-gray-200 rounded-lg p-4 max-h-40 overflow-y-auto">
+                    {responseListModal.event?.maybe?.length > 0 ? (
+                      <div className="space-y-2">
+                        {responseListModal.event.maybe.map((person, index) => (
+                          <div key={index} className="flex justify-between items-center py-2 px-3 bg-gray-50 rounded">
+                            <span className="font-semibold text-gray-800">{person.fullName}</span>
+                            <span className="text-sm font-medium text-gray-600">Room {person.roomNumber}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-4 text-gray-500 font-medium">No responses yet</div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Not Coming List */}
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="text-lg font-bold text-red-600">NOT COMING</h4>
+                    <span className="text-sm font-bold text-gray-600">
+                      {responseListModal.event?.notComing?.length || 0}
+                    </span>
+                  </div>
+                  <div className="border border-gray-200 rounded-lg p-4 max-h-40 overflow-y-auto">
+                    {responseListModal.event?.notComing?.length > 0 ? (
+                      <div className="space-y-2">
+                        {responseListModal.event.notComing.map((person, index) => (
+                          <div key={index} className="flex justify-between items-center py-2 px-3 bg-gray-50 rounded">
+                            <span className="font-semibold text-gray-800">{person.fullName}</span>
+                            <span className="text-sm font-medium text-gray-600">Room {person.roomNumber}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-4 text-gray-500 font-medium">No responses yet</div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Edit Modal */}
       {editModal.open && (
@@ -608,16 +762,29 @@ Welcome,
             )}
 
             {editModal.type === 'survey' && (
-              <div className="mb-4">
-                <label className="block text-gray-700 font-semibold mb-2">Due Date</label>
-                <input
-                  type="datetime-local"
-                  name="endTime"
-                  value={editModal.form.endTime?.seconds ? new Date(editModal.form.endTime.seconds * 1000).toISOString().slice(0, 16) : (editModal.form.endTime ? new Date(editModal.form.endTime).toISOString().slice(0, 16) : '')}
-                  onChange={handleEditChange}
-                  className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-primaryGreen"
-                />
-              </div>
+              <>
+                <div className="mb-4">
+                  <label className="block text-gray-700 font-semibold mb-2">Due Date</label>
+                  <input
+                    type="datetime-local"
+                    name="endTime"
+                    value={editModal.form.endTime?.seconds ? new Date(editModal.form.endTime.seconds * 1000).toISOString().slice(0, 16) : (editModal.form.endTime ? new Date(editModal.form.endTime).toISOString().slice(0, 16) : '')}
+                    onChange={handleEditChange}
+                    className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-primaryGreen"
+                  />
+                </div>
+                <div className="mb-4">
+                  <label className="block text-gray-700 font-semibold mb-2">Link (Optional)</label>
+                  <input
+                    type="url"
+                    name="link"
+                    value={editModal.form.link || ''}
+                    onChange={handleEditChange}
+                    placeholder="https://example.com"
+                    className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-primaryGreen"
+                  />
+                </div>
+              </>
             )}
 
             {editModal.type === 'message' && (
