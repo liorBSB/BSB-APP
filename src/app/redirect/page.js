@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import colors from '../colors';
 
 export default function RedirectPage() {
@@ -21,9 +21,30 @@ export default function RedirectPage() {
       const userDoc = await getDoc(userRef);
       
       if (!userDoc.exists()) {
-        // Show missing user page instead of modal
-        setMissingUser(true);
-        return;
+        // User is authenticated but no document exists - create one automatically
+        console.log('Creating user document for authenticated user:', user.uid);
+        try {
+          await setDoc(doc(db, 'users', user.uid), {
+            uid: user.uid,
+            email: user.email,
+            fullName: user.displayName || '',
+            userType: 'user', // Default to user, can be changed during selection
+            isAdmin: false,
+            status: 'home',
+            roomNumber: '',
+            roomLetter: '',
+            questionnaireComplete: false,
+            createdAt: new Date()
+          });
+          
+          // After creating the document, redirect to selection
+          router.replace('/register/selection');
+          return;
+        } catch (error) {
+          console.error('Failed to create user document:', error);
+          setMissingUser(true);
+          return;
+        }
       }
       
       const userData = userDoc.data();
@@ -41,23 +62,38 @@ export default function RedirectPage() {
       
       // Pending approval
       if (userData.userType === 'pending_approval') {
-        router.replace('/register/pending-approval');
+        // Check if they've completed admin profile setup
+        if (!userData.firstName || !userData.lastName || !userData.jobTitle) {
+          // Admin profile incomplete - continue to admin profile setup
+          router.replace('/admin/profile-setup');
+        } else {
+          // Admin profile complete - send to pending approval page
+          router.replace('/register/pending-approval');
+        }
         return;
       }
       
-      // User
+      // User - check if profile is complete
       if (userData.userType === 'user') {
-        // Check user-specific fields
-        if (!userData.fullName || !userData.roomNumber) {
-          router.replace('/profile-setup');
+        // Check if user has completed profile setup (has name and room number)
+        if (!userData.fullName || !userData.roomNumber || userData.fullName.trim() === '' || userData.roomNumber.trim() === '') {
+          // Profile incomplete - check if they've already made a role choice
+          if (userData.roleChoice === 'live_here') {
+            // They chose to live here, continue to profile setup
+            router.replace('/profile-setup');
+          } else {
+            // No choice made yet, send to selection page
+            router.replace('/register/selection');
+          }
         } else {
+          // Profile complete - send to home
           router.replace('/home');
         }
         return;
       }
       
-      // Fallback
-      router.replace('/register');
+      // Fallback - new user or unknown type, send to selection
+      router.replace('/register/selection');
     });
     return () => unsubscribe();
   }, [router]);
@@ -80,7 +116,7 @@ export default function RedirectPage() {
           <div className="space-y-4">
             <button
               onClick={() => {
-                window.location.href = '/register';
+                router.push('/register/selection');
               }}
               className="w-full rounded-full py-4 font-semibold text-lg"
               style={{ 
@@ -92,7 +128,7 @@ export default function RedirectPage() {
                 WebkitTapHighlightColor: 'transparent'
               }}
             >
-              Go to Register
+              Complete Registration
             </button>
             <button
               onClick={async () => {

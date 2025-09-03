@@ -94,13 +94,10 @@ export default function SettingsPage() {
 
   const updateUserPhoto = async (photoUrl) => {
     try {
-      const user = auth.currentUser;
-      if (user) {
-        const userRef = doc(db, 'users', user.uid);
-        await updateDoc(userRef, { profilePhotoUrl: photoUrl });
-        setSuccess('Profile photo updated successfully!');
-        setTimeout(() => setSuccess(''), 3000);
-      }
+      // Don't save the photo URL to the database
+      // Just update the local state for display purposes
+      setSuccess('Profile photo updated successfully!');
+      setTimeout(() => setSuccess(''), 3000);
     } catch (error) {
       console.error('Error updating profile photo:', error);
       setError('Failed to update profile photo');

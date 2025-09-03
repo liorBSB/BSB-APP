@@ -27,18 +27,26 @@ export default function ProfileSetup() {
 
     const uid = auth.currentUser?.uid;
     if (!uid) {
-      setError('No authenticated user');
+      setError('No authenticated user. Please sign in again.');
+      router.push('/');
+      return;
+    }
+
+    // Validate required fields
+    if (!firstName.trim() || !lastName.trim() || !roomNumber.trim()) {
+      setError('Please fill in all required fields.');
       return;
     }
 
     try {
+      // Update user document with profile information
       await setDoc(doc(db, 'users', uid), {
-        fullName: `${firstName} ${lastName}`,
-        firstName,
-        lastName,
-        roomNumber: `${roomNumber}${roomLetter}`,
-        roomNumberOnly: roomNumber,
-        roomLetter,
+        fullName: `${firstName.trim()} ${lastName.trim()}`,
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        roomNumber: `${roomNumber.trim()}${roomLetter.trim()}`,
+        roomNumberOnly: roomNumber.trim(),
+        roomLetter: roomLetter.trim(),
         email: auth.currentUser.email,
         userType: 'user',
         questionnaireComplete: false,
@@ -46,12 +54,19 @@ export default function ProfileSetup() {
       });
 
       // Create all questionnaire fields for soldiers
-      await createQuestionnaireFields(uid);
+      try {
+        await createQuestionnaireFields(uid);
+      } catch (questionnaireError) {
+        console.error('Failed to create questionnaire fields:', questionnaireError);
+        // Don't fail the entire process for questionnaire creation
+        // The user can still proceed and questionnaire can be created later
+      }
 
       // After profile setup, go to consent step 1 for soldiers
       router.push('/register/consent/1?role=soldier');
     } catch (err) {
-      setError('Failed to save profile: ' + err.message);
+      console.error('Profile setup error:', err);
+      setError('Failed to save profile. Please try again.');
     }
   };
 

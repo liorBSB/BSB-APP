@@ -24,9 +24,18 @@ export default function useAuthRedirect(redirectIfIncomplete = false) {
         console.log('Profile exists:', docSnap.exists());
         console.log('Profile data:', docSnap.data());
 
-        if (!docSnap.exists() || !docSnap.data()?.roomNumber) {
-          console.log('Profile incomplete, redirecting to setup');
-          router.push('/profile-setup');
+        if (!docSnap.exists()) {
+          console.log('User document not found, redirecting to login');
+          router.push('/');
+          return;
+        }
+
+        const userData = docSnap.data();
+        
+        // Check if user-specific fields are missing
+        if (userData.userType === 'user' && (!userData.roomNumber || !userData.fullName || userData.fullName.trim() === '' || userData.roomNumber.trim() === '')) {
+          console.log('User profile incomplete, redirecting to selection');
+          router.push('/register/selection');
           return;
         }
       }

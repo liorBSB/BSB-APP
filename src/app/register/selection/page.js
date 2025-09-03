@@ -1,21 +1,75 @@
 'use client';
 import { useRouter } from 'next/navigation';
+import { auth, db } from '@/lib/firebase';
+import { doc, deleteDoc, updateDoc } from 'firebase/firestore';
+import { signOut } from 'firebase/auth';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
 import colors from '../../colors';
 
 export default function SelectionPage() {
   const router = useRouter();
 
-  const handleWorkHere = () => {
-    router.push('/admin/profile-setup');
+  const handleWorkHere = async () => {
+    try {
+      const user = auth.currentUser;
+      if (user) {
+        // Update user type to indicate they chose to work here
+        await updateDoc(doc(db, 'users', user.uid), {
+          userType: 'pending_approval',
+          roleChoice: 'work_here'
+        });
+      }
+      router.push('/admin/profile-setup');
+    } catch (error) {
+      console.error('Error updating user choice:', error);
+      // Still redirect even if update fails
+      router.push('/admin/profile-setup');
+    }
   };
 
-  const handleLiveHere = () => {
-    router.push('/profile-setup');
+  const handleLiveHere = async () => {
+    try {
+      const user = auth.currentUser;
+      if (user) {
+        // Update user type to indicate they chose to live here
+        await updateDoc(doc(db, 'users', user.uid), {
+          userType: 'user',
+          roleChoice: 'live_here'
+        });
+      }
+      router.push('/profile-setup');
+    } catch (error) {
+      console.error('Error updating user choice:', error);
+      // Still redirect even if update fails
+      router.push('/profile-setup');
+    }
   };
 
-  const handleBackToHome = () => {
-    router.push('/');
+  const handleCancel = async () => {
+    try {
+      const user = auth.currentUser;
+      if (user) {
+        // Delete the user document from Firestore
+        const userRef = doc(db, 'users', user.uid);
+        await deleteDoc(userRef);
+        
+        // Sign out the user
+        await signOut(auth);
+      }
+      
+      // Redirect to home page
+      router.push('/');
+    } catch (error) {
+      console.error('Error during cancel:', error);
+      // Even if there's an error, try to sign out and redirect
+      try {
+        await signOut(auth);
+        router.push('/');
+      } catch (signOutError) {
+        console.error('Error signing out:', signOutError);
+        router.push('/');
+      }
+    }
   };
 
   return (
@@ -66,7 +120,7 @@ export default function SelectionPage() {
           </button>
 
           <button
-            onClick={handleBackToHome}
+            onClick={handleCancel}
             style={{ 
               width: '100%', 
               background: 'transparent', 
@@ -79,7 +133,7 @@ export default function SelectionPage() {
               cursor: 'pointer'
             }}
           >
-            Back to Home
+            Cancel
           </button>
         </div>
       </div>
