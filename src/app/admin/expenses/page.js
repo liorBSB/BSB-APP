@@ -24,34 +24,131 @@ import colors from "@/app/colors";
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
-// Hebrew text converter function
+// Test function to demonstrate Hebrew translation (remove in production)
+const testHebrewTranslation = () => {
+  const testCases = [
+    'קניית מזון',
+    'תיקון מחשב',
+    'נסיעה לעבודה',
+    'חשמל ומים',
+    'כרטיס אשראי',
+    'מאושר',
+    'ממתין לאישור'
+  ];
+  
+  console.log('Hebrew Translation Test:');
+  testCases.forEach(test => {
+    console.log(`"${test}" → "${convertHebrewToReadable(test)}"`);
+  });
+};
+
+// Function to get user name by UID
+const getUserName = async (uid) => {
+  try {
+    const userRef = doc(db, 'users', uid);
+    const userSnap = await getDoc(userRef);
+    if (userSnap.exists()) {
+      const userData = userSnap.data();
+      return `${userData.firstName || ''} ${userData.lastName || ''}`.trim() || 'Unknown User';
+    }
+    return 'Unknown User';
+  } catch (error) {
+    console.error('Error getting user name:', error);
+    return 'Unknown User';
+  }
+};
+
+// Hebrew text converter function - converts Hebrew to English lowercase
 const convertHebrewToReadable = (text) => {
   if (!text || typeof text !== 'string') return text;
   
-  // Hebrew to English transliteration mapping
-  const hebrewMap = {
-    'א': 'A', 'ב': 'B', 'ג': 'G', 'ד': 'D', 'ה': 'H', 'ו': 'V', 'ז': 'Z',
-    'ח': 'Ch', 'ט': 'T', 'י': 'Y', 'כ': 'K', 'ל': 'L', 'מ': 'M', 'נ': 'N',
-    'ס': 'S', 'ע': 'A', 'פ': 'P', 'צ': 'Tz', 'ק': 'K', 'ר': 'R', 'ש': 'Sh',
-    'ת': 'T', 'ם': 'M', 'ן': 'N', 'ץ': 'Tz', 'ף': 'F', 'ץ': 'Tz'
-  };
-  
   // Check if text contains Hebrew characters
   const hebrewRegex = /[\u0590-\u05FF]/;
-  if (!hebrewRegex.test(text)) return text;
+  if (!hebrewRegex.test(text)) return text.toLowerCase();
+  
+  // Comprehensive Hebrew to English transliteration mapping (lowercase)
+  const hebrewMap = {
+    // Basic letters
+    'א': 'a', 'ב': 'b', 'ג': 'g', 'ד': 'd', 'ה': 'h', 'ו': 'v', 'ז': 'z',
+    'ח': 'ch', 'ט': 't', 'י': 'y', 'כ': 'k', 'ל': 'l', 'מ': 'm', 'נ': 'n',
+    'ס': 's', 'ע': 'a', 'פ': 'p', 'צ': 'tz', 'ק': 'k', 'ר': 'r', 'ש': 'sh',
+    'ת': 't',
+    
+    // Final letters
+    'ם': 'm', 'ן': 'n', 'ץ': 'tz', 'ף': 'f', 'ך': 'ch',
+    
+    // Common words and phrases for expenses
+    'הוצאה': 'expense', 'הוצאות': 'expenses', 'קנייה': 'purchase', 'קניית': 'purchase of',
+    'מזון': 'food', 'אוכל': 'food', 'שתייה': 'drink', 'משקאות': 'drinks',
+    'נסיעה': 'transportation', 'תחבורה': 'transportation', 'דלק': 'fuel', 'חניה': 'parking',
+    'ציוד': 'equipment', 'כלי': 'tools', 'חומרים': 'materials',
+    'תיקון': 'repair', 'תחזוקה': 'maintenance', 'שירות': 'service',
+    'חשמל': 'electricity', 'מים': 'water', 'גז': 'gas', 'אינטרנט': 'internet',
+    'בית': 'home', 'דירה': 'apartment', 'חדר': 'room', 'מטבח': 'kitchen',
+    'מחשב': 'computer', 'טלפון': 'phone', 'נייד': 'mobile',
+    'ספר': 'book', 'ספרים': 'books', 'חינוך': 'education',
+    'בריאות': 'health', 'רפואה': 'medicine', 'תרופות': 'medicines',
+    'ביגוד': 'clothing', 'בגדים': 'clothes', 'נעליים': 'shoes',
+    'אחר': 'other', 'שונות': 'miscellaneous', 'כללי': 'general',
+    
+    // Common expense categories
+    'מזון ושתייה': 'food and drinks',
+    'תחבורה': 'transportation',
+    'ציוד ותיקונים': 'equipment and repairs',
+    'שירותים': 'utilities',
+    'בית ודיור': 'home and housing',
+    'טכנולוגיה': 'technology',
+    'חינוך ולימודים': 'education and studies',
+    'בריאות ורפואה': 'health and medicine',
+    'ביגוד וטיפוח': 'clothing and grooming',
+    'אחר': 'other',
+    
+    // Payment methods
+    'כרטיס אשראי': 'credit card',
+    'העברה בנקאית': 'bank transfer',
+    'מזומן': 'cash',
+    'צ\'ק': 'check',
+    'דיגיטלי': 'digital',
+    
+    // Status
+    'מאושר': 'approved',
+    'נדחה': 'denied',
+    'ממתין': 'pending',
+    'בבדיקה': 'under review'
+  };
   
   // Convert Hebrew to transliterated text
   let result = text;
+  
+  // First, try to match whole words (more accurate)
   Object.entries(hebrewMap).forEach(([hebrew, english]) => {
+    const regex = new RegExp(hebrew, 'gi');
+    result = result.replace(regex, english);
+  });
+  
+  // Clean up any remaining Hebrew characters with basic transliteration
+  const basicHebrewMap = {
+    'א': 'a', 'ב': 'b', 'ג': 'g', 'ד': 'd', 'ה': 'h', 'ו': 'v', 'ז': 'z',
+    'ח': 'ch', 'ט': 't', 'י': 'y', 'כ': 'k', 'ל': 'l', 'מ': 'm', 'נ': 'n',
+    'ס': 's', 'ע': 'a', 'פ': 'p', 'צ': 'tz', 'ק': 'k', 'ר': 'r', 'ש': 'sh',
+    'ת': 't', 'ם': 'm', 'ן': 'n', 'ץ': 'tz', 'ף': 'f', 'ך': 'ch'
+  };
+  
+  Object.entries(basicHebrewMap).forEach(([hebrew, english]) => {
     result = result.replace(new RegExp(hebrew, 'g'), english);
   });
   
-  // Add indicator that this was Hebrew text
-  return `[HE: ${result}]`;
+  // Clean up the result - remove extra spaces, convert to lowercase
+  result = result
+    .replace(/\s+/g, ' ')  // Replace multiple spaces with single space
+    .trim()                // Remove leading/trailing spaces
+    .toLowerCase();        // Convert to lowercase
+  
+  return result;
 };
 
-// PDF generation function for refund requests
-const generatePDF = (refundRequests, dateRange, customFrom, customTo) => {
+// Unified PDF generation function for both expenses and refund requests
+const generateUnifiedPDF = async (items, type = 'expenses', dateRange = null, customFrom = null, customTo = null) => {
   // Create a new PDF document
   const doc = new jsPDF();
   
@@ -63,16 +160,46 @@ const generatePDF = (refundRequests, dateRange, customFrom, customTo) => {
     doc.setFont('helvetica', 'normal');
   }
   
-  // Add title
+  // Add title based on type
     doc.setFontSize(24);
     doc.setFont('helvetica', 'bold');
-    doc.text('Refund Report', 105, 25, { align: 'center' });
+  const title = type === 'expenses' ? 'Expenses Report' : 'Refund Report';
+  doc.text(title, 105, 25, { align: 'center' });
     
     // Add generation date and date range
     doc.setFontSize(12);
     doc.setFont('helvetica', 'normal');
     doc.text(`Generated on: ${new Date().toLocaleDateString('he-IL')}`, 105, 35, { align: 'center' });
-    doc.text(`Date Range: ${getDateRangeText(dateRange, customFrom, customTo)}`, 105, 45, { align: 'center' });
+  
+  if (type === 'refunds' && dateRange) {
+    // Show actual date range instead of just "30 Days"
+    let dateRangeText;
+    if (dateRange === 'custom' && customFrom && customTo) {
+      const fromDate = new Date(customFrom).toLocaleDateString('he-IL');
+      const toDate = new Date(customTo).toLocaleDateString('he-IL');
+      dateRangeText = `From: ${fromDate} To: ${toDate}`;
+    } else {
+      const now = new Date();
+      let fromDate;
+      switch (dateRange) {
+        case 'pastDay':
+          fromDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+          break;
+        case 'pastWeek':
+          fromDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          break;
+        case 'pastMonth':
+          fromDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+          break;
+        default:
+          fromDate = new Date(0); // All time
+      }
+      const fromStr = fromDate.toLocaleDateString('he-IL');
+      const toStr = now.toLocaleDateString('he-IL');
+      dateRangeText = `From: ${fromStr} To: ${toStr}`;
+    }
+    doc.text(`Date Range: ${dateRangeText}`, 105, 45, { align: 'center' });
+  }
     
     // Add summary information
     doc.setFontSize(16);
@@ -81,13 +208,37 @@ const generatePDF = (refundRequests, dateRange, customFrom, customTo) => {
     
     doc.setFontSize(12);
     doc.setFont('helvetica', 'normal');
-    doc.text(`Approved: ${refundRequests.filter(r => r.status === 'approved').length}`, 20, 70);
-    doc.text(`Denied: ${refundRequests.filter(r => r.status === 'denied').length}`, 20, 80);
-    doc.text(`Pending: ${refundRequests.filter(r => r.status === 'waiting').length}`, 20, 90);
-    doc.text(`Total Amount: ILS ${refundRequests.reduce((sum, r) => sum + (parseFloat(r.amount) || 0), 0).toFixed(2)}`, 20, 100);
   
-  // Prepare table data with status color coding
-  const tableData = refundRequests.map(request => {
+  if (type === 'expenses') {
+    doc.text(`Total Expenses: ${items.length}`, 20, 70);
+    doc.text(`Total Amount: ILS ${items.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0).toFixed(2)}`, 20, 80);
+  } else {
+    doc.text(`Approved: ${items.filter(r => r.status === 'approved').length}`, 20, 70);
+    doc.text(`Denied: ${items.filter(r => r.status === 'denied').length}`, 20, 80);
+    doc.text(`Pending: ${items.filter(r => r.status === 'waiting').length}`, 20, 90);
+    doc.text(`Total Amount: ILS ${items.reduce((sum, r) => sum + (parseFloat(r.amount) || 0), 0).toFixed(2)}`, 20, 100);
+  }
+  
+  // Prepare table data based on type
+  let tableData;
+  let tableHeaders;
+  
+  if (type === 'expenses') {
+    tableHeaders = ['#', 'title', 'category', 'amount', 'date', 'notes', 'payment', 'created by', 'photo'];
+    tableData = items.map((expense, index) => [
+      (index + 1).toString(),
+      convertHebrewToReadable(expense.title) || 'n/a',
+      convertHebrewToReadable(expense.category) || 'n/a',
+      `ILS ${(expense.amount || 0).toFixed(2)}`,
+      expense.expenseDate?.toDate?.()?.toLocaleDateString?.() || 'no date',
+      convertHebrewToReadable(expense.notes) || 'n/a',
+      convertHebrewToReadable(expense.reimbursementMethod) || 'n/a',
+      convertHebrewToReadable(expense.createdByName || 'loading...') || 'loading...',
+      expense.photoUrl ? 'yes' : 'no'
+    ]);
+  } else {
+    tableHeaders = ['#', 'title', 'amount', 'method', 'name', 'room', 'date', 'status', 'receipt photo'];
+    tableData = items.map((request, index) => {
     const status = request.status;
     let statusText = status;
     
@@ -107,21 +258,23 @@ const generatePDF = (refundRequests, dateRange, customFrom, customTo) => {
     const roomNumber = request.ownerRoomNumber ? request.ownerRoomNumber.replace(/[^0-9]/g, '') : 'N/A';
     
               return [
-      request.title || 'N/A',
+        (index + 1).toString(),
+        convertHebrewToReadable(request.title) || 'n/a',
       `ILS ${request.amount || '0'}`,
-      request.repaymentMethod || request.reimbursementMethod || 'N/A',
-      request.ownerName || 'N/A',
+        convertHebrewToReadable(request.repaymentMethod || request.reimbursementMethod) || 'n/a',
+        convertHebrewToReadable(request.ownerName) || 'n/a',
       roomNumber,
-      request.expenseDate?.toDate?.()?.toLocaleDateString?.() || request.createdAt?.toDate?.()?.toLocaleDateString?.() || 'No date',
-      statusText,
-      hasPhoto ? 'Receipt' : 'No photo'
+        request.expenseDate?.toDate?.()?.toLocaleDateString?.() || request.createdAt?.toDate?.()?.toLocaleDateString?.() || 'no date',
+        statusText.toLowerCase(),
+        hasPhoto ? 'receipt' : 'no photo'
     ];
   });
+  }
 
   // Add table with proper column widths
   autoTable(doc, {
     startY: 115,
-    head: [['Title', 'Amount', 'Method', 'Name', 'Room', 'Date', 'Status', 'Receipt Photo']],
+    head: [tableHeaders],
     body: tableData,
     theme: 'grid',
     headStyles: {
@@ -135,15 +288,26 @@ const generatePDF = (refundRequests, dateRange, customFrom, customTo) => {
       fontSize: 9,
       halign: 'left'
     },
-    columnStyles: {
-      0: { cellWidth: 32 }, // Title
-      1: { cellWidth: 20 }, // Amount
-      2: { cellWidth: 20 }, // Method
-      3: { cellWidth: 24 }, // Name
-      4: { cellWidth: 14 }, // Room
-      5: { cellWidth: 24 }, // Date
-      6: { cellWidth: 20 }, // Status
-      7: { cellWidth: 28 }  // Receipt Photo
+    columnStyles: type === 'expenses' ? {
+      0: { cellWidth: 8 },  // Row Number
+      1: { cellWidth: 30 }, // Title
+      2: { cellWidth: 25 }, // Category (bigger)
+      3: { cellWidth: 30 }, // Amount (bigger)
+      4: { cellWidth: 18 }, // Date
+      5: { cellWidth: 20 }, // Notes
+      6: { cellWidth: 25 }, // Payment Method (bigger)
+      7: { cellWidth: 22 }, // Created By
+      8: { cellWidth: 15 }  // Photo (bigger)
+    } : {
+      0: { cellWidth: 8 },  // Row Number
+      1: { cellWidth: 30 }, // Title
+      2: { cellWidth: 25 }, // Amount (bigger)
+      3: { cellWidth: 20 }, // Method
+      4: { cellWidth: 25 }, // Name
+      5: { cellWidth: 12 }, // Room
+      6: { cellWidth: 20 }, // Date
+      7: { cellWidth: 18 }, // Status
+      8: { cellWidth: 15 }  // Receipt Photo (bigger)
     },
     margin: { top: 115, right: 15, bottom: 20, left: 15 },
     styles: {
@@ -151,13 +315,16 @@ const generatePDF = (refundRequests, dateRange, customFrom, customTo) => {
       lineColor: [200, 200, 200]
     },
     didDrawCell: function(data) {
-      // Only process the Receipt Photo column (index 7) and if it's a body cell
-      if (data.column.index === 7 && data.section === 'body') {
-        const requestIndex = data.row.index;
-        const request = refundRequests[requestIndex];
-        const photoUrl = request.photoUrl || request.receiptPhotoUrl || request.photoPath;
+      // Handle photo columns for both types (adjusted for row number column)
+      const photoColumnIndex = type === 'expenses' ? 8 : 8;
+      const photoText = type === 'expenses' ? 'yes' : 'receipt';
+      
+      if (data.column.index === photoColumnIndex && data.section === 'body') {
+        const itemIndex = data.row.index;
+        const item = items[itemIndex];
+        const photoUrl = type === 'expenses' ? item.photoUrl : (item.photoUrl || item.receiptPhotoUrl || item.photoPath);
         
-        if (photoUrl && data.cell.text[0] === 'Receipt') {
+        if (photoUrl && data.cell.text[0] === photoText) {
           // Calculate the center position for the text
           const cellCenterX = data.cell.x + (data.cell.width / 2);
           const cellCenterY = data.cell.y + (data.cell.height / 2);
@@ -174,7 +341,14 @@ const generatePDF = (refundRequests, dateRange, customFrom, customTo) => {
           // Add the clickable link perfectly centered in the cell
           doc.setTextColor(0, 0, 255); // Blue
           doc.setFontSize(8);
-          doc.textWithLink('Receipt', cellCenterX - 10, cellCenterY + 2, { url: photoUrl });
+          const linkText = type === 'expenses' ? 'photo' : 'receipt';
+          // Better positioning - center the text more precisely
+          const textWidth = linkText.length * 2.5; // Approximate character width
+          const textX = cellCenterX - (textWidth / 2);
+          const textY = cellCenterY + 2;
+          doc.textWithLink(linkText, textX, textY, { 
+            url: photoUrl
+          });
           
           // Reset text properties
           doc.setTextColor(0, 0, 0);
@@ -184,90 +358,128 @@ const generatePDF = (refundRequests, dateRange, customFrom, customTo) => {
     }
   });
   
-      // Add receipt photos section at the end
-    const requestsWithPhotos = refundRequests.filter(request => 
-      request.photoUrl || request.receiptPhotoUrl || request.photoPath
-    );
+      // Add photos section at the end
+    const itemsWithPhotos = items.filter(item => {
+      if (type === 'expenses') {
+        return item.photoUrl;
+      } else {
+        return item.photoUrl || item.receiptPhotoUrl || item.photoPath;
+      }
+    });
     
-    console.log('Requests with photos:', requestsWithPhotos.length);
-    console.log('Photo URLs found:', requestsWithPhotos.map(r => ({
-      title: r.title,
-      photoUrl: r.photoUrl,
-      receiptPhotoUrl: r.receiptPhotoUrl,
-      photoPath: r.photoPath
+    console.log('Items with photos:', itemsWithPhotos.length);
+    console.log('Photo URLs found:', itemsWithPhotos.map(item => ({
+      title: item.title,
+      photoUrl: item.photoUrl,
+      receiptPhotoUrl: item.receiptPhotoUrl,
+      photoPath: item.photoPath
     })));
     
-    if (requestsWithPhotos.length > 0) {
+    if (itemsWithPhotos.length > 0) {
       // Add a new page for photos
       doc.addPage();
       
       doc.setFontSize(16);
       doc.setFont('helvetica', 'bold');
-      doc.text('Receipt Photos Gallery', 105, 25, { align: 'center' });
+      const galleryTitle = type === 'expenses' ? 'Photos Gallery' : 'Receipt Photos Gallery';
+      doc.text(galleryTitle, 105, 25, { align: 'center' });
       
       doc.setFontSize(12);
       doc.setFont('helvetica', 'normal');
-      doc.text(`Total Receipts: ${requestsWithPhotos.length}`, 105, 35, { align: 'center' });
+      const totalText = type === 'expenses' ? `Total Photos: ${itemsWithPhotos.length}` : `Total Receipts: ${itemsWithPhotos.length}`;
+      doc.text(totalText, 105, 35, { align: 'center' });
     
     let photoY = 50;
     let photoX = 20;
-    const photoWidth = 60;
-    const photoHeight = 45;
-    const maxPhotosPerRow = 3;
+    const photoWidth = 80;
+    const photoHeight = 60;
+    const maxPhotosPerRow = 2; // Fewer per row since photos are bigger
     let photosInCurrentRow = 0;
     let photoNumber = 1;
     
-    for (const request of requestsWithPhotos) {
+    // Helper function to add placeholder
+    const addPlaceholder = () => {
+      // Draw a placeholder rectangle
+      doc.setFillColor(245, 245, 245);
+      doc.rect(photoX, photoY, photoWidth, photoHeight, 'F');
+      doc.setDrawColor(200, 200, 200);
+      doc.rect(photoX, photoY, photoWidth, photoHeight, 'S');
+      
+      // Add photo icon symbol
+      doc.setFontSize(16);
+      doc.setTextColor(150, 150, 150);
+      doc.text('📷', photoX + photoWidth/2 - 8, photoY + photoHeight/2 - 5);
+    };
+
+    // Process photos one by one to ensure proper loading
+    const processPhotos = async () => {
+      for (const item of itemsWithPhotos) {
       try {
-        const photoUrl = request.photoUrl || request.receiptPhotoUrl || request.photoPath;
+        const photoUrl = type === 'expenses' ? item.photoUrl : (item.photoUrl || item.receiptPhotoUrl || item.photoPath);
         
-        // Add photo number label above photo
+        // Find the original table row number for this item
+        const originalRowNumber = items.findIndex(originalItem => 
+          originalItem.id === item.id || 
+          (originalItem.title === item.title && originalItem.amount === item.amount)
+        ) + 1; // +1 because table rows start at 1, not 0
+        
+        // Add photo number label above photo (matching original table row number)
         doc.setFontSize(10);
         doc.setFont('helvetica', 'bold');
-        doc.text(`#${photoNumber}`, photoX, photoY - 5);
+        doc.text(`${originalRowNumber}`, photoX, photoY - 5);
         
-        // Try to load and add the image
-        console.log(`Attempting to load photo for: ${request.title}`, photoUrl);
+        // Try to load and add the actual image
+        console.log(`Attempting to load photo for: ${item.title}`, photoUrl);
         
-        // For now, create a nice placeholder with photo info
-        // Draw a placeholder rectangle
-        doc.setFillColor(245, 245, 245);
-        doc.rect(photoX, photoY, photoWidth, photoHeight, 'F');
-        doc.setDrawColor(200, 200, 200);
-        doc.rect(photoX, photoY, photoWidth, photoHeight, 'S');
+        // Load image through proxy to avoid CORS issues
+        const imageLoaded = await new Promise((resolve) => {
+          const img = new Image();
+          
+          // Use proxy route to avoid CORS issues
+          const proxyUrl = `/api/proxy-image?url=${encodeURIComponent(photoUrl)}`;
+          img.crossOrigin = 'anonymous';
+          
+          // Add timeout to prevent hanging
+          const timeout = setTimeout(() => {
+            console.warn(`Image load timeout for: ${photoUrl}`);
+            addPlaceholder();
+            resolve(false);
+          }, 20000); // 20 second timeout
+          
+          img.onload = () => {
+            clearTimeout(timeout);
+            try {
+              // Try different image formats
+              let format = 'JPEG';
+              if (photoUrl.toLowerCase().includes('.png')) {
+                format = 'PNG';
+              } else if (photoUrl.toLowerCase().includes('.gif')) {
+                format = 'GIF';
+              }
+              
+              // Add the actual image to PDF
+              doc.addImage(img, format, photoX, photoY, photoWidth, photoHeight);
+                              console.log(`Successfully added photo #${originalRowNumber} from: ${photoUrl} (format: ${format})`);
+              resolve(true);
+            } catch (error) {
+              console.warn(`Failed to add image to PDF:`, error);
+              addPlaceholder();
+              resolve(false);
+            }
+          };
+          
+          img.onerror = (error) => {
+            clearTimeout(timeout);
+            console.warn(`Failed to load image via proxy: ${photoUrl}`, error);
+            addPlaceholder();
+            resolve(false);
+          };
+          
+          console.log(`Attempting to load image via proxy: ${proxyUrl}`);
+          img.src = proxyUrl;
+        });
         
-        // Add photo icon symbol
-        doc.setFontSize(16);
-        doc.setTextColor(150, 150, 150);
-        doc.text('📷', photoX + photoWidth/2 - 8, photoY + photoHeight/2 - 5);
-        
-        // Add photo number label above photo
-        doc.setFontSize(10);
-        doc.setFont('helvetica', 'bold');
-        doc.setTextColor(0, 0, 0);
-        doc.text(`#${photoNumber}`, photoX, photoY - 5);
-        
-        console.log('Added photo placeholder #' + photoNumber);
-        
-        // Add request details below photo
-        doc.setFontSize(8);
-        doc.setFont('helvetica', 'normal');
-        
-        // Title (truncated if too long)
-        const title = request.title || 'Untitled';
-        const truncatedTitle = title.length > 20 ? title.substring(0, 20) + '...' : title;
-        doc.text(truncatedTitle, photoX, photoY + photoHeight + 5);
-        
-        // Amount
-        doc.text(`ILS ${(request.amount || 0).toFixed(2)}`, photoX, photoY + photoHeight + 8);
-        
-        // Status
-        const status = request.status === 'approved' ? 'Approved' : 
-                      request.status === 'denied' ? 'Denied' : 'Pending';
-        doc.text(status, photoX, photoY + photoHeight + 11);
-        
-        // Owner name
-        doc.text(request.ownerName || 'N/A', photoX, photoY + photoHeight + 14);
+        // No text below photos - clean gallery
         
         // Move to next position
         photosInCurrentRow++;
@@ -275,7 +487,7 @@ const generatePDF = (refundRequests, dateRange, customFrom, customTo) => {
         
         if (photosInCurrentRow >= maxPhotosPerRow) {
           photosInCurrentRow = 0;
-          photoY += photoHeight + 50; // Height + details + spacing
+          photoY += photoHeight + 20; // Height + spacing only
           photoX = 20;
         } else {
           photoX += photoWidth + 15; // Width + spacing
@@ -290,35 +502,22 @@ const generatePDF = (refundRequests, dateRange, customFrom, customTo) => {
         }
         
       } catch (error) {
-        console.warn(`Failed to load photo for request: ${request.title}`, error);
+        console.warn(`Failed to load photo for item: ${item.title}`, error);
         // Continue with next photo
       }
     }
+    };
     
-          // Add reference table at the bottom
-      const referenceY = photoY + 20;
-      if (referenceY < 280) {
-        doc.setFontSize(12);
-        doc.setFont('helvetica', 'bold');
-        doc.text('Photo Reference Table:', 20, referenceY);
-        
-        doc.setFontSize(9);
-        doc.setFont('helvetica', 'normal');
-        
-        let refY = referenceY + 10;
-        requestsWithPhotos.forEach((request, index) => {
-          if (refY < 280) {
-            const title = request.title || 'Untitled';
-            const truncatedTitle = title.length > 30 ? title.substring(0, 30) + '...' : title;
-            doc.text(`#${index + 1}: ${truncatedTitle} - ₪${(request.amount || 0).toFixed(2)} - ${request.ownerName || 'N/A'}`, 20, refY);
-            refY += 6;
-          }
-        });
-      }
+    // Call the async photo processing function
+    await processPhotos();
+    
+          // No reference table - clean photo gallery only
   }
   
   // Save the PDF
-  const fileName = `RefundReport-${getDateRangeText(dateRange, customFrom, customTo)}.pdf`;
+  const fileName = type === 'expenses' 
+    ? `expenses_report_${new Date().toISOString().slice(0, 10)}.pdf`
+    : `RefundReport-${getDateRangeText(dateRange, customFrom, customTo)}.pdf`;
   doc.save(fileName);
   
   // Show success message
@@ -410,6 +609,7 @@ export default function AdminExpensesPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
 
   // List state
   const [items, setItems] = useState([]);
@@ -481,6 +681,11 @@ export default function AdminExpensesPage() {
       document.body.style.overflow = 'unset';
     };
   }, [reportOpen, editingExpense, deleteConfirmOpen, photoViewerOpen, approvalOpen, exportModalOpen]);
+
+  // Test Hebrew translation on component mount (remove in production)
+  useEffect(() => {
+    testHebrewTranslation();
+  }, []);
 
   // Access control: only admins
   useEffect(() => {
@@ -916,10 +1121,22 @@ export default function AdminExpensesPage() {
       const querySnapshot = await getDocs(collection(db, "expenses"));
       console.log('Query completed, docs found:', querySnapshot.docs.length);
       
-      // Convert to array
-      let expenses = querySnapshot.docs.map(doc => ({
+      // Convert to array and add user names
+      let expenses = await Promise.all(querySnapshot.docs.map(async doc => {
+        const data = doc.data();
+        const expense = {
         id: doc.id,
-        ...doc.data()
+          ...data
+        };
+        
+        // Get user name if ownerUid exists
+        if (data.ownerUid) {
+          expense.createdByName = await getUserName(data.ownerUid);
+        } else {
+          expense.createdByName = 'Unknown User';
+        }
+        
+        return expense;
       }));
       
       // Apply category filtering in JavaScript
@@ -1020,187 +1237,40 @@ export default function AdminExpensesPage() {
     return breakdown;
   };
 
-  const exportToPDF = () => {
+  const exportToPDF = async () => {
     if (reportItems.length === 0) return;
+    if (isGeneratingPDF) return; // Prevent double clicks
     
-    // Create a new PDF document
-    const doc = new jsPDF();
+    setIsGeneratingPDF(true);
+    setSuccess('Generating PDF with images... This may take a moment.');
     
-    // Try to use a font that supports Hebrew characters
     try {
-      doc.setFont('times', 'normal');
-    } catch (e) {
-      // Fallback to default if times font not available
-      doc.setFont('helvetica', 'normal');
-    }
-    
-    // Add title
-    doc.setFontSize(24);
-    doc.setFont('helvetica', 'bold');
-    doc.text('Expenses Report', 105, 25, { align: 'center' });
-    
-    // Add generation date
-    doc.setFontSize(12);
-    doc.setFont('helvetica', 'normal');
-    doc.text(`Generated on: ${new Date().toLocaleDateString('he-IL')}`, 105, 35, { align: 'center' });
-    
-    // Add summary information
-    doc.setFontSize(16);
-    doc.setFont('helvetica', 'bold');
-    doc.text('Summary', 20, 50);
-    
-    doc.setFontSize(12);
-    doc.setFont('helvetica', 'normal');
-    doc.text(`Total Expenses: ${reportItems.length}`, 20, 60);
-    doc.text(`Total Amount: ILS ${getTotalAmount(reportItems).toFixed(2)}`, 20, 70);
-    
-    // Prepare table data with better photo indicators
-    const tableData = reportItems.map(expense => [
-      convertHebrewToReadable(expense.title) || 'N/A',
-      convertHebrewToReadable(expense.category) || 'N/A',
-      `ILS ${(expense.amount || 0).toFixed(2)}`,
-      expense.expenseDate?.toDate?.()?.toLocaleDateString?.() || 'No date',
-      convertHebrewToReadable(expense.notes) || 'N/A',
-      convertHebrewToReadable(expense.reimbursementMethod) || 'N/A',
-      expense.photoUrl ? 'Yes' : 'No'
-    ]);
-    
-    // Add table
-    autoTable(doc, {
-      startY: 85,
-      head: [['Title', 'Category', 'Amount', 'Date', 'Notes', 'Payment', 'Photo']],
-      body: tableData,
-      theme: 'grid',
-      headStyles: {
-        fillColor: [37, 99, 235],
-        textColor: 255,
-        fontSize: 10,
-        fontStyle: 'bold',
-        halign: 'center'
-      },
-      bodyStyles: {
-        fontSize: 9,
-        halign: 'left'
-      },
-      columnStyles: {
-        0: { cellWidth: 35 }, // Title
-        1: { cellWidth: 22 }, // Category
-        2: { cellWidth: 18 }, // Amount
-        3: { cellWidth: 18 }, // Date
-        4: { cellWidth: 20 }, // Notes
-        5: { cellWidth: 20 }, // Payment Method
-        6: { cellWidth: 12 }  // Photo
-      },
-      margin: { top: 80, right: 15, bottom: 40, left: 15 },
-      styles: {
-        lineWidth: 0.5,
-        lineColor: [200, 200, 200]
-      },
-      didDrawCell: function(data) {
-        // Only process the Photo column (index 6) and if it's a body cell
-        if (data.column.index === 6 && data.section === 'body') {
-          const expenseIndex = data.row.index;
-          const expense = reportItems[expenseIndex];
-          const photoUrl = expense.photoUrl;
-          
-          if (photoUrl && data.cell.text[0] === 'Yes') {
-            // Calculate the center position for the text
-            const cellCenterX = data.cell.x + (data.cell.width / 2);
-            const cellCenterY = data.cell.y + (data.cell.height / 2);
-            
-            // Clear the original text by drawing a white rectangle over it
-            doc.setFillColor(255, 255, 255);
-            doc.rect(data.cell.x, data.cell.y, data.cell.width, data.cell.height, 'F');
-            
-            // Redraw the cell border to match the table's border style
-            doc.setDrawColor(200, 200, 200); // Light gray to match table borders
-            doc.setLineWidth(0.1); // Thin line to match table borders
-            doc.rect(data.cell.x, data.cell.y, data.cell.width, data.cell.height, 'S');
-            
-            // Add the clickable link perfectly centered in the cell
-            doc.setTextColor(0, 0, 255); // Blue
-            doc.setFontSize(8);
-            doc.textWithLink('Receipt', cellCenterX - 8, cellCenterY + 2, { url: photoUrl });
-            
-            // Reset text properties
-            doc.setTextColor(0, 0, 0);
-            doc.setLineWidth(0.1); // Reset line width
-          }
-        }
-      }
-    });
-    
-          // Add category breakdown
-      const categoryBreakdown = getCategoryBreakdown(reportItems);
-      const breakdownY = 250; // Increased position to avoid overlap with table
-      
-      if (breakdownY < 280) { // Only add if there's space
-        doc.setFontSize(14);
-        doc.setFont('helvetica', 'bold');
-        doc.text('Category Breakdown', 20, breakdownY);
-        
-        doc.setFontSize(10);
-        doc.setFont('helvetica', 'normal');
-        
-        let yPos = breakdownY + 10;
-        Object.entries(categoryBreakdown)
-          .sort(([,a], [,b]) => b - a)
-          .forEach(([category, amount]) => {
-            if (yPos < 280) { // Check if we have space
-              doc.text(`${convertHebrewToReadable(category)}: ILS ${amount.toFixed(2)}`, 20, yPos);
-              yPos += 7;
-            }
-          });
-      }
-      
-      // Add payment method breakdown
-      const paymentMethodBreakdown = getPaymentMethodBreakdown(reportItems);
-      const paymentBreakdownY = breakdownY + 50; // Position below category breakdown
-      
-      if (paymentBreakdownY < 280) { // Only add if there's space
-        doc.setFontSize(14);
-        doc.setFont('helvetica', 'bold');
-        doc.text('Payment Method Breakdown', 20, paymentBreakdownY);
-        
-        doc.setFontSize(10);
-        doc.setFont('helvetica', 'normal');
-        
-        let yPos = paymentBreakdownY + 10;
-        Object.entries(paymentMethodBreakdown)
-          .sort(([,a], [,b]) => b - a)
-          .forEach(([method, amount]) => {
-            if (yPos < 280) { // Check if we have space
-              doc.text(`${convertHebrewToReadable(method)}: ILS ${amount.toFixed(2)}`, 20, yPos);
-              yPos += 7;
-            }
-          });
-      }
-      
-
-      
-      // Save the PDF
-      const fileName = `expenses_report_${new Date().toISOString().slice(0, 10)}.pdf`;
-      doc.save(fileName);
-      
-      // Show success message
+      await generateUnifiedPDF(reportItems, 'expenses');
       setSuccess('PDF report downloaded successfully!');
+    } catch (error) {
+      setError('Failed to generate PDF. Please try again.');
+      console.error('PDF generation error:', error);
+    } finally {
+      setIsGeneratingPDF(false);
+    }
   };
 
   const exportToExcel = () => {
     if (reportItems.length === 0) return;
     
     // Create CSV content (Excel can open CSV files)
-    const headers = ['Title', 'Category', 'Amount', 'Date', 'Notes', 'Payment Method', 'Photo'];
+    const headers = ['title', 'category', 'amount', 'date', 'notes', 'payment method', 'created by', 'photo'];
     const csvContent = [
       headers.join(','),
       ...reportItems.map(expense => [
         `"${(convertHebrewToReadable(expense.title) || '').replace(/"/g, '""')}"`,
         `"${(convertHebrewToReadable(expense.category) || '').replace(/"/g, '""')}"`,
         expense.amount || 0,
-        `"${expense.expenseDate?.toDate?.()?.toLocaleDateString?.() || 'No date'}"`,
+        `"${expense.expenseDate?.toDate?.()?.toLocaleDateString?.() || 'no date'}"`,
         `"${(convertHebrewToReadable(expense.notes) || '').replace(/"/g, '""')}"`,
         `"${(convertHebrewToReadable(expense.reimbursementMethod) || '').replace(/"/g, '""')}"`,
-        `"${expense.photoUrl || 'No photo'}"`
+        `"${(convertHebrewToReadable(expense.createdByName) || '').replace(/"/g, '""')}"`,
+        `"${expense.photoUrl || 'no photo'}"`
       ].join(','))
     ].join('\n');
 
@@ -1885,8 +1955,12 @@ export default function AdminExpensesPage() {
                 <div className="flex flex-col sm:flex-row justify-center gap-3 sm:gap-4 mb-6 flex-shrink-0">
                   <button 
                     onClick={exportToPDF}
-                    className="px-4 sm:px-6 py-3 border-2 font-bold text-base sm:text-lg rounded-lg transition-colors duration-200"
-                    style={{ borderColor: colors.primaryGreen, color: colors.primaryGreen }}
+                    className="px-4 sm:px-6 py-3 border-2 font-bold text-base sm:text-lg rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                    style={{ 
+                      borderColor: isGeneratingPDF ? colors.gold : colors.primaryGreen, 
+                      color: isGeneratingPDF ? colors.gold : colors.primaryGreen 
+                    }}
+                    disabled={isGeneratingPDF}
                     onMouseEnter={(e) => {
                       e.target.style.background = colors.primaryGreen;
                       e.target.style.color = 'white';
@@ -1896,7 +1970,7 @@ export default function AdminExpensesPage() {
                       e.target.style.color = colors.primaryGreen;
                     }}
                   >
-                    📄 Export to PDF
+                    {isGeneratingPDF ? '⏳ Generating PDF...' : '📄 Export to PDF'}
                   </button>
                   <button 
                     onClick={exportToExcel}
@@ -2321,6 +2395,25 @@ export default function AdminExpensesPage() {
                 </div>
               </div>
               
+              {/* Export Button */}
+              <div className="mb-4">
+                <button 
+                  onClick={() => {
+                    // Set default custom dates when opening modal
+                    const now = new Date();
+                    const pastMonth = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
+                    setExportCustomFrom(pastMonth.toISOString().slice(0, 16));
+                    setExportCustomTo(now.toISOString().slice(0, 16));
+                    setExportModalOpen(true);
+                  }}
+                  className="w-full px-4 py-2 rounded-lg font-semibold text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                  style={{ background: isGeneratingPDF ? colors.gold : colors.primaryGreen }}
+                  disabled={isGeneratingPDF}
+                >
+                  {isGeneratingPDF ? '⏳ Generating PDF...' : '📊 Export as PDF'}
+                </button>
+              </div>
+              
               {/* Search */}
               <div className="mb-4">
                 <input
@@ -2395,21 +2488,7 @@ export default function AdminExpensesPage() {
                   ))}
               </div>
               
-              <div className="flex justify-between pt-4 border-t mt-6">
-                <button 
-                  onClick={() => {
-                    // Set default custom dates when opening modal
-                    const now = new Date();
-                    const pastMonth = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
-                    setExportCustomFrom(pastMonth.toISOString().slice(0, 16));
-                    setExportCustomTo(now.toISOString().slice(0, 16));
-                    setExportModalOpen(true);
-                  }}
-                  className="px-6 py-2 rounded-lg font-semibold text-white"
-                  style={{ background: colors.primaryGreen }}
-                >
-                  📊 Export as PDF
-                </button>
+              <div className="flex justify-end pt-4 border-t mt-6">
                 <button 
                   onClick={() => setPastRefundsOpen(false)}
                   className="px-6 py-2 rounded-lg font-semibold text-white"
@@ -2599,9 +2678,15 @@ export default function AdminExpensesPage() {
                 Cancel
               </button>
               <button
-                onClick={() => {
-                  // Filter refund requests based on selected date range
-                  let filteredRequests = [...refundRequests];
+                onClick={async () => {
+                  if (isGeneratingPDF) return; // Prevent double clicks
+                  
+                  setIsGeneratingPDF(true);
+                  setSuccess('Generating PDF with images... This may take a moment.');
+                  
+                  try {
+                    // Filter refund requests based on selected date range
+                    let filteredRequests = [...refundRequests];
                   
                   if (exportDateRange !== 'custom') {
                     const now = new Date();
@@ -2636,14 +2721,22 @@ export default function AdminExpensesPage() {
                     }
                   }
                   
-                  // Generate and export PDF
-                  generatePDF(filteredRequests, exportDateRange, exportCustomFrom, exportCustomTo);
-                  setExportModalOpen(false);
+                    // Generate and export PDF
+                    await generateUnifiedPDF(filteredRequests, 'refunds', exportDateRange, exportCustomFrom, exportCustomTo);
+                    setSuccess('PDF report downloaded successfully!');
+                    setExportModalOpen(false);
+                  } catch (error) {
+                    setError('Failed to generate PDF. Please try again.');
+                    console.error('PDF generation error:', error);
+                  } finally {
+                    setIsGeneratingPDF(false);
+                  }
                 }}
-                className="flex-1 px-4 py-3 rounded-lg font-semibold text-white"
-                style={{ background: colors.primaryGreen }}
+                className="flex-1 px-4 py-3 rounded-lg font-semibold text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{ background: isGeneratingPDF ? colors.gold : colors.primaryGreen }}
+                disabled={isGeneratingPDF}
               >
-                Export PDF
+                {isGeneratingPDF ? 'Generating PDF...' : 'Export PDF'}
               </button>
             </div>
           </div>
