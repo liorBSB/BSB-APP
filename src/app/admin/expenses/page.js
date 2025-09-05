@@ -1000,6 +1000,12 @@ export default function AdminExpensesPage() {
     if (request) {
       setApprovingRefundId(requestId);
       setApprovingRefundData(request);
+      // Initialize receipt photo if one exists
+      if (request.receiptPhotoUrl) {
+        setReceiptPhoto({ url: request.receiptPhotoUrl, path: request.photoPath || '' });
+      } else {
+        setReceiptPhoto(null);
+      }
       setApproveModalOpen(true);
     }
   };
@@ -2471,6 +2477,12 @@ export default function AdminExpensesPage() {
                             onClick={() => {
                               setApprovingRefundId(request.id);
                               setApprovingRefundData(request);
+                              // Initialize receipt photo if one exists
+                              if (request.receiptPhotoUrl) {
+                                setReceiptPhoto({ url: request.receiptPhotoUrl, path: request.photoPath || '' });
+                              } else {
+                                setReceiptPhoto(null);
+                              }
                               setApproveModalOpen(true);
                             }}
                             className="px-3 py-1 rounded text-xs font-semibold border-2"
@@ -2527,7 +2539,30 @@ export default function AdminExpensesPage() {
               </div>
               
               <div>
-                <label className="block text-sm font-medium mb-2 text-gray-700">Receipt Photo (Optional)</label>
+                <label className="block text-sm font-medium mb-2 text-gray-700">Receipt Photo</label>
+                
+                {/* Show existing receipt if available */}
+                {approvingRefundData.receiptPhotoUrl && !receiptPhoto && (
+                  <div className="mb-4">
+                    <p className="text-sm text-gray-600 mb-2">Current receipt:</p>
+                    <div className="relative">
+                      <img
+                        src={approvingRefundData.receiptPhotoUrl}
+                        alt="Current receipt"
+                        className="w-full h-48 object-cover rounded-lg border"
+                      />
+                      <button
+                        onClick={() => {
+                          setReceiptPhoto({ url: approvingRefundData.receiptPhotoUrl, path: approvingRefundData.photoPath || '' });
+                        }}
+                        className="absolute top-2 right-2 bg-blue-500 text-white rounded-full w-8 h-8 flex items-center justify-center hover:bg-blue-600 transition-colors"
+                        title="Use this receipt"
+                      >
+                        ✓
+                      </button>
+                    </div>
+                  </div>
+                )}
                 
                 <PhotoUpload
                   onPhotoUploaded={(photoUrl, photoPath) => {
@@ -2549,7 +2584,8 @@ export default function AdminExpensesPage() {
                 <>
                   <button
                     onClick={() => confirmApproveRefund(receiptPhoto?.url || '')}
-                    className="flex-1 px-4 sm:px-6 py-3 rounded-lg font-semibold text-white text-lg"
+                    disabled={!receiptPhoto?.url}
+                    className="flex-1 px-4 sm:px-6 py-3 rounded-lg font-semibold text-white text-lg disabled:opacity-50 disabled:cursor-not-allowed"
                     style={{ background: colors.primaryGreen }}
                   >
                     Save & Approve
@@ -2559,7 +2595,7 @@ export default function AdminExpensesPage() {
                     className="flex-1 px-4 sm:px-6 py-3 rounded-lg font-semibold text-white text-lg"
                     style={{ background: colors.gold }}
                   >
-                    Save Without Receipt
+                    Go Without Receipt
                   </button>
                 </>
               ) : (
@@ -2567,7 +2603,8 @@ export default function AdminExpensesPage() {
                 <>
                   <button
                     onClick={() => handleStatusChange('approved', receiptPhoto?.url || '')}
-                    className="flex-1 px-4 sm:px-6 py-3 rounded-lg font-semibold text-white text-lg"
+                    disabled={!receiptPhoto?.url}
+                    className="flex-1 px-4 sm:px-6 py-3 rounded-lg font-semibold text-white text-lg disabled:opacity-50 disabled:cursor-not-allowed"
                     style={{ background: colors.primaryGreen }}
                   >
                     Approve Request

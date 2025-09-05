@@ -24,6 +24,8 @@ export default function ReportPage() {
   const [refundForm, setRefundForm] = useState({ title: '', amount: '', category: 'transportation', method: 'bit', expenseDate: '' });
   const [uploadedPhotoUrl, setUploadedPhotoUrl] = useState('');
   const [uploadedPhotoPath, setUploadedPhotoPath] = useState('');
+  const [refundPhotoUrl, setRefundPhotoUrl] = useState('');
+  const [refundPhotoPath, setRefundPhotoPath] = useState('');
 
   const handlePhotoUploaded = (photoUrl, photoPath) => {
     setUploadedPhotoUrl(photoUrl);
@@ -33,6 +35,16 @@ export default function ReportPage() {
   const handlePhotoRemoved = () => {
     setUploadedPhotoUrl('');
     setUploadedPhotoPath('');
+  };
+
+  const handleRefundPhotoUploaded = (photoUrl, photoPath) => {
+    setRefundPhotoUrl(photoUrl);
+    setRefundPhotoPath(photoPath);
+  };
+
+  const handleRefundPhotoRemoved = () => {
+    setRefundPhotoUrl('');
+    setRefundPhotoPath('');
   };
 
   const validateRefund = () => {
@@ -126,10 +138,15 @@ export default function ReportPage() {
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
         softDeleted: false,
+        receiptPhotoUrl: refundPhotoUrl || '',
+        photoPath: refundPhotoPath || '',
       };
+      
       await addDoc(collection(db, 'refundRequests'), payload);
       setRefundSuccess(t('request_submitted'));
       setRefundForm({ title: '', amount: '', category: 'transportation', method: 'bit', expenseDate: '' });
+      setRefundPhotoUrl('');
+      setRefundPhotoPath('');
     } catch (e) { setRefundError('Failed to submit request'); }
     finally { setRefundSaving(false); }
   };
@@ -268,6 +285,19 @@ export default function ReportPage() {
                 <option value="cash">{t('methods.cash')}</option>
               </select>
               <input type="date" className="w-full px-4 py-3 rounded-xl border" value={refundForm.expenseDate} onChange={(e)=>setRefundForm(f=>({...f,expenseDate:e.target.value}))} />
+              
+              {/* Photo Upload for Receipt */}
+              <div className="w-full">
+                <PhotoUpload
+                  onPhotoUploaded={handleRefundPhotoUploaded}
+                  onPhotoRemoved={handleRefundPhotoRemoved}
+                  currentPhotoUrl={refundPhotoUrl}
+                  uploadPath="refunds"
+                  maxSize={10 * 1024 * 1024}
+                  acceptedTypes={['image/*']}
+                />
+              </div>
+              
               <button onClick={handleRefundSave} disabled={refundSaving} className="w-full px-4 py-3 rounded-xl text-white font-semibold disabled:opacity-70 text-lg" style={{ background: colors.gold }}>
                 {refundSaving ? t('submitting') : t('submit_request')}
               </button>

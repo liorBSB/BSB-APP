@@ -37,13 +37,13 @@ service firebase.storage {
       allow delete: if isSignedIn() && isAdmin(request.auth.uid);
     }
 
-    // Refunds path: refunds/{ownerUid}/{userId}/{fileName} (PhotoUpload adds userId)
-    match /refunds/{ownerUid}/{userId}/{fileName} {
-      allow read: if isSignedIn() && (request.auth.uid == ownerUid || isAdmin(request.auth.uid));
-      allow write: if isSignedIn() && (request.auth.uid == ownerUid || isAdmin(request.auth.uid))
+    // Refunds path: refunds/{userId}/{fileName} (PhotoUpload creates this structure)
+    match /refunds/{userId}/{fileName} {
+      allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin(request.auth.uid));
+      allow write: if isSignedIn() && (request.auth.uid == userId || isAdmin(request.auth.uid))
                   && request.resource.size < 10 * 1024 * 1024
                   && request.resource.contentType.matches('image/.*');
-      allow delete: if isSignedIn() && (request.auth.uid == ownerUid || isAdmin(request.auth.uid));
+      allow delete: if isSignedIn() && (request.auth.uid == userId || isAdmin(request.auth.uid));
     }
 
     // Soldier profile photos uploaded by admins
