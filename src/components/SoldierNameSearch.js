@@ -220,7 +220,7 @@ export default function SoldierNameSearch({
       {/* No results message */}
       {showSuggestions && suggestions.length === 0 && searchTerm.length >= 2 && !isLoading && (
         <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg p-4 text-center text-gray-500">
-          לא נמצאו תוצאות עבור "{searchTerm}"
+          לא נמצאו תוצאות עבור &quot;{searchTerm}&quot;
         </div>
       )}
 

@@ -369,38 +369,36 @@ export default function SoldierManagement() {
               {/* Actions */}
               <div className="mt-8 pt-6 border-t">
                 <div className="flex justify-end gap-3">
-                    <button
-                      onClick={() => setShowSoldierDetails(false)}
-                      className="px-6 py-3 rounded-xl font-semibold transition-all duration-200 hover:scale-105"
-                      style={{ 
-                        background: 'transparent', 
-                        color: colors.primaryGreen,
-                        border: `2px solid ${colors.primaryGreen}`,
-                        boxShadow: '0 4px 12px rgba(7, 99, 50, 0.1)'
-                      }}
-                    >
-                      Close
-                    </button>
-                    <button
-                      onClick={() => showDeleteConfirmationDialog(selectedSoldier)}
-                      disabled={processingId === selectedSoldier.id}
-                      className="px-6 py-3 rounded-xl font-semibold transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
-                      style={{ 
-                        background: colors.red, 
-                        color: colors.white,
-                        boxShadow: '0 4px 12px rgba(255, 82, 82, 0.3)'
-                      }}
-                    >
-                      {processingId === selectedSoldier.id ? 'Processing...' : 'Mark as Left'}
-                    </button>
-                  </div>
+                  <button
+                    onClick={() => setShowSoldierDetails(false)}
+                    className="px-6 py-3 rounded-xl font-semibold transition-all duration-200 hover:scale-105"
+                    style={{ 
+                      background: 'transparent', 
+                      color: colors.primaryGreen,
+                      border: `2px solid ${colors.primaryGreen}`,
+                      boxShadow: '0 4px 12px rgba(7, 99, 50, 0.1)'
+                    }}
+                  >
+                    Close
+                  </button>
+                  <button
+                    onClick={() => showDeleteConfirmationDialog(selectedSoldier)}
+                    disabled={processingId === selectedSoldier.id}
+                    className="px-6 py-3 rounded-xl font-semibold transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                    style={{ 
+                      background: colors.red, 
+                      color: colors.white,
+                      boxShadow: '0 4px 12px rgba(255, 82, 82, 0.3)'
+                    }}
+                  >
+                    {processingId === selectedSoldier.id ? 'Processing...' : 'Mark as Left'}
+                  </button>
                 </div>
               </div>
             </div>
           </div>
         </div>
       )}
-
 
       {/* Delete Confirmation Modal */}
       {showDeleteConfirmation && soldierToDelete && (
