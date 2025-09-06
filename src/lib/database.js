@@ -26,15 +26,6 @@ export const COLLECTIONS = {
   USERS: 'users' // Main collection for all user/soldier data
 };
 
-// Question categories for the questionnaire
-export const QUESTION_CATEGORIES = {
-  PERSONAL_BASIC: 'personal_basic',
-  FAMILY_INFO: 'family_info', 
-  EMERGENCY_CONTACT: 'emergency_contact',
-  MILITARY_INFO: 'military_info',
-  MEDICAL_INFO: 'medical_info',
-  ADDITIONAL_INFO: 'additional_info'
-};
 
 // ============================================================================
 // USERS COLLECTION (All user/soldier data)
@@ -211,115 +202,7 @@ export const updateProfileAnswer = async (uid, questionId, answer) => {
 
 
 
-/**
- * Create all questionnaire fields for a new soldier user
- * This function initializes all questionnaire fields as empty in the users collection
- */
-export const createQuestionnaireFields = async (userId) => {
-  try {
-    const userRef = doc(db, COLLECTIONS.USERS, userId);
-    
-    // Get the updated questionnaire structure
-    const { QUESTIONNAIRE_STRUCTURE } = await import('./questionnaire.js');
-    
-    // Create an object with all questionnaire fields initialized as empty
-    const questionnaireFields = {};
-    
-    QUESTIONNAIRE_STRUCTURE.forEach(category => {
-      category.questions.forEach(question => {
-        // Initialize based on question type
-        switch (question.type) {
-          case 'text':
-          case 'textarea':
-          case 'phone':
-          case 'email':
-            questionnaireFields[question.id] = '';
-            break;
-          case 'date':
-            questionnaireFields[question.id] = null;
-            break;
-          case 'select':
-          case 'boolean':
-            questionnaireFields[question.id] = '';
-            break;
-          case 'number':
-            questionnaireFields[question.id] = null;
-            break;
-          case 'multi_select':
-            questionnaireFields[question.id] = [];
-            break;
-          default:
-            questionnaireFields[question.id] = '';
-        }
-      });
-    });
-    
-    // Add all questionnaire fields to the user document
-    // Use setDoc with merge: true to ensure all fields are added
-    await setDoc(userRef, questionnaireFields, { merge: true });
-    
-    console.log('Questionnaire fields created successfully for user:', userId);
-    console.log('Fields created:', Object.keys(questionnaireFields));
-    return true;
-  } catch (error) {
-    console.error('Error creating questionnaire fields:', error);
-    return false;
-  }
-};
 
-/**
- * Verify that all required fields exist for a user
- */
-export const verifyUserFields = async (userId) => {
-  try {
-    const userRef = doc(db, COLLECTIONS.USERS, userId);
-    const userSnap = await getDoc(userRef);
-    
-    if (!userSnap.exists()) {
-      console.error('User document does not exist');
-      return false;
-    }
-    
-    const userData = userSnap.data();
-    const { QUESTIONNAIRE_STRUCTURE } = await import('./questionnaire.js');
-    
-    // Check registration fields
-    const requiredRegistrationFields = [
-      'uid', 'email', 'userType', 'isAdmin', 'status', 'roomNumber', 'roomLetter', 
-      'questionnaireComplete', 'createdAt'
-    ];
-    
-    const missingRegistrationFields = requiredRegistrationFields.filter(field => 
-      !(field in userData)
-    );
-    
-    if (missingRegistrationFields.length > 0) {
-      console.warn('Missing registration fields:', missingRegistrationFields);
-    }
-    
-    // Check questionnaire fields
-    const missingQuestionnaireFields = [];
-    QUESTIONNAIRE_STRUCTURE.forEach(category => {
-      category.questions.forEach(question => {
-        if (!(question.id in userData)) {
-          missingQuestionnaireFields.push(question.id);
-        }
-      });
-    });
-    
-    if (missingQuestionnaireFields.length > 0) {
-      console.warn('Missing questionnaire fields:', missingQuestionnaireFields);
-      // Try to create missing fields
-      await createQuestionnaireFields(userId);
-    }
-    
-    console.log('User fields verification complete');
-    return true;
-  } catch (error) {
-    console.error('Error verifying user fields:', error);
-    return false;
-  }
-};
 
 // ============================================================================
 // SEARCH FUNCTIONS
@@ -393,64 +276,15 @@ export const searchUsers = async (searchTerm, options = {}) => {
 // UTILITY FUNCTIONS
 // ============================================================================
 
-/**
- * Check if soldier profile is complete
- */
-export const isProfileComplete = (profile, questionnaireStructure) => {
-  if (!profile || !questionnaireStructure) return false;
-  
-  // Check all questionnaire fields
-  for (const category of questionnaireStructure) {
-    for (const question of category.questions) {
-      const value = profile[question.id];
-      
-      // Check if field is empty
-      if (value === undefined || value === null || value === '') {
-        // Check for arrays (multi_select)
-        if (Array.isArray(value)) {
-          if (value.length === 0) {
-            return false; // Field is empty
-          }
-        } else {
-          return false; // Field is empty
-        }
-      }
-    }
-  }
-  
-  return true; // All fields are filled
-};
 
-/**
- * Get total questions count for progress tracking
- */
-export const getTotalQuestionsCount = async () => {
-  try {
-    // Get the updated questionnaire structure
-    const { QUESTIONNAIRE_STRUCTURE } = await import('./questionnaire.js');
-    
-    // Calculate total questions from the structure
-    return QUESTIONNAIRE_STRUCTURE.reduce((total, category) => {
-      return total + category.questions.length;
-    }, 0);
-  } catch (error) {
-    console.error('Error getting total questions count:', error);
-    return 0;
-  }
-};
 
 export default {
   COLLECTIONS,
-  QUESTION_CATEGORIES,
   updateUserStatus,
   markUserAsLeft,
   getUser,
   getArchivedUsers,
   getActiveUsers,
   searchUsers,
-  updateProfileAnswer,
-  isProfileComplete,
-  getTotalQuestionsCount,
-  createQuestionnaireFields,
-  verifyUserFields
+  updateProfileAnswer
 };

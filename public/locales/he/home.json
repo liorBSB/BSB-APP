@@ -34,11 +34,6 @@
     "savedSuccessfully": "נשמר בהצלחה!",
     "saveError": "שגיאה בשמירה. נסה שוב.",
     "saving": "שומר...",
-    "completeQuestionnairePrompt": "אנא השלם את השאלון כדי להשלים את הפרופיל שלך",
-    "profileComplete": "הפרופיל הושלם! אתה עדיין יכול לערוך את המידע שלך.",
-    "questionsRemaining": "נותרו לך {{remaining}} שאלות להשלמת הפרופיל",
-    "startQuestionnaire": "התחל שאלון",
-    "continueQuestionnaire": "המשך שאלון",
     "notComing": "לא מגיע",
     "cleanRoom": "לנקות את החדר?",
     "changeSheets": "להחליף את הסדינים?"

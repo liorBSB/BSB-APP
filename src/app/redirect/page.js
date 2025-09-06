@@ -33,7 +33,6 @@ export default function RedirectPage() {
             status: 'home',
             roomNumber: '',
             roomLetter: '',
-            questionnaireComplete: false,
             createdAt: new Date()
           });
           

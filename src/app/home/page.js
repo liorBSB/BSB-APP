@@ -12,11 +12,9 @@ import ListItem from '@/components/home/ListItem';
 import { onAuthStateChanged } from 'firebase/auth';
 import EventResponseModal from '@/components/home/EventResponseModal';
 import BottomNavBar from '@/components/BottomNavBar';
-import QuestionnaireModal from '@/components/QuestionnaireModal';
 import colors from '../colors';
 import useAuthRedirect from '@/hooks/useAuthRedirect';
 import { useRouter } from 'next/navigation';
-import { QUESTIONNAIRE_STRUCTURE } from '@/lib/questionnaire';
 
 
 export default function HomePage() {
@@ -42,7 +40,6 @@ export default function HomePage() {
   const [changeSheets, setChangeSheets] = useState(null);
   const [surveyModalOpen, setSurveyModalOpen] = useState(false);
   const [selectedSurvey, setSelectedSurvey] = useState(null);
-  const [questionnaireOpen, setQuestionnaireOpen] = useState(false);
   const isRTL = i18n.language === 'he';
 
   // Check if user profile is complete
@@ -243,25 +240,6 @@ export default function HomePage() {
     }
   };
 
-  // const handleQuestionnaireComplete = async () => { // Temporarily disabled
-  //   try {
-  //     // Reload soldier data to get updated progress
-  //     const user = auth.currentUser;
-  //     if (user) {
-  //         const soldier = await getSoldier(user.uid);
-  //         const profile = await getSoldierProfile(user.uid);
-  //         
-  //         setSoldierData(soldier);
-  //         setProfileData(profile);
-  //         
-  //         if (profile?.answers) {
-  //             setAnsweredQuestions(Object.keys(profile.answers));
-  //         }
-  //     }
-  //   } catch (error) {
-  //     console.error('Error reloading soldier data:', error);
-  //   }
-  // };
 
   // Filter and sort events to only show future events, sorted by endTime ascending
   const now = new Date();
@@ -327,176 +305,7 @@ export default function HomePage() {
           <WelcomeHeader status={status} userData={userData} />
         )}
 
-        {/* Questionnaire Prompt */}
-        {userData && (() => {
-          let answered = 0;
-          const total = QUESTIONNAIRE_STRUCTURE.reduce((sum, category) => sum + category.questions.length, 0);
-          
-          QUESTIONNAIRE_STRUCTURE.forEach(category => {
-            category.questions.forEach(question => {
-              const value = userData[question.id];
-              if (value !== undefined && value !== null && value !== '') {
-                if (Array.isArray(value)) {
-                  if (value.length > 0) answered++;
-                } else {
-                  answered++;
-                }
-              }
-            });
-          });
-          
-          // Only show if not complete
-          return answered < total;
-        })() && (
-          <div className="rounded-2xl p-6 mb-6 shadow-sm" style={{ background: colors.sectionBg, color: colors.white }}>
-            <div className="text-center">
-              <h3 className="text-xl font-bold mb-3">
-                Personal Information Questionnaire
-              </h3>
-              <p className="text-sm mb-6 opacity-90">
-                {(() => {
-                  // Calculate progress
-                  let answered = 0;
-                  const total = QUESTIONNAIRE_STRUCTURE.reduce((sum, category) => sum + category.questions.length, 0);
-                  
-                  // Count answered questions
-                  QUESTIONNAIRE_STRUCTURE.forEach(category => {
-                    category.questions.forEach(question => {
-                      const value = userData[question.id];
-                      if (value !== undefined && value !== null && value !== '') {
-                        if (Array.isArray(value)) {
-                          if (value.length > 0) answered++;
-                        } else {
-                          answered++;
-                        }
-                      }
-                    });
-                  });
-                  
-                  const progress = Math.round((answered / total) * 100);
-                  const remaining = total - answered;
-                  
-                  if (answered === 0) {
-                    return t('completeQuestionnairePrompt');
-                  } else if (answered === total) {
-                    return t('profileComplete');
-                  } else {
-                    return t('questionsRemaining', { remaining });
-                  }
-                })()}
-              </p>
-              
-              {/* Progress Bar */}
-              {(() => {
-                let answered = 0;
-                const total = QUESTIONNAIRE_STRUCTURE.reduce((sum, category) => sum + category.questions.length, 0);
-                
-                QUESTIONNAIRE_STRUCTURE.forEach(category => {
-                  category.questions.forEach(question => {
-                    const value = userData[question.id];
-                    if (value !== undefined && value !== null && value !== '') {
-                      if (Array.isArray(value)) {
-                        if (value.length > 0) answered++;
-                      } else {
-                        answered++;
-                      }
-                    }
-                  });
-                });
-                
-                const progress = Math.round((answered / total) * 100);
-                
-                return (
-                  <div className="mb-4">
-                    <div className="flex justify-between text-xs mb-2">
-                      <span>Progress: {progress}%</span>
-                      <span>Questions: {answered}/{total}</span>
-                    </div>
-                    <div className="w-full bg-white bg-opacity-20 rounded-full h-2">
-                      <div 
-                        className="bg-white h-2 rounded-full transition-all duration-300"
-                        style={{ width: `${progress}%` }}
-                      ></div>
-                    </div>
-                  </div>
-                );
-              })()}
-              
-              <button
-                onClick={() => setQuestionnaireOpen(true)}
-                className="px-8 py-3 rounded-xl font-semibold transition-all duration-200 hover:scale-105"
-                style={{ 
-                  background: colors.gold, 
-                  color: colors.black,
-                  boxShadow: '0 4px 12px rgba(237, 195, 129, 0.3)'
-                }}
-              >
-                {(() => {
-                  let answered = 0;
-                  
-                  QUESTIONNAIRE_STRUCTURE.forEach(category => {
-                    category.questions.forEach(question => {
-                      const value = userData[question.id];
-                      if (value !== undefined && value !== null && value !== '') {
-                        if (Array.isArray(value)) {
-                          if (value.length > 0) answered++;
-                        } else {
-                          answered++;
-                        }
-                      }
-                    });
-                  });
-                  
-                  return answered === 0 ? t('startQuestionnaire') : t('continueQuestionnaire');
-                })()}
-              </button>
-            </div>
-          </div>
-        )}
         
-        {/* Completion Message */}
-        {userData && (() => {
-          let answered = 0;
-          const total = QUESTIONNAIRE_STRUCTURE.reduce((sum, category) => sum + category.questions.length, 0);
-          
-          QUESTIONNAIRE_STRUCTURE.forEach(category => {
-            category.questions.forEach(question => {
-              const value = userData[question.id];
-              if (value !== undefined && value !== null && value !== '') {
-                if (Array.isArray(value)) {
-                  if (value.length > 0) answered++;
-                } else {
-                  answered++;
-                }
-              }
-            });
-          });
-          
-          // Only show if complete
-          return answered === total;
-        })() && (
-          <div className="rounded-2xl p-6 mb-6 shadow-sm" style={{ background: colors.primaryGreen, color: colors.white }}>
-            <div className="text-center">
-              <h3 className="text-xl font-bold mb-3">
-                🎉 Profile Complete!
-              </h3>
-              <p className="text-sm mb-4 opacity-90">
-                Congratulations! You have completed your personal information questionnaire.
-              </p>
-              <button
-                onClick={() => setQuestionnaireOpen(true)}
-                className="px-6 py-2 rounded-xl font-semibold transition-all duration-200 hover:scale-105"
-                style={{ 
-                  background: colors.white, 
-                  color: colors.primaryGreen,
-                  boxShadow: '0 2px 8px rgba(255,255,255,0.3)'
-                }}
-              >
-                Edit Profile
-              </button>
-            </div>
-          </div>
-        )}
 
         {/* Home/Away Switcher */}
         <div className="rounded-2xl p-4 flex flex-col items-center mb-6 shadow-sm" style={{ background: colors.sectionBg, color: colors.primaryGreen }}>
@@ -918,15 +727,6 @@ export default function HomePage() {
         </div>
       )}
       
-      {/* Questionnaire Modal */}
-      <QuestionnaireModal
-        isOpen={questionnaireOpen}
-        onClose={() => setQuestionnaireOpen(false)}
-        onComplete={() => {
-          // No full page reload; onSnapshot keeps home progress in sync
-          setQuestionnaireOpen(false);
-        }}
-      />
     </main>
   );
 }

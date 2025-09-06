@@ -28,7 +28,7 @@ function ConsentStep2Content() {
         }
       });
 
-      // End of consent flow → go to home (intake questionnaire will be accessible there)
+      // End of consent flow → go to home
       router.push("/home");
     } finally {
       setSaving(false);

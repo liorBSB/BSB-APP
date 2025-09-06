@@ -29,5 +29,10 @@
   "take_photo_or_upload": "צלם תמונה או העלה מהמכשיר שלך",
   "cancel": "ביטול",
   "profile_photo_updated": "תמונת הפרופיל עודכנה בהצלחה!",
-  "failed_to_update_photo": "נכשל בעדכון תמונת הפרופיל"
+  "failed_to_update_photo": "נכשל בעדכון תמונת הפרופיל",
+  "delete_account": "מחק חשבון",
+  "delete_account_warning": "האם אתה בטוח שברצונך למחוק את החשבון שלך?",
+  "delete_account_description": "פעולה זו אינה ניתנת לביטול. כל הנתונים שלך יימחקו לצמיתות.",
+  "confirm_delete": "כן, מחק חשבון",
+  "cancel_delete": "ביטול"
 } 

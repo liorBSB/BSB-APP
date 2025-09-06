@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { getActiveUsers, markUserAsLeft } from '@/lib/database';
 import { auth } from '@/lib/firebase';
 import SoldierSearch from './SoldierSearch';
-import QuestionnaireEditor from './QuestionnaireEditor';
 import colors from '../app/colors';
 
 export default function SoldierManagement() {
@@ -12,7 +11,6 @@ export default function SoldierManagement() {
   const [loading, setLoading] = useState(true);
   const [selectedSoldier, setSelectedSoldier] = useState(null);
   const [showSoldierDetails, setShowSoldierDetails] = useState(false);
-  const [showQuestionnaireEditor, setShowQuestionnaireEditor] = useState(false);
   const [processingId, setProcessingId] = useState(null);
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -70,7 +68,7 @@ export default function SoldierManagement() {
 
   const handleEditSoldier = (soldier) => {
     setSelectedSoldier(soldier);
-    setShowQuestionnaireEditor(true);
+    setShowSoldierDetails(true);
   };
 
   const showDeleteConfirmationDialog = (soldier) => {
@@ -114,6 +112,7 @@ export default function SoldierManagement() {
     setShowDeleteConfirmation(false);
     setSoldierToDelete(null);
   };
+
 
   // Helper function to get filtered soldiers
   const getFilteredSoldiers = () => {
@@ -356,11 +355,13 @@ export default function SoldierManagement() {
                 <div className="space-y-4">
                   <h4 className="text-lg font-semibold text-gray-800 border-b pb-2">Detailed Information</h4>
                   <div className="space-y-2 text-sm text-gray-600">
-                    <div><span className="font-medium">ID:</span> {selectedSoldier.personalNumber}</div>
-                    <div><span className="font-medium">Unit:</span> {selectedSoldier.unit}</div>
-                    <div><span className="font-medium">Battalion:</span> {selectedSoldier.battalion}</div>
-                    <div><span className="font-medium">Mashakit Tash:</span> {selectedSoldier.mashakitTash}</div>
-                    <div><span className="font-medium">Emergency Contact:</span> {selectedSoldier.emergencyContactName}</div>
+                    <div><span className="font-medium">Personal Number:</span> {selectedSoldier.personalNumber || 'Not specified'}</div>
+                    <div><span className="font-medium">Unit:</span> {selectedSoldier.unit || 'Not specified'}</div>
+                    <div><span className="font-medium">Battalion:</span> {selectedSoldier.battalion || 'Not specified'}</div>
+                    <div><span className="font-medium">Mashakit Tash:</span> {selectedSoldier.mashakitTash || 'Not specified'}</div>
+                    <div><span className="font-medium">Officer Name:</span> {selectedSoldier.officerName || 'Not specified'}</div>
+                    <div><span className="font-medium">Emergency Contact:</span> {selectedSoldier.emergencyContactName || 'Not specified'}</div>
+                    <div><span className="font-medium">Emergency Phone:</span> {selectedSoldier.emergencyContactPhone || 'Not specified'}</div>
                   </div>
                 </div>
               </div>
@@ -368,30 +369,31 @@ export default function SoldierManagement() {
               {/* Actions */}
               <div className="mt-8 pt-6 border-t">
                 <div className="flex justify-end gap-3">
-                  <button
-                    onClick={() => setShowSoldierDetails(false)}
-                    className="px-6 py-3 rounded-xl font-semibold transition-all duration-200 hover:scale-105"
-                    style={{ 
-                      background: 'transparent', 
-                      color: colors.primaryGreen,
-                      border: `2px solid ${colors.primaryGreen}`,
-                      boxShadow: '0 4px 12px rgba(7, 99, 50, 0.1)'
-                    }}
-                  >
-                    Close
-                  </button>
-                  <button
-                    onClick={() => showDeleteConfirmationDialog(selectedSoldier)}
-                    disabled={processingId === selectedSoldier.id}
-                    className="px-6 py-3 rounded-xl font-semibold transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
-                    style={{ 
-                      background: colors.red, 
-                      color: colors.white,
-                      boxShadow: '0 4px 12px rgba(255, 82, 82, 0.3)'
-                    }}
-                  >
-                    {processingId === selectedSoldier.id ? 'Processing...' : 'Mark as Left'}
-                  </button>
+                    <button
+                      onClick={() => setShowSoldierDetails(false)}
+                      className="px-6 py-3 rounded-xl font-semibold transition-all duration-200 hover:scale-105"
+                      style={{ 
+                        background: 'transparent', 
+                        color: colors.primaryGreen,
+                        border: `2px solid ${colors.primaryGreen}`,
+                        boxShadow: '0 4px 12px rgba(7, 99, 50, 0.1)'
+                      }}
+                    >
+                      Close
+                    </button>
+                    <button
+                      onClick={() => showDeleteConfirmationDialog(selectedSoldier)}
+                      disabled={processingId === selectedSoldier.id}
+                      className="px-6 py-3 rounded-xl font-semibold transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                      style={{ 
+                        background: colors.red, 
+                        color: colors.white,
+                        boxShadow: '0 4px 12px rgba(255, 82, 82, 0.3)'
+                      }}
+                    >
+                      {processingId === selectedSoldier.id ? 'Processing...' : 'Mark as Left'}
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -399,43 +401,6 @@ export default function SoldierManagement() {
         </div>
       )}
 
-      {/* Questionnaire Editor Modal */}
-      {showQuestionnaireEditor && selectedSoldier && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl max-w-6xl w-full max-h-[90vh] overflow-hidden">
-            {/* Header */}
-            <div className="p-6" style={{ background: colors.primaryGreen, color: colors.white }}>
-              <div className="flex items-center justify-between">
-                <h3 className="text-xl font-bold">
-                  Edit Soldier Profile: {selectedSoldier.fullName}
-                </h3>
-                <button
-                  onClick={() => setShowQuestionnaireEditor(false)}
-                  className="text-white hover:text-gray-200 text-2xl"
-                >
-                  ×
-                </button>
-              </div>
-            </div>
-
-            {/* Content */}
-            <div className="p-6 overflow-y-auto max-h-[calc(90vh-140px)]">
-              <QuestionnaireEditor 
-                isOpen={showQuestionnaireEditor}
-                onClose={() => setShowQuestionnaireEditor(false)}
-                userData={selectedSoldier}
-                onUpdate={() => {
-                  setShowQuestionnaireEditor(false);
-                  loadSoldiers(); // Refresh the list
-                }}
-                isAdmin={true}
-                soldierId={selectedSoldier.id}
-                onMarkAsLeft={() => showDeleteConfirmationDialog(selectedSoldier)}
-              />
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Delete Confirmation Modal */}
       {showDeleteConfirmation && soldierToDelete && (

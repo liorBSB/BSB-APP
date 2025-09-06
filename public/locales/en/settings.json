@@ -29,5 +29,10 @@
   "take_photo_or_upload": "Take a photo or upload from your device",
   "cancel": "Cancel",
   "profile_photo_updated": "Profile photo updated successfully!",
-  "failed_to_update_photo": "Failed to update profile photo"
+  "failed_to_update_photo": "Failed to update profile photo",
+  "delete_account": "Delete Account",
+  "delete_account_warning": "Are you sure you want to delete your account?",
+  "delete_account_description": "This action cannot be undone. All your data will be permanently deleted.",
+  "confirm_delete": "Yes, Delete Account",
+  "cancel_delete": "Cancel"
 } 

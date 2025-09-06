@@ -13,16 +13,6 @@
     "save": "Save",
     "cancel": "Cancel"
   },
-  "questionnaire_modal": {
-    "personal_information_questionnaire": "Personal Information Questionnaire",
-    "progress": "Progress",
-    "questions": "Questions",
-    "next": "Next",
-    "previous": "Previous",
-    "complete": "Complete",
-    "close": "Close",
-    "type_your_answer": "Type your answer..."
-  },
   "date_picker_modal": {
     "choose_date": "Choose Date",
     "from": "From",

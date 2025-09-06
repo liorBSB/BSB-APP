@@ -3,10 +3,11 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { auth, db } from '../../lib/firebase';
 import { doc, setDoc } from 'firebase/firestore';
-import { createQuestionnaireFields } from '@/lib/database';
 import { signOut } from 'firebase/auth';
 import { useTranslation } from 'react-i18next';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
+import SoldierNameSearch from '@/components/SoldierNameSearch';
+import { mapSoldierData, getAllSoldiers } from '@/lib/soldierDataService';
 import colors from '../colors';
 
 export default function ProfileSetup() {
@@ -17,13 +18,45 @@ export default function ProfileSetup() {
   const [roomNumber, setRoomNumber] = useState('');
   const [roomLetter, setRoomLetter] = useState('');
   const [error, setError] = useState('');
+  const [selectedSoldier, setSelectedSoldier] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingSoldierData, setIsLoadingSoldierData] = useState(false);
 
   const changeLanguage = (lng) => {
     i18n.changeLanguage(lng);
   };
 
+  // Handle soldier selection from Google Sheets
+  const handleSoldierSelect = (soldierData) => {
+    if (soldierData) {
+      setIsLoadingSoldierData(true);
+      const mappedData = mapSoldierData(soldierData);
+      setSelectedSoldier(mappedData);
+      setFirstName(mappedData.firstName || '');
+      setLastName(mappedData.lastName || '');
+      setRoomNumber(mappedData.roomNumber || '');
+      setRoomLetter(mappedData.roomLetter || '');
+      setError('');
+      
+      // Simulate a small delay to show loading state
+      setTimeout(() => {
+        setIsLoadingSoldierData(false);
+      }, 500);
+    } else {
+      setSelectedSoldier(null);
+      setFirstName('');
+      setLastName('');
+      setRoomNumber('');
+      setRoomLetter('');
+      setIsLoadingSoldierData(false);
+    }
+  };
+
+
   const handleSave = async (e) => {
     e.preventDefault();
+    setIsLoading(true);
+    setError('');
 
     const uid = auth.currentUser?.uid;
     if (!uid) {
@@ -33,40 +66,99 @@ export default function ProfileSetup() {
     }
 
     // Validate required fields
-    if (!firstName.trim() || !lastName.trim() || !roomNumber.trim()) {
-      setError('Please fill in all required fields.');
+    if (!selectedSoldier) {
+      setError('Please select your name from the list.');
+      setIsLoading(false);
       return;
     }
 
     try {
-      // Update user document with profile information
-      await setDoc(doc(db, 'users', uid), {
-        fullName: `${firstName.trim()} ${lastName.trim()}`,
-        firstName: firstName.trim(),
-        lastName: lastName.trim(),
-        roomNumber: `${roomNumber.trim()}${roomLetter.trim()}`,
-        roomNumberOnly: roomNumber.trim(),
-        roomLetter: roomLetter.trim(),
-        email: auth.currentUser.email,
+      // Prepare user data with all information from Google Sheets
+      const userData = {
+        // Basic info
+        fullName: selectedSoldier.fullName,
+        firstName: selectedSoldier.firstName,
+        lastName: selectedSoldier.lastName,
+        email: selectedSoldier.email || auth.currentUser.email,
         userType: 'user',
-        questionnaireComplete: false,
-        createdAt: new Date()
-      });
+        createdAt: new Date(),
+        
+        // Room info (from Google Sheets)
+        roomNumber: selectedSoldier.roomNumber,
+        floor: selectedSoldier.floor,
+        roomType: selectedSoldier.roomType,
+        roomStatus: selectedSoldier.roomStatus,
+        serviceMonths: selectedSoldier.serviceMonths,
+        serviceRange: selectedSoldier.serviceRange,
+        monthsUntilRelease: selectedSoldier.monthsUntilRelease,
+        age: selectedSoldier.age,
+        calculatedReleaseDate: selectedSoldier.calculatedReleaseDate,
+        roomGender: selectedSoldier.roomGender,
+        
+        // Personal info (from Google Sheets)
+        gender: selectedSoldier.gender,
+        dateOfBirth: selectedSoldier.dateOfBirth,
+        idNumber: selectedSoldier.idNumber,
+        idType: selectedSoldier.idType,
+        countryOfOrigin: selectedSoldier.countryOfOrigin,
+        phone: selectedSoldier.phone,
+        previousAddress: selectedSoldier.previousAddress,
+        education: selectedSoldier.education,
+        license: selectedSoldier.license,
+        
+        // Family info (from Google Sheets)
+        familyInIsrael: selectedSoldier.familyInIsrael,
+        fatherName: selectedSoldier.fatherName,
+        fatherPhone: selectedSoldier.fatherPhone,
+        motherName: selectedSoldier.motherName,
+        motherPhone: selectedSoldier.motherPhone,
+        parentsStatus: selectedSoldier.parentsStatus,
+        parentsAddress: selectedSoldier.parentsAddress,
+        parentsEmail: selectedSoldier.parentsEmail,
+        contactWithParents: selectedSoldier.contactWithParents,
+        
+        // Emergency contact (from Google Sheets)
+        emergencyContactName: selectedSoldier.emergencyContactName,
+        emergencyContactPhone: selectedSoldier.emergencyContactPhone,
+        emergencyContactAddress: selectedSoldier.emergencyContactAddress,
+        emergencyContactEmail: selectedSoldier.emergencyContactEmail,
+        
+        // Military info (from Google Sheets)
+        personalNumber: selectedSoldier.personalNumber,
+        enlistmentDate: selectedSoldier.enlistmentDate,
+        releaseDate: selectedSoldier.releaseDate,
+        unit: selectedSoldier.unit,
+        battalion: selectedSoldier.battalion,
+        mashakitTash: selectedSoldier.mashakitTash,
+        mashakitPhone: selectedSoldier.mashakitPhone,
+        officerName: selectedSoldier.officerName,
+        officerPhone: selectedSoldier.officerPhone,
+        disciplinaryRecord: selectedSoldier.disciplinaryRecord,
+        
+        // Medical info (from Google Sheets)
+        healthFund: selectedSoldier.healthFund,
+        
+        // Additional info (from Google Sheets)
+        cleanlinessLevel: selectedSoldier.cleanlinessLevel,
+        contractDate: selectedSoldier.contractDate,
+        
+        // Metadata
+        lastUpdated: new Date(),
+        dataSource: 'google_sheets',
+        profileComplete: true // Mark as complete since all data comes from sheets
+      };
 
-      // Create all questionnaire fields for soldiers
-      try {
-        await createQuestionnaireFields(uid);
-      } catch (questionnaireError) {
-        console.error('Failed to create questionnaire fields:', questionnaireError);
-        // Don't fail the entire process for questionnaire creation
-        // The user can still proceed and questionnaire can be created later
-      }
+      // Update user document with all profile information
+      await setDoc(doc(db, 'users', uid), userData);
+
 
       // After profile setup, go to consent step 1 for soldiers
       router.push('/register/consent/1?role=soldier');
     } catch (err) {
       console.error('Profile setup error:', err);
       setError('Failed to save profile. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -81,78 +173,73 @@ export default function ProfileSetup() {
         <h2 style={{ fontWeight: 700, fontSize: '2.5rem', textAlign: 'center', marginBottom: '2.8rem' }}>Complete Your Profile</h2>
         <form onSubmit={handleSave}>
           <div style={{ marginBottom: '2.2rem' }}>
-            <label style={{ display: 'block', color: colors.muted, fontWeight: 600, marginBottom: 2, fontSize: 18 }}>First Name</label>
-            <input
-              type="text"
-              value={firstName}
-              onChange={e => setFirstName(e.target.value)}
-              style={{ width: '100%', border: 'none', borderBottom: `2px solid ${colors.muted}`, outline: 'none', fontSize: '1.25rem', padding: '0.4rem 0', background: 'transparent', marginBottom: 18 }}
-              placeholder="Enter your first name"
-              required
+            <label style={{ display: 'block', color: colors.muted, fontWeight: 600, marginBottom: 8, fontSize: 18 }}>Search Your Name</label>
+            <SoldierNameSearch
+              onSoldierSelect={handleSoldierSelect}
+              placeholder="חיפוש לפי שם מלא..."
+              error={error}
             />
-            <label style={{ display: 'block', color: colors.muted, fontWeight: 600, marginBottom: 2, fontSize: 18 }}>Last Name</label>
-            <input
-              type="text"
-              value={lastName}
-              onChange={e => setLastName(e.target.value)}
-              style={{ width: '100%', border: 'none', borderBottom: `2px solid ${colors.muted}`, outline: 'none', fontSize: '1.25rem', padding: '0.4rem 0', background: 'transparent', marginBottom: 18 }}
-              placeholder="Enter your last name"
-              required
-            />
-            <label style={{ display: 'block', color: colors.muted, fontWeight: 600, marginBottom: 2, fontSize: 18 }}>Room Number</label>
-            <div style={{ display: 'flex', gap: 12, marginBottom: 18 }}>
-              <input
-                type="text"
-                value={roomNumber}
-                onChange={e => setRoomNumber(e.target.value)}
-                style={{ flex: 3, border: 'none', borderBottom: `2px solid ${colors.muted}`, outline: 'none', fontSize: '1.25rem', padding: '0.4rem 0', background: 'transparent' }}
-                placeholder="Number"
-                required
-              />
-              <div style={{ flex: 1 }}>
-                <select
-                  value={roomLetter}
-                  onChange={e => setRoomLetter(e.target.value)}
-                  style={{ 
-                    width: '100%', 
-                    border: 'none', 
-                    borderBottom: `2px solid ${colors.muted}`, 
-                    outline: 'none', 
-                    fontSize: '1.25rem', 
-                    padding: '0.4rem 0', 
-                    background: 'transparent',
-                    appearance: 'none',
-                    WebkitAppearance: 'none',
-                    MozAppearance: 'none',
-                    cursor: 'pointer',
-                    position: 'relative'
-                  }}
-                  required
-                >
-                  <option value="">Letter</option>
-                  <option value="א">א</option>
-                  <option value="ב">ב</option>
-                  <option value="ג">ג</option>
-                </select>
-                {/* Custom dropdown arrow for better mobile experience */}
-                <div style={{
-                  position: 'absolute',
-                  right: '8px',
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  pointerEvents: 'none',
-                  fontSize: '12px',
-                  color: colors.muted,
-                  marginTop: '-0.6rem'
-                }}>
-                  ▼
+            
+            {/* Display selected soldier info */}
+            {selectedSoldier && (
+              <div style={{ 
+                marginTop: '1rem', 
+                padding: '1rem', 
+                backgroundColor: colors.lightGray || '#f8f9fa', 
+                borderRadius: '8px',
+                border: `1px solid ${colors.primaryGreen}`,
+                position: 'relative'
+              }}>
+                {isLoadingSoldierData && (
+                  <div style={{
+                    position: 'absolute',
+                    top: '50%',
+                    left: '50%',
+                    transform: 'translate(-50%, -50%)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    color: colors.primaryGreen,
+                    fontWeight: 600
+                  }}>
+                    <div className="animate-spin rounded-full h-5 w-5 border-2 border-green-500 border-t-transparent"></div>
+                    טוען פרטים...
+                  </div>
+                )}
+                <div style={{ textAlign: 'right', fontSize: '1rem', opacity: isLoadingSoldierData ? 0.5 : 1 }}>
+                  <div style={{ fontWeight: 600, marginBottom: '0.5rem' }}>
+                    {selectedSoldier.fullName}
+                  </div>
+                  <div style={{ color: colors.muted, fontSize: '0.9rem' }}>
+                    חדר: {selectedSoldier.roomNumber}
+                    {selectedSoldier.building && `, בניין: ${selectedSoldier.building}`}
+                    {selectedSoldier.floor && `, קומה: ${selectedSoldier.floor}`}
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
           </div>
+          
           {error && <p style={{ color: colors.red, fontSize: 16, marginBottom: 16 }}>{error}</p>}
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
-            <button type="submit" style={{ width: '100%', background: colors.gold, color: colors.black, fontWeight: 700, fontSize: '1.35rem', border: 'none', borderRadius: 999, padding: '0.8rem 0', cursor: 'pointer' }}>Register</button>
+            <button 
+              type="submit" 
+              disabled={isLoading || !selectedSoldier}
+              style={{ 
+                width: '100%', 
+                background: isLoading || !selectedSoldier ? colors.muted : colors.gold, 
+                color: colors.black, 
+                fontWeight: 700, 
+                fontSize: '1.35rem', 
+                border: 'none', 
+                borderRadius: 999, 
+                padding: '0.8rem 0', 
+                cursor: isLoading || !selectedSoldier ? 'not-allowed' : 'pointer',
+                opacity: isLoading || !selectedSoldier ? 0.6 : 1
+              }}
+            >
+              {isLoading ? 'Loading...' : 'Register'}
+            </button>
             <button
               type="button"
               onClick={() => signOut(auth).then(() => router.push('/'))}

@@ -13,16 +13,6 @@
     "save": "שמור",
     "cancel": "ביטול"
   },
-  "questionnaire_modal": {
-    "personal_information_questionnaire": "שאלון מידע אישי",
-    "progress": "התקדמות",
-    "questions": "שאלות",
-    "next": "הבא",
-    "previous": "הקודם",
-    "complete": "השלם",
-    "close": "סגור",
-    "type_your_answer": "הקלד את התשובה שלך..."
-  },
   "date_picker_modal": {
     "choose_date": "בחר תאריך",
     "from": "מ",

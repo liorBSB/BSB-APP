@@ -94,7 +94,7 @@ service cloud.firestore {
       allow read, write: if isSignedIn() && isAdmin(request.auth.uid);
     }
 
-    // Soldier profiles collection (long-term questionnaire data)
+    // Soldier profiles collection (long-term data)
     match /soldierProfiles/{profileId} {
       // Soldiers can read and update their own profile
       allow read, write: if isSignedIn() && isOwner(profileId);
