@@ -66,6 +66,8 @@
   "status": "Status",
   "home": "Home",
   "away": "Away",
+  "in_base": "In Base",
+  "abroad": "Abroad",
   "complete": "Complete",
   "incomplete": "Incomplete"
 }

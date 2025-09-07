@@ -28,6 +28,7 @@ export default function SoldierManagement() {
   const [error, setError] = useState('');
   const [showGenderDropdown, setShowGenderDropdown] = useState(false);
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
+  const [showFamilyDropdown, setShowFamilyDropdown] = useState(false);
 
 
   useEffect(() => {
@@ -46,7 +47,7 @@ export default function SoldierManagement() {
   // Close dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (showGenderDropdown || showStatusDropdown) {
+      if (showGenderDropdown || showStatusDropdown || showFamilyDropdown) {
         const target = event.target;
         const isDropdownButton = target.closest('[data-dropdown-trigger]');
         const isDropdownContent = target.closest('[data-dropdown-content]');
@@ -54,6 +55,7 @@ export default function SoldierManagement() {
         if (!isDropdownButton && !isDropdownContent) {
           setShowGenderDropdown(false);
           setShowStatusDropdown(false);
+          setShowFamilyDropdown(false);
         }
       }
     };
@@ -62,7 +64,7 @@ export default function SoldierManagement() {
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [showGenderDropdown, showStatusDropdown]);
+  }, [showGenderDropdown, showStatusDropdown, showFamilyDropdown]);
 
   const loadSoldiers = async () => {
     try {
@@ -158,13 +160,6 @@ export default function SoldierManagement() {
         // Personal info
         gender: soldier.gender || '',
         dateOfBirth: formatDateForInput(soldier.dateOfBirth),
-        idNumber: soldier.idNumber || '',
-        idType: soldier.idType || '',
-        countryOfOrigin: soldier.countryOfOrigin || '',
-        arrivalDate: formatDateForInput(soldier.arrivalDate),
-        previousAddress: soldier.previousAddress || '',
-        education: soldier.education || '',
-        license: soldier.license || '',
         
         // Family info
         familyInIsrael: Boolean(soldier.familyInIsrael),
@@ -268,13 +263,6 @@ export default function SoldierManagement() {
         // Personal info
         gender: editForm.gender || null,
         dateOfBirth: formatDateForSave(editForm.dateOfBirth),
-        idNumber: editForm.idNumber || null,
-        idType: editForm.idType || null,
-        countryOfOrigin: editForm.countryOfOrigin || null,
-        arrivalDate: formatDateForSave(editForm.arrivalDate),
-        previousAddress: editForm.previousAddress || null,
-        education: editForm.education || null,
-        license: editForm.license || null,
         
         // Family info
         familyInIsrael: Boolean(editForm.familyInIsrael),
@@ -481,10 +469,17 @@ export default function SoldierManagement() {
                   <div className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs ${
                     soldier.status === 'home'
                       ? 'bg-green-100 text-green-700' 
+                      : soldier.status === 'in base'
+                      ? 'bg-blue-100 text-blue-700'
+                      : soldier.status === 'abroad'
+                      ? 'bg-purple-100 text-purple-700'
                       : 'bg-red-100 text-red-700'
                   }`}>
                     <span className="w-2 h-2 rounded-full bg-current"></span>
-                    {soldier.status === 'home' ? '🏠 Home' : '🚪 Away'}
+                    {soldier.status === 'home' ? '🏠 Home' : 
+                     soldier.status === 'away' ? '🚪 Away' : 
+                     soldier.status === 'in base' ? '🪖 In Base' : 
+                     soldier.status === 'abroad' ? '✈️ Abroad' : '🚪 Away'}
                   </div>
                 </div>
               </div>
@@ -679,7 +674,10 @@ export default function SoldierManagement() {
                     <div><span className="font-medium">Email:</span> {selectedSoldier.email || 'Not specified'}</div>
                     <div><span className="font-medium">Phone:</span> {selectedSoldier.phoneNumber || selectedSoldier.phone || 'Not specified'}</div>
                     <div><span className="font-medium">Room:</span> {selectedSoldier.roomNumber || 'Not specified'}</div>
-                    <div><span className="font-medium">Status:</span> {selectedSoldier.status === 'home' ? '🏠 Home' : '🚪 Away'}</div>
+                    <div><span className="font-medium">Status:</span> {selectedSoldier.status === 'home' ? '🏠 Home' : 
+                                                                        selectedSoldier.status === 'away' ? '🚪 Away' : 
+                                                                        selectedSoldier.status === 'in base' ? '🪖 In Base' : 
+                                                                        selectedSoldier.status === 'abroad' ? '✈️ Abroad' : '🚪 Away'}</div>
                   </div>
                 </div>
 
@@ -898,7 +896,11 @@ export default function SoldierManagement() {
                           className="w-full px-3 py-3 phone-sm:py-2 pr-8 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 text-base phone-sm:text-sm bg-white text-left flex items-center justify-between"
                         >
                           <span className="text-gray-900">
-                            {editForm.status === 'home' ? 'Home' : editForm.status === 'away' ? 'Away' : editForm.status === 'left' ? 'Left' : 'Home'}
+                            {editForm.status === 'home' ? 'Home' : 
+                             editForm.status === 'away' ? 'Away' : 
+                             editForm.status === 'in base' ? 'In Base' : 
+                             editForm.status === 'abroad' ? 'Abroad' : 
+                             editForm.status === 'left' ? 'Left' : 'Home'}
                           </span>
                           <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -932,6 +934,36 @@ export default function SoldierManagement() {
                             >
                               <span>Away</span>
                               {editForm.status === 'away' && (
+                                <svg className="w-4 h-4 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                </svg>
+                              )}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                handleEditFormChange('status', 'in base');
+                                setShowStatusDropdown(false);
+                              }}
+                              className="w-full px-3 py-2 text-left hover:bg-gray-100 flex items-center justify-between"
+                            >
+                              <span>In Base</span>
+                              {editForm.status === 'in base' && (
+                                <svg className="w-4 h-4 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                </svg>
+                              )}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                handleEditFormChange('status', 'abroad');
+                                setShowStatusDropdown(false);
+                              }}
+                              className="w-full px-3 py-2 text-left hover:bg-gray-100 flex items-center justify-between"
+                            >
+                              <span>Abroad</span>
+                              {editForm.status === 'abroad' && (
                                 <svg className="w-4 h-4 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
                                   <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                                 </svg>
@@ -996,6 +1028,138 @@ export default function SoldierManagement() {
                         type="text"
                         value={editForm.roomStatus || ''}
                         onChange={(e) => handleEditFormChange('roomStatus', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Family Information */}
+                <div className="space-y-3 phone-sm:space-y-4">
+                  <h4 className="text-base phone-sm:text-lg font-semibold text-gray-800 border-b pb-2">Family Information</h4>
+                  <div className="grid grid-cols-1 phone-sm:grid-cols-2 gap-3 phone-sm:gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Family in Israel</label>
+                      <div className="relative">
+                        <button
+                          type="button"
+                          data-dropdown-trigger
+                          onClick={() => setShowFamilyDropdown(!showFamilyDropdown)}
+                          className="w-full px-3 py-3 phone-sm:py-2 pr-8 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 text-base phone-sm:text-sm bg-white text-left flex items-center justify-between"
+                        >
+                          <span className={editForm.familyInIsrael !== undefined ? 'text-gray-900' : 'text-gray-500'}>
+                            {editForm.familyInIsrael === true ? 'Yes' : editForm.familyInIsrael === false ? 'No' : 'Select Family Status'}
+                          </span>
+                          <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </button>
+                        
+                        {showFamilyDropdown && (
+                          <div data-dropdown-content className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                handleEditFormChange('familyInIsrael', true);
+                                setShowFamilyDropdown(false);
+                              }}
+                              className="w-full px-3 py-2 text-left hover:bg-gray-100 flex items-center justify-between"
+                            >
+                              <span>Yes</span>
+                              {editForm.familyInIsrael === true && (
+                                <svg className="w-4 h-4 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                </svg>
+                              )}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                handleEditFormChange('familyInIsrael', false);
+                                setShowFamilyDropdown(false);
+                              }}
+                              className="w-full px-3 py-2 text-left hover:bg-gray-100 flex items-center justify-between"
+                            >
+                              <span>No</span>
+                              {editForm.familyInIsrael === false && (
+                                <svg className="w-4 h-4 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                </svg>
+                              )}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Father Name</label>
+                      <input
+                        type="text"
+                        value={editForm.fatherName || ''}
+                        onChange={(e) => handleEditFormChange('fatherName', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Father Phone</label>
+                      <input
+                        type="tel"
+                        value={editForm.fatherPhone || ''}
+                        onChange={(e) => handleEditFormChange('fatherPhone', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Mother Name</label>
+                      <input
+                        type="text"
+                        value={editForm.motherName || ''}
+                        onChange={(e) => handleEditFormChange('motherName', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Mother Phone</label>
+                      <input
+                        type="tel"
+                        value={editForm.motherPhone || ''}
+                        onChange={(e) => handleEditFormChange('motherPhone', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Parents Status</label>
+                      <input
+                        type="text"
+                        value={editForm.parentsStatus || ''}
+                        onChange={(e) => handleEditFormChange('parentsStatus', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Parents Address</label>
+                      <input
+                        type="text"
+                        value={editForm.parentsAddress || ''}
+                        onChange={(e) => handleEditFormChange('parentsAddress', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Parents Email</label>
+                      <input
+                        type="email"
+                        value={editForm.parentsEmail || ''}
+                        onChange={(e) => handleEditFormChange('parentsEmail', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Contact with Parents</label>
+                      <input
+                        type="text"
+                        value={editForm.contactWithParents || ''}
+                        onChange={(e) => handleEditFormChange('contactWithParents', e.target.value)}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
                       />
                     </div>

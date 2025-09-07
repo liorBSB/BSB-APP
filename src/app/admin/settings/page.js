@@ -7,6 +7,7 @@ import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import colors from '../../colors';
 import AdminBottomNavBar from '@/components/AdminBottomNavBar';
 import EditFieldModal from '@/components/EditFieldModal';
+import DeleteAccountModal from '@/components/DeleteAccountModal';
 
 export default function AdminSettingsPage() {
   const router = useRouter();
@@ -19,6 +20,7 @@ export default function AdminSettingsPage() {
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState('');
   const [error, setError] = useState('');
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -108,6 +110,25 @@ export default function AdminSettingsPage() {
         >
           Log Out
         </button>
+        
+        {/* Delete Account Button */}
+        <button
+          onClick={() => setShowDeleteModal(true)}
+          style={{ 
+            width: '100%', 
+            background: 'transparent', 
+            color: '#dc2626', 
+            fontWeight: 700, 
+            border: '2.5px solid #dc2626', 
+            borderRadius: 999, 
+            padding: '1.2rem 0', 
+            fontSize: 22, 
+            boxShadow: '0 2px 8px rgba(0,0,0,0.08)', 
+            marginTop: 12 
+          }}
+        >
+          Delete Account
+        </button>
       </div>
       <EditFieldModal
         open={!!editField}
@@ -116,6 +137,14 @@ export default function AdminSettingsPage() {
         label={editField ? fieldLabels[editField] : ''}
         value={editField ? fields[editField] : ''}
       />
+      
+      {/* Delete Account Modal */}
+      <DeleteAccountModal
+        open={showDeleteModal}
+        onClose={() => setShowDeleteModal(false)}
+        onDelete={() => setShowDeleteModal(false)}
+      />
+      
       <AdminBottomNavBar active="settings" />
     </main>
   );

@@ -34,5 +34,15 @@
   "delete_account_warning": "Are you sure you want to delete your account?",
   "delete_account_description": "This action cannot be undone. All your data will be permanently deleted.",
   "confirm_delete": "Yes, Delete Account",
-  "cancel_delete": "Cancel"
+  "cancel_delete": "Cancel",
+  "deleting_account": "Deleting Account...",
+  "deleting_wait": "Please wait while we delete your account and all associated data.",
+  "deletion_success": "Account Deleted Successfully",
+  "deletion_success_desc": "Your account and all associated data have been permanently deleted.",
+  "deletion_failed": "Deletion Failed",
+  "deletion_error_desc": "There was an error deleting your account.",
+  "reauth_required": "Re-authentication Required",
+  "reauth_required_desc": "Your data has been deleted, but the account requires recent authentication to complete deletion.",
+  "reauth_required_note": "Please log out and log back in, then try deleting your account again.",
+  "go_back_to_start": "Go Back to Start"
 } 

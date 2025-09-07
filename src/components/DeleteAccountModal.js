@@ -1,44 +1,37 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { auth, db } from '@/lib/firebase';
-import { deleteUser } from 'firebase/auth';
-import { doc, deleteDoc } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
-import colors from '../app/colors';
 
 export default function DeleteAccountModal({ open, onClose, onDelete }) {
   const { t } = useTranslation('settings');
   const router = useRouter();
-  const [isDeleting, setIsDeleting] = useState(false);
+  const [countdown, setCountdown] = useState(5);
+  const [canDelete, setCanDelete] = useState(false);
 
-  const handleDeleteAccount = async () => {
-    setIsDeleting(true);
-    try {
-      const user = auth.currentUser;
-      if (user) {
-        console.log('Starting account deletion for user:', user.uid);
-        
-        // Delete user document from Firestore first
-        const userRef = doc(db, 'users', user.uid);
-        console.log('Deleting user document from Firestore...');
-        await deleteDoc(userRef);
-        console.log('User document deleted from Firestore successfully');
-        
-        // Delete the user account from Firebase Auth
-        console.log('Deleting user from Firebase Auth...');
-        await deleteUser(user);
-        console.log('User deleted from Firebase Auth successfully');
-        
-        // Redirect to root (login) page since user account is now deleted
-        router.push('/');
-      } else {
-        throw new Error('No authenticated user found');
-      }
-    } catch (error) {
-      console.error('Error deleting account:', error);
-      alert(`Error deleting account: ${error.message}. Please try again.`);
-    } finally {
-      setIsDeleting(false);
+  // Countdown effect
+  useEffect(() => {
+    if (open && countdown > 0) {
+      const timer = setTimeout(() => {
+        setCountdown(countdown - 1);
+      }, 1000);
+      return () => clearTimeout(timer);
+    } else if (countdown === 0) {
+      setCanDelete(true);
+    }
+  }, [open, countdown]);
+
+  // Reset countdown when modal opens
+  useEffect(() => {
+    if (open) {
+      setCountdown(5);
+      setCanDelete(false);
+    }
+  }, [open]);
+
+  const handleDeleteAccount = () => {
+    if (canDelete) {
+      // Redirect to deletion status page
+      router.push('/account-deletion');
       onClose();
     }
   };
@@ -66,21 +59,37 @@ export default function DeleteAccountModal({ open, onClose, onDelete }) {
         </div>
 
         <h2 className="text-xl font-bold mb-3 text-red-600">{t('delete_account_warning')}</h2>
-        <p className="text-gray-600 mb-6 text-sm leading-relaxed">{t('delete_account_description')}</p>
+        <p className="text-gray-600 mb-4 text-sm leading-relaxed">{t('delete_account_description')}</p>
+        
+        {/* Countdown Display */}
+        <div className="mb-6">
+          {!canDelete ? (
+            <div className="text-center">
+              <div className="text-3xl font-bold text-red-600 mb-2">{countdown}</div>
+              <p className="text-gray-600 text-sm">Please wait before confirming deletion...</p>
+            </div>
+          ) : (
+            <div className="text-center">
+              <p className="text-green-600 font-semibold text-sm">You can now confirm deletion</p>
+            </div>
+          )}
+        </div>
         
         <div className="flex gap-3">
           <button
             className="flex-1 py-3 rounded-lg font-semibold text-white transition-colors"
-            style={{ backgroundColor: '#dc2626' }}
+            style={{ 
+              backgroundColor: canDelete ? '#dc2626' : '#9ca3af',
+              cursor: canDelete ? 'pointer' : 'not-allowed'
+            }}
             onClick={handleDeleteAccount}
-            disabled={isDeleting}
+            disabled={!canDelete}
           >
-            {isDeleting ? 'Deleting...' : t('confirm_delete')}
+            {t('confirm_delete')}
           </button>
           <button
             className="flex-1 py-3 rounded-lg font-semibold text-gray-700 bg-gray-200 hover:bg-gray-300 transition-colors"
             onClick={onClose}
-            disabled={isDeleting}
           >
             {t('cancel_delete')}
           </button>

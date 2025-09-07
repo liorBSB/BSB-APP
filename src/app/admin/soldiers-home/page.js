@@ -41,7 +41,7 @@ export default function SoldiersHomePage() {
       form: {
         fullName: soldier.fullName || '',
         room: soldier.roomNumber || '',
-        status: soldier.status === 'home' ? 'home' : 'away',
+        status: soldier.status || 'home',
         email: soldier.email || '',
       }
     });
@@ -57,18 +57,18 @@ export default function SoldiersHomePage() {
   const handleEditSave = async () => {
     const { soldier, form } = editModal;
     try {
-                      await updateUserStatus(soldier.id, {
-          fullName: form.fullName,
-          roomNumber: form.room,
-          status: form.status === 'home' ? 'home' : 'away',
-          email: form.email
-        });
+      await updateUserStatus(soldier.id, {
+        fullName: form.fullName,
+        roomNumber: form.room,
+        status: form.status,
+        email: form.email
+      });
         
         setSoldiers(soldiers => soldiers.map(s => s.id === soldier.id ? { 
           ...s, 
           fullName: form.fullName,
           roomNumber: form.room,
-          status: form.status === 'home' ? 'home' : 'away',
+          status: form.status,
           email: form.email
         } : s));
       
@@ -145,7 +145,7 @@ export default function SoldiersHomePage() {
                               </div>
                             )}
                             <div className="text-sm font-semibold" style={{ color: '#fff', background: '#076332', borderRadius: 6, padding: '4px 10px', display: 'inline-block' }}>
-{soldier.status === 'home' ? t('present', 'Present') : t('absent', 'Absent')}
+{t(soldier.status || 'home', soldier.status || 'Home')}
                             </div>
                           </div>
                         </div>
@@ -226,6 +226,8 @@ export default function SoldiersHomePage() {
               >
                 <option value="home">{t('home', 'Home')}</option>
                 <option value="away">{t('away', 'Away')}</option>
+                <option value="in base">{t('in_base', 'In Base')}</option>
+                <option value="abroad">{t('abroad', 'Abroad')}</option>
               </select>
             </div>
             

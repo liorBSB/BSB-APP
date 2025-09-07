@@ -64,8 +64,10 @@
   "full_name": "שם מלא",
   "room_number": "מספר חדר",
   "status": "סטטוס",
-  "home": "נוכח",
-  "away": "לא נוכח",
+  "home": "בבית",
+  "away": "מחוץ לבית",
+  "in_base": "בבסיס",
+  "abroad": "בחו\"ל",
   "complete": "הושלם",
   "incomplete": "לא הושלם"
 }

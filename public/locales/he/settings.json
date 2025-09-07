@@ -34,5 +34,15 @@
   "delete_account_warning": "האם אתה בטוח שברצונך למחוק את החשבון שלך?",
   "delete_account_description": "פעולה זו אינה ניתנת לביטול. כל הנתונים שלך יימחקו לצמיתות.",
   "confirm_delete": "כן, מחק חשבון",
-  "cancel_delete": "ביטול"
+  "cancel_delete": "ביטול",
+  "deleting_account": "מוחק חשבון...",
+  "deleting_wait": "אנא המתן בזמן שאנו מוחקים את החשבון שלך ואת כל הנתונים הקשורים.",
+  "deletion_success": "החשבון נמחק בהצלחה",
+  "deletion_success_desc": "החשבון שלך וכל הנתונים הקשורים נמחקו לצמיתות.",
+  "deletion_failed": "המחיקה נכשלה",
+  "deletion_error_desc": "אירעה שגיאה במחיקת החשבון שלך.",
+  "reauth_required": "נדרשת אימות מחדש",
+  "reauth_required_desc": "הנתונים שלך נמחקו, אך החשבון דורש אימות אחרון כדי להשלים את המחיקה.",
+  "reauth_required_note": "אנא התנתק והתחבר שוב, ואז נסה למחוק את החשבון שוב.",
+  "go_back_to_start": "חזור להתחלה"
 } 

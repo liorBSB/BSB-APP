@@ -31,6 +31,9 @@ export default function SettingsPage() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showEditAllModal, setShowEditAllModal] = useState(false);
   const [editAllForm, setEditAllForm] = useState({});
+  const [showGenderDropdown, setShowGenderDropdown] = useState(false);
+  const [showStatusDropdown, setShowStatusDropdown] = useState(false);
+  const [showFamilyDropdown, setShowFamilyDropdown] = useState(false);
   const [personalIdData, setPersonalIdData] = useState({
     personalNumber: '',
     phone: '',
@@ -55,6 +58,28 @@ export default function SettingsPage() {
     });
     return () => unsubscribe();
   }, []);
+
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (showGenderDropdown || showStatusDropdown || showFamilyDropdown) {
+        const target = event.target;
+        const isDropdownButton = target.closest('[data-dropdown-trigger]');
+        const isDropdownContent = target.closest('[data-dropdown-content]');
+        
+        if (!isDropdownButton && !isDropdownContent) {
+          setShowGenderDropdown(false);
+          setShowStatusDropdown(false);
+          setShowFamilyDropdown(false);
+        }
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showGenderDropdown, showStatusDropdown, showFamilyDropdown]);
 
   const handleSaveField = async (field, value) => {
     setSaving(true);
@@ -178,33 +203,14 @@ export default function SettingsPage() {
           setEditAllForm({
             // Basic info
             fullName: data.fullName || '',
-            firstName: data.firstName || '',
-            lastName: data.lastName || '',
             email: data.email || '',
             phoneNumber: data.phoneNumber || data.phone || '',
             roomNumber: data.roomNumber || '',
-            roomLetter: data.roomLetter || '',
-            bedNumber: data.bedNumber || '',
-            floor: data.floor || '',
-            roomType: data.roomType || '',
-            roomStatus: data.roomStatus || '',
-            serviceMonths: formatNumber(data.serviceMonths),
-            serviceRange: data.serviceRange || '',
-            monthsUntilRelease: formatNumber(data.monthsUntilRelease),
             age: formatNumber(data.age),
-            calculatedReleaseDate: formatDateForInput(data.calculatedReleaseDate),
-            roomGender: data.roomGender || '',
             
             // Personal info
             gender: data.gender || '',
             dateOfBirth: formatDateForInput(data.dateOfBirth),
-            idNumber: data.idNumber || '',
-            idType: data.idType || '',
-            countryOfOrigin: data.countryOfOrigin || '',
-            arrivalDate: formatDateForInput(data.arrivalDate),
-            previousAddress: data.previousAddress || '',
-            education: data.education || '',
-            license: data.license || '',
             
             // Family info
             familyInIsrael: Boolean(data.familyInIsrael),
@@ -212,10 +218,8 @@ export default function SettingsPage() {
             fatherPhone: data.fatherPhone || '',
             motherName: data.motherName || '',
             motherPhone: data.motherPhone || '',
-            parentsStatus: data.parentsStatus || '',
             parentsAddress: data.parentsAddress || '',
             parentsEmail: data.parentsEmail || '',
-            contactWithParents: data.contactWithParents || '',
             
             // Emergency contact
             emergencyContactName: data.emergencyContactName || '',
@@ -233,21 +237,7 @@ export default function SettingsPage() {
             mashakitPhone: data.mashakitPhone || '',
             officerName: data.officerName || '',
             officerPhone: data.officerPhone || '',
-            disciplinaryRecord: data.disciplinaryRecord || '',
             
-            // Medical info
-            healthFund: data.healthFund || '',
-            medicalProblems: data.medicalProblems || '',
-            allergies: data.allergies || '',
-            hospitalizations: data.hospitalizations || '',
-            psychiatricTreatment: data.psychiatricTreatment || '',
-            regularMedication: data.regularMedication || '',
-            
-            // Additional info
-            cleanlinessLevel: data.cleanlinessLevel || '',
-            contributions: data.contributions || '',
-            notes: data.notes || '',
-            contractDate: formatDateForInput(data.contractDate),
             
             // Check-in and status info
             checkInDate: formatDateForInput(data.checkInDate || data.createdAt),
@@ -296,33 +286,14 @@ export default function SettingsPage() {
         await updateDoc(userRef, {
           // Basic info
           fullName: editAllForm.fullName || null,
-          firstName: editAllForm.firstName || null,
-          lastName: editAllForm.lastName || null,
           email: editAllForm.email || null,
           phoneNumber: editAllForm.phoneNumber || null,
           roomNumber: editAllForm.roomNumber || null,
-          roomLetter: editAllForm.roomLetter || null,
-          bedNumber: editAllForm.bedNumber || null,
-          floor: editAllForm.floor || null,
-          roomType: editAllForm.roomType || null,
-          roomStatus: editAllForm.roomStatus || null,
-          serviceMonths: formatNumberForSave(editAllForm.serviceMonths),
-          serviceRange: editAllForm.serviceRange || null,
-          monthsUntilRelease: formatNumberForSave(editAllForm.monthsUntilRelease),
           age: formatNumberForSave(editAllForm.age),
-          calculatedReleaseDate: formatDateForSave(editAllForm.calculatedReleaseDate),
-          roomGender: editAllForm.roomGender || null,
           
           // Personal info
           gender: editAllForm.gender || null,
           dateOfBirth: formatDateForSave(editAllForm.dateOfBirth),
-          idNumber: editAllForm.idNumber || null,
-          idType: editAllForm.idType || null,
-          countryOfOrigin: editAllForm.countryOfOrigin || null,
-          arrivalDate: formatDateForSave(editAllForm.arrivalDate),
-          previousAddress: editAllForm.previousAddress || null,
-          education: editAllForm.education || null,
-          license: editAllForm.license || null,
           
           // Family info
           familyInIsrael: Boolean(editAllForm.familyInIsrael),
@@ -330,10 +301,8 @@ export default function SettingsPage() {
           fatherPhone: editAllForm.fatherPhone || null,
           motherName: editAllForm.motherName || null,
           motherPhone: editAllForm.motherPhone || null,
-          parentsStatus: editAllForm.parentsStatus || null,
           parentsAddress: editAllForm.parentsAddress || null,
           parentsEmail: editAllForm.parentsEmail || null,
-          contactWithParents: editAllForm.contactWithParents || null,
           
           // Emergency contact
           emergencyContactName: editAllForm.emergencyContactName || null,
@@ -351,21 +320,7 @@ export default function SettingsPage() {
           mashakitPhone: editAllForm.mashakitPhone || null,
           officerName: editAllForm.officerName || null,
           officerPhone: editAllForm.officerPhone || null,
-          disciplinaryRecord: editAllForm.disciplinaryRecord || null,
           
-          // Medical info
-          healthFund: editAllForm.healthFund || null,
-          medicalProblems: editAllForm.medicalProblems || null,
-          allergies: editAllForm.allergies || null,
-          hospitalizations: editAllForm.hospitalizations || null,
-          psychiatricTreatment: editAllForm.psychiatricTreatment || null,
-          regularMedication: editAllForm.regularMedication || null,
-          
-          // Additional info
-          cleanlinessLevel: editAllForm.cleanlinessLevel || null,
-          contributions: editAllForm.contributions || null,
-          notes: editAllForm.notes || null,
-          contractDate: formatDateForSave(editAllForm.contractDate),
           
           // Check-in and status info
           checkInDate: formatDateForSave(editAllForm.checkInDate),
@@ -685,24 +640,6 @@ export default function SettingsPage() {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">First Name</label>
-                      <input
-                        type="text"
-                        value={editAllForm.firstName || ''}
-                        onChange={(e) => handleEditAllFormChange('firstName', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
-                      <input
-                        type="text"
-                        value={editAllForm.lastName || ''}
-                        onChange={(e) => handleEditAllFormChange('lastName', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
-                      />
-                    </div>
-                    <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
                       <input
                         type="email"
@@ -716,21 +653,62 @@ export default function SettingsPage() {
                       <input
                         type="tel"
                         value={editAllForm.phoneNumber || ''}
-                        onChange={(e) => handleEditAllFormChange('phoneNumber', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+                        disabled
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed"
                       />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Gender</label>
-                      <select
-                        value={editAllForm.gender || ''}
-                        onChange={(e) => handleEditAllFormChange('gender', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
-                      >
-                        <option value="">Select Gender</option>
-                        <option value="male">Male</option>
-                        <option value="female">Female</option>
-                      </select>
+                      <div className="relative">
+                        <button
+                          type="button"
+                          data-dropdown-trigger
+                          onClick={() => setShowGenderDropdown(!showGenderDropdown)}
+                          className="w-full px-3 py-2 pr-8 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 text-sm bg-white text-left flex items-center justify-between"
+                        >
+                          <span className={editAllForm.gender ? 'text-gray-900' : 'text-gray-500'}>
+                            {editAllForm.gender === 'male' ? 'Male' : editAllForm.gender === 'female' ? 'Female' : 'Select Gender'}
+                          </span>
+                          <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </button>
+                        
+                        {showGenderDropdown && (
+                          <div data-dropdown-content className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                handleEditAllFormChange('gender', 'male');
+                                setShowGenderDropdown(false);
+                              }}
+                              className="w-full px-3 py-2 text-left hover:bg-gray-100 flex items-center justify-between"
+                            >
+                              <span>Male</span>
+                              {editAllForm.gender === 'male' && (
+                                <svg className="w-4 h-4 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                </svg>
+                              )}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                handleEditAllFormChange('gender', 'female');
+                                setShowGenderDropdown(false);
+                              }}
+                              className="w-full px-3 py-2 text-left hover:bg-gray-100 flex items-center justify-between"
+                            >
+                              <span>Female</span>
+                              {editAllForm.gender === 'female' && (
+                                <svg className="w-4 h-4 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                </svg>
+                              )}
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Date of Birth</label>
@@ -752,23 +730,25 @@ export default function SettingsPage() {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                      <select
-                        value={editAllForm.status || 'home'}
-                        onChange={(e) => handleEditAllFormChange('status', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
-                      >
-                        <option value="home">Home</option>
-                        <option value="away">Away</option>
-                        <option value="left">Left</option>
-                      </select>
+                      <input
+                        type="text"
+                        value={editAllForm.status === 'home' ? 'Home' : 
+                               editAllForm.status === 'away' ? 'Away' : 
+                               editAllForm.status === 'in base' ? 'In Base' : 
+                               editAllForm.status === 'abroad' ? 'Abroad' : 
+                               editAllForm.status === 'left' ? 'Left' : 'Home'}
+                        disabled
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">Status can only be changed on the main home page</p>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Check-in Date</label>
                       <input
                         type="date"
                         value={editAllForm.checkInDate || ''}
-                        onChange={(e) => handleEditAllFormChange('checkInDate', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+                        disabled
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed"
                       />
                     </div>
                   </div>
@@ -783,201 +763,13 @@ export default function SettingsPage() {
                       <input
                         type="text"
                         value={editAllForm.roomNumber || ''}
-                        onChange={(e) => handleEditAllFormChange('roomNumber', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Room Letter</label>
-                      <input
-                        type="text"
-                        value={editAllForm.roomLetter || ''}
-                        onChange={(e) => handleEditAllFormChange('roomLetter', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Bed Number</label>
-                      <input
-                        type="text"
-                        value={editAllForm.bedNumber || ''}
-                        onChange={(e) => handleEditAllFormChange('bedNumber', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Floor</label>
-                      <input
-                        type="text"
-                        value={editAllForm.floor || ''}
-                        onChange={(e) => handleEditAllFormChange('floor', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Room Type</label>
-                      <input
-                        type="text"
-                        value={editAllForm.roomType || ''}
-                        onChange={(e) => handleEditAllFormChange('roomType', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Room Status</label>
-                      <input
-                        type="text"
-                        value={editAllForm.roomStatus || ''}
-                        onChange={(e) => handleEditAllFormChange('roomStatus', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Room Gender</label>
-                      <select
-                        value={editAllForm.roomGender || ''}
-                        onChange={(e) => handleEditAllFormChange('roomGender', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
-                      >
-                        <option value="">Select Room Gender</option>
-                        <option value="male">Male</option>
-                        <option value="female">Female</option>
-                        <option value="mixed">Mixed</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Personal Information */}
-                <div className="space-y-4">
-                  <h4 className="text-lg font-semibold text-gray-800 border-b pb-2">Personal Information</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">ID Number</label>
-                      <input
-                        type="text"
-                        value={editAllForm.idNumber || ''}
-                        onChange={(e) => handleEditAllFormChange('idNumber', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">ID Type</label>
-                      <input
-                        type="text"
-                        value={editAllForm.idType || ''}
-                        onChange={(e) => handleEditAllFormChange('idType', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Country of Origin</label>
-                      <input
-                        type="text"
-                        value={editAllForm.countryOfOrigin || ''}
-                        onChange={(e) => handleEditAllFormChange('countryOfOrigin', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Arrival Date</label>
-                      <input
-                        type="date"
-                        value={editAllForm.arrivalDate || ''}
-                        onChange={(e) => handleEditAllFormChange('arrivalDate', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Previous Address</label>
-                      <input
-                        type="text"
-                        value={editAllForm.previousAddress || ''}
-                        onChange={(e) => handleEditAllFormChange('previousAddress', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Education</label>
-                      <input
-                        type="text"
-                        value={editAllForm.education || ''}
-                        onChange={(e) => handleEditAllFormChange('education', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">License</label>
-                      <input
-                        type="text"
-                        value={editAllForm.license || ''}
-                        onChange={(e) => handleEditAllFormChange('license', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Arrival Date</label>
-                      <input
-                        type="date"
-                        value={editAllForm.arrivalDate || ''}
-                        onChange={(e) => handleEditAllFormChange('arrivalDate', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+                        disabled
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed"
                       />
                     </div>
                   </div>
                 </div>
 
-                {/* Service Information */}
-                <div className="space-y-4">
-                  <h4 className="text-lg font-semibold text-gray-800 border-b pb-2">Service Information</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Service Months</label>
-                      <input
-                        type="number"
-                        value={editAllForm.serviceMonths || ''}
-                        onChange={(e) => handleEditAllFormChange('serviceMonths', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Service Range</label>
-                      <input
-                        type="text"
-                        value={editAllForm.serviceRange || ''}
-                        onChange={(e) => handleEditAllFormChange('serviceRange', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Months Until Release</label>
-                      <input
-                        type="number"
-                        value={editAllForm.monthsUntilRelease || ''}
-                        onChange={(e) => handleEditAllFormChange('monthsUntilRelease', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Calculated Release Date</label>
-                      <input
-                        type="date"
-                        value={editAllForm.calculatedReleaseDate || ''}
-                        onChange={(e) => handleEditAllFormChange('calculatedReleaseDate', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Contract Date</label>
-                      <input
-                        type="date"
-                        value={editAllForm.contractDate || ''}
-                        onChange={(e) => handleEditAllFormChange('contractDate', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
-                      />
-                    </div>
-                  </div>
-                </div>
 
                 {/* Military Information */}
                 <div className="space-y-4">
@@ -988,8 +780,8 @@ export default function SettingsPage() {
                       <input
                         type="text"
                         value={editAllForm.personalNumber || ''}
-                        onChange={(e) => handleEditAllFormChange('personalNumber', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+                        disabled
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed"
                       />
                     </div>
                     <div>
@@ -997,8 +789,8 @@ export default function SettingsPage() {
                       <input
                         type="date"
                         value={editAllForm.enlistmentDate || ''}
-                        onChange={(e) => handleEditAllFormChange('enlistmentDate', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+                        disabled
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed"
                       />
                     </div>
                     <div>
@@ -1006,8 +798,8 @@ export default function SettingsPage() {
                       <input
                         type="date"
                         value={editAllForm.releaseDate || ''}
-                        onChange={(e) => handleEditAllFormChange('releaseDate', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+                        disabled
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed"
                       />
                     </div>
                     <div>
@@ -1051,8 +843,8 @@ export default function SettingsPage() {
                       <input
                         type="text"
                         value={editAllForm.officerName || ''}
-                        onChange={(e) => handleEditAllFormChange('officerName', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+                        disabled
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed"
                       />
                     </div>
                     <div>
@@ -1060,17 +852,8 @@ export default function SettingsPage() {
                       <input
                         type="tel"
                         value={editAllForm.officerPhone || ''}
-                        onChange={(e) => handleEditAllFormChange('officerPhone', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Disciplinary Record</label>
-                      <textarea
-                        value={editAllForm.disciplinaryRecord || ''}
-                        onChange={(e) => handleEditAllFormChange('disciplinaryRecord', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
-                        rows="3"
+                        disabled
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed"
                       />
                     </div>
                   </div>
@@ -1080,24 +863,22 @@ export default function SettingsPage() {
                 <div className="space-y-4">
                   <h4 className="text-lg font-semibold text-gray-800 border-b pb-2">Family Information</h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="md:col-span-2">
-                      <label className="flex items-center">
-                        <input
-                          type="checkbox"
-                          checked={editAllForm.familyInIsrael || false}
-                          onChange={(e) => handleEditAllFormChange('familyInIsrael', e.target.checked)}
-                          className="mr-2"
-                        />
-                        <span className="text-sm font-medium text-gray-700">Family in Israel</span>
-                      </label>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Family in Israel</label>
+                      <input
+                        type="text"
+                        value={editAllForm.familyInIsrael ? 'Yes' : 'No'}
+                        disabled
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed"
+                      />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Father Name</label>
                       <input
                         type="text"
                         value={editAllForm.fatherName || ''}
-                        onChange={(e) => handleEditAllFormChange('fatherName', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+                        disabled
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed"
                       />
                     </div>
                     <div>
@@ -1105,8 +886,8 @@ export default function SettingsPage() {
                       <input
                         type="tel"
                         value={editAllForm.fatherPhone || ''}
-                        onChange={(e) => handleEditAllFormChange('fatherPhone', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+                        disabled
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed"
                       />
                     </div>
                     <div>
@@ -1114,8 +895,8 @@ export default function SettingsPage() {
                       <input
                         type="text"
                         value={editAllForm.motherName || ''}
-                        onChange={(e) => handleEditAllFormChange('motherName', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+                        disabled
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed"
                       />
                     </div>
                     <div>
@@ -1123,17 +904,8 @@ export default function SettingsPage() {
                       <input
                         type="tel"
                         value={editAllForm.motherPhone || ''}
-                        onChange={(e) => handleEditAllFormChange('motherPhone', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Parents Status</label>
-                      <input
-                        type="text"
-                        value={editAllForm.parentsStatus || ''}
-                        onChange={(e) => handleEditAllFormChange('parentsStatus', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+                        disabled
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed"
                       />
                     </div>
                     <div>
@@ -1141,8 +913,8 @@ export default function SettingsPage() {
                       <input
                         type="text"
                         value={editAllForm.parentsAddress || ''}
-                        onChange={(e) => handleEditAllFormChange('parentsAddress', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+                        disabled
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed"
                       />
                     </div>
                     <div>
@@ -1150,17 +922,8 @@ export default function SettingsPage() {
                       <input
                         type="email"
                         value={editAllForm.parentsEmail || ''}
-                        onChange={(e) => handleEditAllFormChange('parentsEmail', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Contact with Parents</label>
-                      <input
-                        type="text"
-                        value={editAllForm.contactWithParents || ''}
-                        onChange={(e) => handleEditAllFormChange('contactWithParents', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+                        disabled
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed"
                       />
                     </div>
                   </div>
@@ -1175,8 +938,8 @@ export default function SettingsPage() {
                       <input
                         type="text"
                         value={editAllForm.emergencyContactName || ''}
-                        onChange={(e) => handleEditAllFormChange('emergencyContactName', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+                        disabled
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed"
                       />
                     </div>
                     <div>
@@ -1184,8 +947,8 @@ export default function SettingsPage() {
                       <input
                         type="tel"
                         value={editAllForm.emergencyContactPhone || ''}
-                        onChange={(e) => handleEditAllFormChange('emergencyContactPhone', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+                        disabled
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed"
                       />
                     </div>
                     <div>
@@ -1193,8 +956,8 @@ export default function SettingsPage() {
                       <input
                         type="text"
                         value={editAllForm.emergencyContactAddress || ''}
-                        onChange={(e) => handleEditAllFormChange('emergencyContactAddress', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+                        disabled
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed"
                       />
                     </div>
                     <div>
@@ -1202,112 +965,14 @@ export default function SettingsPage() {
                       <input
                         type="email"
                         value={editAllForm.emergencyContactEmail || ''}
-                        onChange={(e) => handleEditAllFormChange('emergencyContactEmail', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+                        disabled
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed"
                       />
                     </div>
                   </div>
                 </div>
 
-                {/* Medical Information */}
-                <div className="space-y-4">
-                  <h4 className="text-lg font-semibold text-gray-800 border-b pb-2">Medical Information</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Health Fund</label>
-                      <input
-                        type="text"
-                        value={editAllForm.healthFund || ''}
-                        onChange={(e) => handleEditAllFormChange('healthFund', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Medical Problems</label>
-                      <textarea
-                        value={editAllForm.medicalProblems || ''}
-                        onChange={(e) => handleEditAllFormChange('medicalProblems', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
-                        rows="3"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Allergies</label>
-                      <textarea
-                        value={editAllForm.allergies || ''}
-                        onChange={(e) => handleEditAllFormChange('allergies', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
-                        rows="3"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Hospitalizations</label>
-                      <textarea
-                        value={editAllForm.hospitalizations || ''}
-                        onChange={(e) => handleEditAllFormChange('hospitalizations', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
-                        rows="3"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Psychiatric Treatment</label>
-                      <textarea
-                        value={editAllForm.psychiatricTreatment || ''}
-                        onChange={(e) => handleEditAllFormChange('psychiatricTreatment', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
-                        rows="3"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Regular Medication</label>
-                      <textarea
-                        value={editAllForm.regularMedication || ''}
-                        onChange={(e) => handleEditAllFormChange('regularMedication', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
-                        rows="3"
-                      />
-                    </div>
-                  </div>
-                </div>
 
-                {/* Additional Information */}
-                <div className="space-y-4">
-                  <h4 className="text-lg font-semibold text-gray-800 border-b pb-2">Additional Information</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Cleanliness Level</label>
-                      <select
-                        value={editAllForm.cleanlinessLevel || ''}
-                        onChange={(e) => handleEditAllFormChange('cleanlinessLevel', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
-                      >
-                        <option value="">Select Cleanliness Level</option>
-                        <option value="excellent">Excellent</option>
-                        <option value="good">Good</option>
-                        <option value="average">Average</option>
-                        <option value="poor">Poor</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Contributions</label>
-                      <textarea
-                        value={editAllForm.contributions || ''}
-                        onChange={(e) => handleEditAllFormChange('contributions', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
-                        rows="3"
-                      />
-                    </div>
-                    <div className="md:col-span-2">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
-                      <textarea
-                        value={editAllForm.notes || ''}
-                        onChange={(e) => handleEditAllFormChange('notes', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
-                        rows="4"
-                      />
-                    </div>
-                  </div>
-                </div>
               </div>
 
               {/* Actions */}

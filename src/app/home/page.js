@@ -307,9 +307,9 @@ export default function HomePage() {
 
         
 
-        {/* Home/Away Switcher */}
+        {/* Status Switcher */}
         <div className="rounded-2xl p-4 flex flex-col items-center mb-6 shadow-sm" style={{ background: colors.sectionBg, color: colors.primaryGreen }}>
-          <div className="flex w-full justify-evenly mb-4">
+          <div className="grid grid-cols-2 gap-4 w-full mb-4">
             <button
               className={`flex flex-col items-center focus:outline-none`}
               onClick={() => handleStatusToggle('home')}
@@ -342,6 +342,32 @@ export default function HomePage() {
               </div>
               <span className={`mt-2 text-sm font-semibold ${status === 'away' ? 'text-white' : 'text-[#076332] opacity-70'}`}>{t('away')}</span>
             </button>
+            <button
+              className={`flex flex-col items-center focus:outline-none`}
+              onClick={() => handleStatusToggle('in base')}
+            >
+              <div className={`w-12 h-12 flex items-center justify-center rounded-full transition-all duration-200`}
+                style={{ background: status === 'in base' ? colors.primaryGreen : colors.white, boxShadow: status === 'in base' ? '0 2px 8px rgba(7,99,50,0.15)' : 'none' }}>
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M12 2C8 2 5 5 5 9V12C5 13.1 5.9 14 7 14H17C18.1 14 19 13.1 19 12V9C19 5 16 2 12 2Z" fill={status === 'in base' ? colors.white : colors.primaryGreen}/>
+                  <path d="M8 14V16C8 17.1 8.9 18 10 18H14C15.1 18 16 17.1 16 16V14" stroke={status === 'in base' ? colors.white : colors.primaryGreen} strokeWidth="2" strokeLinecap="round"/>
+                  <path d="M10 8H14" stroke={status === 'in base' ? colors.white : colors.primaryGreen} strokeWidth="2" strokeLinecap="round"/>
+                </svg>
+              </div>
+              <span className={`mt-2 text-sm font-semibold ${status === 'in base' ? 'text-white' : 'text-[#076332] opacity-70'}`}>{t('in_base', 'In Base')}</span>
+            </button>
+            <button
+              className={`flex flex-col items-center focus:outline-none`}
+              onClick={() => handleStatusToggle('abroad')}
+            >
+              <div className={`w-12 h-12 flex items-center justify-center rounded-full transition-all duration-200`}
+                style={{ background: status === 'abroad' ? colors.primaryGreen : colors.white, boxShadow: status === 'abroad' ? '0 2px 8px rgba(7,99,50,0.15)' : 'none' }}>
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M21 16V14L13 9V3.5C13 2.67 12.33 2 11.5 2S10 2.67 10 3.5V9L2 14V16L10 13.5V19L8 20.5V22L11.5 21L15 22V20.5L13 19V13.5L21 16Z" fill={status === 'abroad' ? colors.white : colors.primaryGreen}/>
+                </svg>
+              </div>
+              <span className={`mt-2 text-sm font-semibold ${status === 'abroad' ? 'text-white' : 'text-[#076332] opacity-70'}`}>{t('abroad', 'Abroad')}</span>
+            </button>
           </div>
           {/* Gold Banner */}
           <button
@@ -350,7 +376,7 @@ export default function HomePage() {
             onClick={() => setLeftForBaseModalOpen(true)}
           >
             <svg width="20" height="20" fill="none" viewBox="0 0 24 24"><path d="M3 21V7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14" stroke={colors.white} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><rect x="7" y="10" width="3" height="7" rx="1" fill={colors.white}/><rect x="14" y="10" width="3" height="7" rx="1" fill={colors.white}/></svg>
-            {t('leftForBase')}
+            {t('cleanMyRoom', 'Clean My Room')}
           </button>
         </div>
 
@@ -687,7 +713,7 @@ export default function HomePage() {
         <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
           <div className="rounded-3xl p-8 shadow-lg min-w-[320px] w-full max-w-md" style={{ background: '#fff' }}>
             <div className="rounded-xl mb-6 px-4 py-3" style={{ background: '#fff' }}>
-              <h2 className="text-2xl font-bold text-black text-center">{t('leftForBase')}</h2>
+              <h2 className="text-2xl font-bold text-black text-center">{t('cleanMyRoom', 'Clean My Room')}</h2>
             </div>
             <div className="flex flex-col gap-8">
               <div className="flex items-center justify-between">
