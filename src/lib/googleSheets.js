@@ -118,7 +118,7 @@ async function exportToGoogleSheets(exportData) {
     }
     
     // Use GET request with query parameters to avoid CORS issues entirely
-    const scriptUrl = 'https://script.google.com/macros/s/AKfycbyCZUFM_qyeA_SwdlTUJGmfmQSmJZgvmIzQlAuCYz-NZQdLpJTlUxqgLOfpQerZXXPdSQ/exec';
+    const scriptUrl = process.env.NEXT_PUBLIC_GOOGLE_SHEETS_SCRIPT_URL || 'https://script.google.com/macros/s/AKfycbyCZUFM_qyeA_SwdlTUJGmfmQSmJZgvmIzQlAuCYz-NZQdLpJTlUxqgLOfpQerZXXPdSQ/exec';
     
     // Build URL with query parameters
     const params = new URLSearchParams();

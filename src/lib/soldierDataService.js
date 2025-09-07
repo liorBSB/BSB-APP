@@ -11,20 +11,12 @@
 
 // Configuration for soldier data sheet
 const SOLDIER_SHEETS_CONFIG = {
-  // Use the correct environment variable for soldier data with fallback
-  spreadsheetId: process.env.NEXT_PUBLIC_SOLDIER_SHEETS_ID || '1K4ImrXnaW2KO1GGz2FFKYN40zzzLweaOM9JXifWvVWg',
+  // Use the correct environment variable for soldier data
+  spreadsheetId: process.env.NEXT_PUBLIC_SOLDIER_SHEETS_ID,
   sheetName: 'soldiers', // Name of the sheet with soldier data
-  // Use the correct Google Apps Script URL from environment with fallback
-  scriptUrl: process.env.NEXT_PUBLIC_SOLDIER_SHEETS_SCRIPT_URL || 'https://script.google.com/macros/s/AKfycbxoHAGC70TiJ5wrad25gsWtqjIi_oC_bkPCCmxPEdfXI9Xq_ZZn_ZYgpfmMY63E6lhmuQ/exec'
+  // Use the correct Google Apps Script URL from environment
+  scriptUrl: process.env.NEXT_PUBLIC_SOLDIER_SHEETS_SCRIPT_URL
 };
-
-// Debug logging for production
-console.log('Soldier Sheets Config:', {
-  envSpreadsheetId: process.env.NEXT_PUBLIC_SOLDIER_SHEETS_ID,
-  envScriptUrl: process.env.NEXT_PUBLIC_SOLDIER_SHEETS_SCRIPT_URL,
-  finalSpreadsheetId: SOLDIER_SHEETS_CONFIG.spreadsheetId,
-  finalScriptUrl: SOLDIER_SHEETS_CONFIG.scriptUrl
-});
 
 
 /**
@@ -34,7 +26,7 @@ console.log('Soldier Sheets Config:', {
 export const getAllSoldiers = async () => {
   try {
     if (!SOLDIER_SHEETS_CONFIG.spreadsheetId) {
-      throw new Error('Google Sheets ID is not configured. Please check your environment variables.');
+      throw new Error('Google Sheets ID is not configured. Please set NEXT_PUBLIC_SOLDIER_SHEETS_ID environment variable.');
     }
     
     const url = `${SOLDIER_SHEETS_CONFIG.scriptUrl}?action=getAllSoldiers&spreadsheetId=${SOLDIER_SHEETS_CONFIG.spreadsheetId}&sheetName=${SOLDIER_SHEETS_CONFIG.sheetName}`;
@@ -70,7 +62,7 @@ export const searchSoldiersByName = async (searchTerm) => {
     }
     
     if (!SOLDIER_SHEETS_CONFIG.spreadsheetId) {
-      throw new Error('Google Sheets ID is not configured. Please check your environment variables.');
+      throw new Error('Google Sheets ID is not configured. Please set NEXT_PUBLIC_SOLDIER_SHEETS_ID environment variable.');
     }
     
     // Normalize the search term - remove extra spaces
