@@ -16,6 +16,7 @@ import {
 } from 'firebase/firestore';
 import { db } from './firebase';
 import { exportSoldierToSheets } from './googleSheets';
+import { syncToSheets } from './simpleSyncService';
 
 // ============================================================================
 // DATABASE STRUCTURE & CONSTANTS
@@ -40,6 +41,19 @@ export const updateUserStatus = async (uid, statusData) => {
     ...statusData,
     updatedAt: Timestamp.now()
   });
+  
+  // Trigger sync to Google Sheets (async, don't wait)
+  syncToSheets(uid, { ...statusData, updatedAt: new Date().toISOString() })
+    .then(result => {
+      if (result.success) {
+        console.log('Status update synced to sheets successfully');
+      } else {
+        console.warn('Failed to sync status update to sheets:', result.message);
+      }
+    })
+    .catch(error => {
+      console.error('Error syncing status update to sheets:', error);
+    });
 };
 
 /**
@@ -132,29 +146,14 @@ export const getActiveUsers = async () => {
   try {
     console.log('getActiveUsers: Starting query...');
     
-    // First try with ordering by fullName
+    // Simple query without ordering to avoid index requirement
     let usersQuery = query(
-      collection(db, COLLECTIONS.USERS),
-      where('userType', '==', 'user'),
-      orderBy('fullName')
-    );
-    
-    let usersSnap = await getDocs(usersQuery);
-    console.log('getActiveUsers: Query with orderBy successful, found:', usersSnap.docs.length);
-    
-    if (usersSnap.docs.length > 0) {
-      return usersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    }
-    
-    // If no results, try without ordering (in case fullName is empty)
-    console.log('getActiveUsers: No results with ordering, trying without orderBy...');
-    usersQuery = query(
       collection(db, COLLECTIONS.USERS),
       where('userType', '==', 'user')
     );
     
-    usersSnap = await getDocs(usersQuery);
-    console.log('getActiveUsers: Query without orderBy successful, found:', usersSnap.docs.length);
+    let usersSnap = await getDocs(usersQuery);
+    console.log('getActiveUsers: Query successful, found:', usersSnap.docs.length);
     
     return usersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     
@@ -194,6 +193,21 @@ export const updateProfileAnswer = async (uid, questionId, answer) => {
       [questionId]: answer,
       updatedAt: Timestamp.now()
     });
+    
+    // Trigger sync to Google Sheets (async, don't wait)
+    const updateData = { [questionId]: answer, updatedAt: new Date().toISOString() };
+    syncToSheets(uid, updateData)
+      .then(result => {
+        if (result.success) {
+          console.log('Profile answer update synced to sheets successfully');
+        } else {
+          console.warn('Failed to sync profile answer to sheets:', result.message);
+        }
+      })
+      .catch(error => {
+        console.error('Error syncing profile answer to sheets:', error);
+      });
+      
   } catch (error) {
     console.error('Error updating user answer:', error);
     throw error;
@@ -280,6 +294,48 @@ export const searchUsers = async (searchTerm, options = {}) => {
 
 
 
+/**
+ * Update user data with automatic sync to Google Sheets
+ * @param {string} uid - User ID
+ * @param {Object} updateData - Data to update
+ * @param {boolean} syncToSheet - Whether to sync to Google Sheets (default: true)
+ * @returns {Promise<void>}
+ */
+export const updateUserData = async (uid, updateData, syncToSheet = true) => {
+  try {
+    const userRef = doc(db, COLLECTIONS.USERS, uid);
+    const dataWithTimestamp = {
+      ...updateData,
+      updatedAt: Timestamp.now()
+    };
+    
+    await updateDoc(userRef, dataWithTimestamp);
+    
+    // Trigger sync to Google Sheets if enabled
+    if (syncToSheet) {
+      const syncData = { 
+        ...updateData, 
+        updatedAt: new Date().toISOString() 
+      };
+      
+      syncToSheets(uid, syncData)
+        .then(result => {
+          if (result.success) {
+            console.log('User data synced to sheets successfully');
+          } else {
+            console.warn('Failed to sync user data to sheets:', result.message);
+          }
+        })
+        .catch(error => {
+          console.error('Error syncing user data to sheets:', error);
+        });
+    }
+  } catch (error) {
+    console.error('Error updating user data:', error);
+    throw error;
+  }
+};
+
 export default {
   COLLECTIONS,
   updateUserStatus,
@@ -288,5 +344,6 @@ export default {
   getArchivedUsers,
   getActiveUsers,
   searchUsers,
-  updateProfileAnswer
+  updateProfileAnswer,
+  updateUserData
 };

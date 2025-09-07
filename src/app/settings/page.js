@@ -133,10 +133,6 @@ export default function SettingsPage() {
   };
 
   const handleClosePersonalId = () => {
-    if (!personalIdData.profilePhotoUrl) {
-      setHasDeclinedPhoto(true);
-      return; // Don't close if no photo
-    }
     setShowPersonalId(false);
     setHasDeclinedPhoto(false);
   };
@@ -151,7 +147,7 @@ export default function SettingsPage() {
           const data = userSnap.data();
           setPersonalIdData({
             personalNumber: data.personalNumber || '',
-            phone: data.phoneNumber || '',
+            phone: data.phoneNumber || data.phone || '',
             profilePhotoUrl: data.profilePhotoUrl || '',
           });
         }
@@ -500,7 +496,6 @@ export default function SettingsPage() {
                 
                 {!personalIdData.profilePhotoUrl && (
                   <div className="mt-3 text-center">
-                    <p className="text-gray-600 text-sm mb-2 font-medium">{t('photo_required')}</p>
                     <button
                       onClick={() => setShowPhotoUpload(true)}
                       className="px-4 py-2 rounded-lg font-semibold text-white text-sm transition-all hover:scale-105"
@@ -508,9 +503,6 @@ export default function SettingsPage() {
                     >
 {t('add_photo')}
                     </button>
-                    {hasDeclinedPhoto && (
-                      <p className="text-red-500 text-sm mt-2 font-medium">{t('please_add_photo')}</p>
-                    )}
                   </div>
                 )}
               </div>

@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { collection, addDoc, getDocs, query, orderBy, doc, getDoc, updateDoc, where, deleteDoc } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import { getActiveUsers } from '@/lib/database';
+import { simpleScheduler } from '@/lib/simpleSyncService';
 import colors from '../../colors';
 import CollapsibleSection from '@/components/home/CollapsibleSection';
 import ListItem from '@/components/home/ListItem';
@@ -173,6 +174,9 @@ export default function AdminHomePage() {
         router.push('/');
         return;
       }
+      
+      // Sync scheduler starts automatically from simpleSyncService.js
+      console.log('✅ Admin loaded - sync scheduler will start automatically');
       
       // Check admin profile completeness
       const userRef = doc(db, 'users', user.uid);
@@ -912,6 +916,7 @@ Welcome,
           </div>
         </div>
       )}
+
 
               {/* Approval Requests Section */}
         <div className="mb-8">

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { getActiveUsers, markUserAsLeft } from '@/lib/database';
+import { getActiveUsers, markUserAsLeft, updateUserData } from '@/lib/database';
 import { auth, db } from '@/lib/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
 import SoldierSearch from './SoldierSearch';
@@ -230,8 +230,6 @@ export default function SoldierManagement() {
     setError('');
     
     try {
-      const userRef = doc(db, 'users', selectedSoldier.id);
-      
       // Helper function to convert date strings to proper format
       const formatDateForSave = (dateString) => {
         if (!dateString || dateString.trim() === '') return null;
@@ -246,7 +244,8 @@ export default function SoldierManagement() {
         return isNaN(num) ? null : num;
       };
 
-      await updateDoc(userRef, {
+      // Use updateUserData instead of direct updateDoc to trigger sync
+      await updateUserData(selectedSoldier.id, {
         // Basic info
         fullName: editForm.fullName || null,
         email: editForm.email || null,
