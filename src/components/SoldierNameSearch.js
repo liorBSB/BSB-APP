@@ -2,7 +2,7 @@
 
 'use client';
 import { useState, useEffect, useRef } from 'react';
-import { searchSoldiersByName, getSoldierByFullName } from '@/lib/soldierDataService';
+import { searchSoldiersByName } from '@/lib/soldierDataService';
 import colors from '../app/colors';
 
 /**
@@ -66,27 +66,14 @@ export default function SoldierNameSearch({
   };
 
   // Handle suggestion selection
-  const handleSuggestionClick = async (soldier) => {
+  const handleSuggestionClick = (soldier) => {
     setSearchTerm(soldier.fullName || soldier['שם מלא                                  (מילוי אוטומטי: לא לגעת)'] || '');
     setSelectedSoldier(soldier);
     setShowSuggestions(false);
     setSuggestions([]);
-    setIsLoadingSoldier(true);
     
-    // Get full soldier data
-    try {
-      const fullSoldierData = await getSoldierByFullName(soldier.fullName || soldier['שם מלא                                  (מילוי אוטומטי: לא לגעת)']);
-      if (fullSoldierData) {
-        onSoldierSelect(fullSoldierData);
-      } else {
-        onSoldierSelect(soldier);
-      }
-    } catch (error) {
-      console.error('Error getting full soldier data:', error);
-      onSoldierSelect(soldier);
-    } finally {
-      setIsLoadingSoldier(false);
-    }
+    // Use the soldier data we already have from the search
+    onSoldierSelect(soldier);
   };
 
   // Handle input focus

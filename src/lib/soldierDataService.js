@@ -11,10 +11,13 @@
 
 // Configuration for soldier data sheet
 const SOLDIER_SHEETS_CONFIG = {
+  // Use the correct environment variable for soldier data
   spreadsheetId: process.env.NEXT_PUBLIC_SOLDIER_SHEETS_ID,
   sheetName: 'soldiers', // Name of the sheet with soldier data
-  scriptUrl: process.env.NEXT_PUBLIC_SOLDIER_SHEETS_SCRIPT_URL
+  // Use the correct Google Apps Script URL from environment
+  scriptUrl: process.env.NEXT_PUBLIC_SOLDIER_SHEETS_SCRIPT_URL || 'https://script.google.com/macros/s/AKfycbxoHAGC70TiJ5wrad25gsWtqjIi_oC_bkPCCmxPEdfXI9Xq_ZZn_ZYgpfmMY63E6lhmuQ/exec'
 };
+
 
 /**
  * Get all soldiers from Google Sheets
@@ -22,6 +25,10 @@ const SOLDIER_SHEETS_CONFIG = {
  */
 export const getAllSoldiers = async () => {
   try {
+    if (!SOLDIER_SHEETS_CONFIG.spreadsheetId) {
+      throw new Error('Google Sheets ID is not configured. Please set NEXT_PUBLIC_SOLDIER_SHEETS_ID environment variable.');
+    }
+    
     const url = `${SOLDIER_SHEETS_CONFIG.scriptUrl}?action=getAllSoldiers&spreadsheetId=${SOLDIER_SHEETS_CONFIG.spreadsheetId}&sheetName=${SOLDIER_SHEETS_CONFIG.sheetName}`;
     
     const response = await fetch(url);
@@ -52,6 +59,10 @@ export const searchSoldiersByName = async (searchTerm) => {
   try {
     if (!searchTerm || searchTerm.length < 2) {
       return [];
+    }
+    
+    if (!SOLDIER_SHEETS_CONFIG.spreadsheetId) {
+      throw new Error('Google Sheets ID is not configured. Please set NEXT_PUBLIC_SOLDIER_SHEETS_ID environment variable.');
     }
     
     // Normalize the search term - remove extra spaces
@@ -92,31 +103,6 @@ export const searchSoldiersByName = async (searchTerm) => {
   }
 };
 
-/**
- * Get soldier by full name
- * @param {string} fullName - Exact full name to search for
- * @returns {Object|null} Soldier object or null if not found
- */
-export const getSoldierByFullName = async (fullName) => {
-  try {
-    const response = await fetch(`${SOLDIER_SHEETS_CONFIG.scriptUrl}?action=getSoldierByName&fullName=${encodeURIComponent(fullName)}&spreadsheetId=${SOLDIER_SHEETS_CONFIG.spreadsheetId}&sheetName=${SOLDIER_SHEETS_CONFIG.sheetName}`);
-    
-    if (!response.ok) {
-      throw new Error(`Failed to get soldier: ${response.status}`);
-    }
-    
-    const data = await response.json();
-    
-    if (!data.success) {
-      return null;
-    }
-    
-    return data.soldier || null;
-  } catch (error) {
-    console.error('Error getting soldier by name:', error);
-    return null;
-  }
-};
 
 
 /**
@@ -272,7 +258,6 @@ export const clearSoldiersCache = () => {
 export default {
   getAllSoldiers,
   searchSoldiersByName,
-  getSoldierByFullName,
   mapSoldierData,
   validateSoldierData,
   getSoldiersWithCache,
