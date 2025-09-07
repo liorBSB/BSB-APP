@@ -138,7 +138,7 @@ export default function SoldierNameSearch({
             transition-all duration-200
             ${error 
               ? 'border-red-500 focus:ring-red-500' 
-              : 'border-gray-300 focus:ring-blue-500'
+              : 'border-gray-300 focus:ring-green-500'
             }
             ${disabled ? 'bg-gray-100 cursor-not-allowed' : 'bg-white'}
           `}
@@ -152,7 +152,7 @@ export default function SoldierNameSearch({
         {/* Loading indicator */}
         {isLoading && (
           <div className="absolute left-3 top-1/2 transform -translate-y-1/2">
-            <div className="animate-spin rounded-full h-5 w-5 border-2 border-blue-500 border-t-transparent"></div>
+            <div className="animate-spin rounded-full h-5 w-5 border-2 border-green-500 border-t-transparent"></div>
           </div>
         )}
         
@@ -180,12 +180,13 @@ export default function SoldierNameSearch({
         <div
           ref={suggestionsRef}
           className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto"
+          style={{ boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}
         >
           {suggestions.map((soldier, index) => (
             <div
               key={`${soldier.fullName || 'soldier'}-${index}`}
               onClick={() => handleSuggestionClick(soldier)}
-              className="px-4 py-3 hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-b-0"
+              className="px-4 py-3 hover:bg-green-50 cursor-pointer border-b border-gray-100 last:border-b-0 transition-colors duration-150"
             >
               <div className="text-right">
                 <div className="font-medium text-gray-900" style={{ fontSize: '1rem' }}>

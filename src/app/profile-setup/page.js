@@ -170,10 +170,10 @@ export default function ProfileSetup() {
           bg-transparent rounded-none shadow-none p-0
           phone-lg:bg-white phone-lg:rounded-[2.5rem] phone-lg:shadow-lg phone-lg:p-[3.5rem_2.2rem]"
       >
-        <h2 style={{ fontWeight: 700, fontSize: '2.5rem', textAlign: 'center', marginBottom: '2.8rem' }}>Complete Your Profile</h2>
+        <h2 style={{ fontWeight: 700, fontSize: '2.5rem', textAlign: 'center', marginBottom: '2.8rem', color: colors.text }}>Complete Your Profile</h2>
         <form onSubmit={handleSave}>
           <div style={{ marginBottom: '2.2rem' }}>
-            <label style={{ display: 'block', color: colors.muted, fontWeight: 600, marginBottom: 8, fontSize: 18 }}>Search Your Name</label>
+            <label style={{ display: 'block', color: colors.muted, fontWeight: 600, marginBottom: 12, fontSize: 18 }}>Search Your Name</label>
             <SoldierNameSearch
               onSoldierSelect={handleSoldierSelect}
               placeholder="חיפוש לפי שם מלא..."
@@ -183,12 +183,13 @@ export default function ProfileSetup() {
             {/* Display selected soldier info */}
             {selectedSoldier && (
               <div style={{ 
-                marginTop: '1rem', 
-                padding: '1rem', 
-                backgroundColor: colors.lightGray || '#f8f9fa', 
-                borderRadius: '8px',
-                border: `1px solid ${colors.primaryGreen}`,
-                position: 'relative'
+                marginTop: '1.5rem', 
+                padding: '1.5rem', 
+                backgroundColor: colors.surface, 
+                borderRadius: '16px',
+                border: `2px solid ${colors.primaryGreen}`,
+                position: 'relative',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
               }}>
                 {isLoadingSoldierData && (
                   <div style={{
@@ -200,52 +201,108 @@ export default function ProfileSetup() {
                     alignItems: 'center',
                     gap: '0.5rem',
                     color: colors.primaryGreen,
-                    fontWeight: 600
+                    fontWeight: 600,
+                    fontSize: '1rem'
                   }}>
                     <div className="animate-spin rounded-full h-5 w-5 border-2 border-green-500 border-t-transparent"></div>
                     טוען פרטים...
                   </div>
                 )}
                 <div style={{ textAlign: 'right', fontSize: '1rem', opacity: isLoadingSoldierData ? 0.5 : 1 }}>
-                  <div style={{ fontWeight: 600, marginBottom: '0.5rem' }}>
+                  <div style={{ fontWeight: 700, marginBottom: '0.75rem', color: colors.text, fontSize: '1.1rem' }}>
                     {selectedSoldier.fullName}
                   </div>
-                  <div style={{ color: colors.muted, fontSize: '0.9rem' }}>
-                    חדר: {selectedSoldier.roomNumber}
-                    {selectedSoldier.building && `, בניין: ${selectedSoldier.building}`}
-                    {selectedSoldier.floor && `, קומה: ${selectedSoldier.floor}`}
+                  <div style={{ color: colors.muted, fontSize: '0.95rem', lineHeight: '1.4' }}>
+                    <div>חדר: {selectedSoldier.roomNumber}</div>
+                    {selectedSoldier.building && <div>בניין: {selectedSoldier.building}</div>}
+                    {selectedSoldier.floor && <div>קומה: {selectedSoldier.floor}</div>}
                   </div>
                 </div>
               </div>
             )}
           </div>
           
-          {error && <p style={{ color: colors.red, fontSize: 16, marginBottom: 16 }}>{error}</p>}
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
+          {error && (
+            <div style={{ 
+              marginBottom: '1.5rem', 
+              padding: '1rem', 
+              backgroundColor: '#FEF2F2', 
+              border: `1px solid ${colors.red}`, 
+              borderRadius: '12px',
+              color: colors.red,
+              fontSize: '0.95rem',
+              textAlign: 'center'
+            }}>
+              {error}
+            </div>
+          )}
+          
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <button 
               type="submit" 
               disabled={isLoading || !selectedSoldier}
               style={{ 
                 width: '100%', 
-                background: isLoading || !selectedSoldier ? colors.muted : colors.gold, 
+                background: isLoading || !selectedSoldier ? colors.gray400 : colors.gold, 
                 color: colors.black, 
                 fontWeight: 700, 
                 fontSize: '1.35rem', 
                 border: 'none', 
                 borderRadius: 999, 
-                padding: '0.8rem 0', 
+                padding: '1rem 0', 
                 cursor: isLoading || !selectedSoldier ? 'not-allowed' : 'pointer',
-                opacity: isLoading || !selectedSoldier ? 0.6 : 1
+                opacity: isLoading || !selectedSoldier ? 0.6 : 1,
+                transition: 'all 0.2s ease',
+                boxShadow: isLoading || !selectedSoldier ? 'none' : '0 2px 8px rgba(0,0,0,0.1)'
+              }}
+              onMouseEnter={(e) => {
+                if (!isLoading && selectedSoldier) {
+                  e.target.style.transform = 'translateY(-1px)';
+                  e.target.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!isLoading && selectedSoldier) {
+                  e.target.style.transform = 'translateY(0)';
+                  e.target.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)';
+                }
               }}
             >
-              {isLoading ? 'Loading...' : 'Register'}
+              {isLoading ? (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+                  <div className="animate-spin rounded-full h-5 w-5 border-2 border-black border-t-transparent"></div>
+                  Loading...
+                </div>
+              ) : (
+                'Complete Registration'
+              )}
             </button>
+            
             <button
               type="button"
               onClick={() => signOut(auth).then(() => router.push('/'))}
-              style={{ width: '100%', background: 'transparent', color: colors.primaryGreen, fontWeight: 600, border: `2px solid ${colors.primaryGreen}`, borderRadius: 999, padding: '0.8rem 0', fontSize: 18, boxShadow: '0 1px 4px rgba(0,0,0,0.03)' }}
+              style={{ 
+                width: '100%', 
+                background: 'transparent', 
+                color: colors.primaryGreen, 
+                fontWeight: 600, 
+                border: `2px solid ${colors.primaryGreen}`, 
+                borderRadius: 999, 
+                padding: '0.8rem 0', 
+                fontSize: '1rem',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease'
+              }}
+              onMouseEnter={(e) => {
+                e.target.style.backgroundColor = colors.primaryGreen;
+                e.target.style.color = colors.white;
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.backgroundColor = 'transparent';
+                e.target.style.color = colors.primaryGreen;
+              }}
             >
-              Log Out
+              Cancel & Sign Out
             </button>
           </div>
         </form>
