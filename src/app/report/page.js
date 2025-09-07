@@ -472,7 +472,7 @@ export default function ReportPage() {
                   </svg>
                 </div>
                 <h4 className="text-xl font-semibold mb-2" style={{ color: colors.primaryGreen }}>Thank You!</h4>
-                <p className="text-gray-600">We've received your problem report and will look into it soon.</p>
+                <p className="text-gray-600">We&apos;ve received your problem report and will look into it soon.</p>
               </div>
 
               <div className="bg-gray-50 rounded-xl p-4 space-y-3">

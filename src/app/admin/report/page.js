@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import { collection, getDocs, query, orderBy, addDoc, doc, getDoc, serverTimestamp, updateDoc, where, deleteDoc } from 'firebase/firestore';
@@ -204,7 +204,7 @@ export default function AdminReportPage() {
   };
 
   // Apply filters to reports
-  const applyFilters = () => {
+  const applyFilters = useCallback(() => {
     let filtered = [...problemReports];
 
     // Filter by status (only pending reports now)
@@ -264,10 +264,10 @@ export default function AdminReportPage() {
     });
 
     setFilteredReports(filtered);
-  };
+  }, [problemReports, filters]);
 
   // Apply filters to fixed problems
-  const applyFixedProblemsFilters = () => {
+  const applyFixedProblemsFilters = useCallback(() => {
     let filtered = [...fixedProblems];
 
     // Filter by category
@@ -315,7 +315,7 @@ export default function AdminReportPage() {
     });
 
     setFilteredFixedProblems(filtered);
-  };
+  }, [fixedProblems, fixedProblemsFilters]);
 
   useEffect(() => {
     if (!isCheckingProfile && adminData) {
@@ -362,12 +362,12 @@ export default function AdminReportPage() {
   // Filter and sort reports whenever problemReports or filters change
   useEffect(() => {
     applyFilters();
-  }, [problemReports, filters]);
+  }, [applyFilters]);
 
   // Filter fixed problems whenever fixedProblems or fixedProblemsFilters change
   useEffect(() => {
     applyFixedProblemsFilters();
-  }, [fixedProblems, fixedProblemsFilters]);
+  }, [applyFixedProblemsFilters]);
 
   // Show loading while checking admin profile
   if (isCheckingProfile) {
