@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import { collection, addDoc, getDocs, query, orderBy, doc, getDoc, updateDoc, where, deleteDoc } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
+import { getActiveUsers } from '@/lib/database';
 import colors from '../../colors';
 import CollapsibleSection from '@/components/home/CollapsibleSection';
 import ListItem from '@/components/home/ListItem';
@@ -34,6 +35,11 @@ export default function AdminHomePage() {
   });
   const [isCheckingProfile, setIsCheckingProfile] = useState(true);
   const [adminData, setAdminData] = useState(null);
+  
+  // Dashboard data states
+  const [soldierStats, setSoldierStats] = useState({ total: 0, home: 0 });
+  const [refundRequestsCount, setRefundRequestsCount] = useState(0);
+  const [pendingProblemsCount, setPendingProblemsCount] = useState(0);
   // Collapsible state for each section
   const [openEvents, setOpenEvents] = useState(false);
   const [openSurveys, setOpenSurveys] = useState(false);
@@ -76,6 +82,38 @@ export default function AdminHomePage() {
     } catch (error) {
       console.error('Error fetching data:', error);
       setLoading(false);
+    }
+  };
+
+  const fetchDashboardData = async () => {
+    try {
+      // Fetch soldier data using the existing getActiveUsers function
+      const allSoldiers = await getActiveUsers();
+      
+      const totalSoldiers = allSoldiers.length;
+      // Check for presence using different possible field names
+      const homeSoldiers = allSoldiers.filter(soldier => {
+        // Try different possible field structures for presence
+        return soldier.currentStatus?.isPresent === true || 
+               soldier.status === 'home' || 
+               soldier.isPresent === true ||
+               (soldier.currentStatus && soldier.currentStatus.isPresent === true);
+      }).length;
+      
+      setSoldierStats({ total: totalSoldiers, home: homeSoldiers });
+
+      // Fetch refund requests
+      const refundQuery = query(collection(db, 'refundRequests'), where('status', '==', 'waiting'));
+      const refundSnapshot = await getDocs(refundQuery);
+      setRefundRequestsCount(refundSnapshot.docs.length);
+
+      // Fetch pending problem reports
+      const problemsQuery = query(collection(db, 'problemReports'), where('status', '==', 'pending'));
+      const problemsSnapshot = await getDocs(problemsQuery);
+      setPendingProblemsCount(problemsSnapshot.docs.length);
+
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error);
     }
   };
 
@@ -155,6 +193,7 @@ export default function AdminHomePage() {
       }
       
       await fetchData();
+      await fetchDashboardData();
       setIsCheckingProfile(false);
     });
     return () => unsubscribe();
@@ -256,29 +295,71 @@ Welcome,
           </p>
         </div>
         {/* Top 3 Cards Section */}
-        <div className="flex justify-between gap-3 mb-8">
+        <div className="grid grid-cols-3 gap-4 mb-8">
+          {/* Soldiers Home Card */}
           <button
             onClick={() => router.push('/admin/soldiers?filter=home')}
-            className="flex-1 flex flex-col items-center justify-center rounded-2xl shadow-lg py-5"
-            style={{ minWidth: 0, background: colors.sectionBg }}
+            className="group relative rounded-3xl transition-all duration-300 transform hover:scale-105 active:scale-95 border-4"
+            style={{ 
+              minWidth: 0, 
+              background: 'transparent',
+              borderColor: colors.gold,
+              minHeight: '120px'
+            }}
           >
-            <div className="text-2xl font-extrabold text-white mb-1">75</div>
-            <div className="text-xs font-semibold text-white/80">{t('soldiers_home', 'Soldiers Home')}</div>
+            <div className="flex flex-col items-center justify-center h-full p-4">
+              <div className="text-4xl font-black mb-2" style={{ color: colors.primaryGreen }}>
+                {soldierStats.home}
+              </div>
+              <div className="text-sm font-bold text-center leading-tight mb-1" style={{ color: colors.primaryGreen }}>
+                {t('soldiers_home', 'Soldiers Home')}
+              </div>
+              <div className="text-xs text-center" style={{ color: colors.primaryGreen, opacity: 0.8 }}>
+                of {soldierStats.total} total
+              </div>
+            </div>
           </button>
+
+          {/* Refund Requests Card */}
           <button
             onClick={() => router.push('/admin/expenses')}
-            className="flex-1 flex flex-col items-center justify-center rounded-2xl shadow-lg py-5"
-            style={{ minWidth: 0, background: colors.sectionBg }}
+            className="group relative rounded-3xl transition-all duration-300 transform hover:scale-105 active:scale-95 border-4"
+            style={{ 
+              minWidth: 0, 
+              background: 'transparent',
+              borderColor: colors.gold,
+              minHeight: '120px'
+            }}
           >
-            <div className="text-2xl font-extrabold text-white mb-1">20</div>
-            <div className="text-xs font-semibold text-white/80">{t('refund_requests', 'Refund Requests')}</div>
+            <div className="flex flex-col items-center justify-center h-full p-4">
+              <div className="text-4xl font-black mb-2" style={{ color: colors.primaryGreen }}>
+                {refundRequestsCount}
+              </div>
+              <div className="text-sm font-bold text-center leading-tight" style={{ color: colors.primaryGreen }}>
+                {t('refund_requests', 'Refund Requests')}
+              </div>
+            </div>
           </button>
+
+          {/* Pending Problems Card */}
           <button
-            className="flex-1 flex flex-col items-center justify-center rounded-2xl shadow-lg py-5 cursor-default"
-            style={{ minWidth: 0, background: colors.sectionBg }}
+            onClick={() => router.push('/admin/report')}
+            className="group relative rounded-3xl transition-all duration-300 transform hover:scale-105 active:scale-95 border-4"
+            style={{ 
+              minWidth: 0, 
+              background: 'transparent',
+              borderColor: colors.gold,
+              minHeight: '120px'
+            }}
           >
-            <div className="text-2xl font-extrabold text-white mb-1">5</div>
-            <div className="text-xs font-semibold text-white/80">{t('pending_problems', 'Pending Problems')}</div>
+            <div className="flex flex-col items-center justify-center h-full p-4">
+              <div className="text-4xl font-black mb-2" style={{ color: colors.primaryGreen }}>
+                {pendingProblemsCount}
+              </div>
+              <div className="text-sm font-bold text-center leading-tight" style={{ color: colors.primaryGreen }}>
+                {t('pending_problems', 'Pending Problems')}
+              </div>
+            </div>
           </button>
         </div>
 
