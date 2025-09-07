@@ -243,15 +243,17 @@ export const searchUsers = async (searchTerm, options = {}) => {
       else if (searchTerm && searchTerm.trim().length >= 2) {
         const term = searchTerm.trim().toLowerCase();
         if (
-          data.fullName?.toLowerCase().includes(term) ||
-          data.roomNumber?.includes(term) ||
-          data.email?.toLowerCase().includes(term) ||
-          data.personalNumber?.includes(term) ||
-          data.unit?.toLowerCase().includes(term) ||
-          data.battalion?.toLowerCase().includes(term) ||
-          data.mashakitTash?.toLowerCase().includes(term) ||
-          data.officerName?.toLowerCase().includes(term) ||
-          data.emergencyContactName?.toLowerCase().includes(term)
+          String(data.fullName || '').toLowerCase().includes(term) ||
+          String(data.roomNumber || '').includes(term) ||
+          String(data.email || '').toLowerCase().includes(term) ||
+          String(data.phoneNumber || '').includes(term) ||
+          String(data.phone || '').includes(term) ||
+          String(data.personalNumber || '').includes(term) ||
+          String(data.unit || '').toLowerCase().includes(term) ||
+          String(data.battalion || '').toLowerCase().includes(term) ||
+          String(data.mashakitTash || '').toLowerCase().includes(term) ||
+          String(data.officerName || '').toLowerCase().includes(term) ||
+          String(data.emergencyContactName || '').toLowerCase().includes(term)
         ) {
           shouldInclude = true;
         }

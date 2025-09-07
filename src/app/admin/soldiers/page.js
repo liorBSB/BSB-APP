@@ -61,11 +61,6 @@ export default function AdminSoldiersPage() {
   return (
     <main className="min-h-screen bg-gradient-to-br from-blue-200/60 to-green-100/60 font-body flex flex-col items-center pt-6 pb-32 px-4">
       <div className="w-full max-w-6xl">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">Soldier Management</h1>
-          <p className="text-gray-600">View, search, and manage soldiers at home</p>
-        </div>
 
         {/* Soldier Management Component */}
         <SoldierManagement />

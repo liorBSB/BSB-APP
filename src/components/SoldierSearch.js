@@ -137,7 +137,7 @@ export default function SoldierSearch({ onSelectSoldier, onSearchResults }) {
             type="text"
             value={searchTerm}
             onChange={handleSearchChange}
-            placeholder="Search by name, room, ID, unit..."
+            placeholder="Search by name, phone, room, unit, battalion, personal number..."
             className="w-full pl-4 pr-10 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
           />
           
@@ -190,31 +190,6 @@ export default function SoldierSearch({ onSelectSoldier, onSearchResults }) {
         </div>
       )}
 
-      {/* Quick Search Results Preview */}
-      {showResults && searchResults.length > 0 && (
-        <div className="mt-2 p-3 rounded-xl border" style={{ background: colors.gold, color: colors.black, borderColor: colors.goldHover }}>
-          <div className="text-sm">
-            Found {searchResults.length} soldier(s). Click on a result to view details.
-          </div>
-        </div>
-      )}
-
-      {/* No Results */}
-      {showResults && searchResults.length === 0 && !isSearching && searchTerm.length >= 2 && (
-        <div className="mt-2 p-3 rounded-xl border" style={{ background: colors.yellow, color: colors.black, borderColor: colors.yellow }}>
-          <div className="text-sm">
-            No soldiers found matching your search.
-          </div>
-        </div>
-      )}
-
-      {/* Search Tips */}
-      <div className="mt-3 text-sm text-gray-600">
-        <div className="flex items-center gap-2">
-          <span>📍</span>
-          <span>Tip: Search by name, room number, ID, unit, or entry date range</span>
-        </div>
-      </div>
     </div>
   );
 }

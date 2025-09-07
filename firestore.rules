@@ -75,6 +75,12 @@ service cloud.firestore {
       allow delete: if isSignedIn() && isAdmin(request.auth.uid);
     }
 
+    // Fixed problems (archived reports moved here by admins)
+    match /fixedProblems/{fixedId} {
+      // Only admins can create, read, update, and delete fixed problems
+      allow read, write: if isSignedIn() && isAdmin(request.auth.uid);
+    }
+
 
 
     // Admin approval requests for admin access

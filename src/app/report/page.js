@@ -12,11 +12,16 @@ import { ref as storageRef, uploadBytesResumable, getDownloadURL } from 'firebas
 export default function ReportPage() {
   const { t, i18n } = useTranslation('report');
   const [desc, setDesc] = useState('');
+  const [isInMyRoom, setIsInMyRoom] = useState(null); // null, true (in my room), false (not in my room)
   const [selectedHouse, setSelectedHouse] = useState('');
   const [selectedFloor, setSelectedFloor] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('');
+  const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [submitSuccess, setSubmitSuccess] = useState('');
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [submittedReport, setSubmittedReport] = useState(null);
   const [refundOpen, setRefundOpen] = useState(false);
   const [refundSaving, setRefundSaving] = useState(false);
   const [refundError, setRefundError] = useState('');
@@ -26,6 +31,29 @@ export default function ReportPage() {
   const [uploadedPhotoPath, setUploadedPhotoPath] = useState('');
   const [refundPhotoUrl, setRefundPhotoUrl] = useState('');
   const [refundPhotoPath, setRefundPhotoPath] = useState('');
+  const categoryDropdownRef = useRef(null);
+
+  const categoryOptions = [
+    { value: 'air_conditioning', label: 'Air Conditioning' },
+    { value: 'shower_toilet', label: 'Shower and Toilet' },
+    { value: 'walls_floor', label: 'Walls and Floor' },
+    { value: 'furniture', label: 'Furniture' },
+    { value: 'other', label: 'Other' }
+  ];
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (categoryDropdownRef.current && !categoryDropdownRef.current.contains(event.target)) {
+        setCategoryDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   const handlePhotoUploaded = (photoUrl, photoPath) => {
     setUploadedPhotoUrl(photoUrl);
@@ -64,13 +92,23 @@ export default function ReportPage() {
       setSubmitError('Please describe the problem');
       return;
     }
-    if (!selectedHouse) {
-      setSubmitError('Please select a house');
+    if (isInMyRoom === null) {
+      setSubmitError('Please select if the problem is in your room or not');
       return;
     }
-    if (!selectedFloor) {
-      setSubmitError('Please select a floor');
+    if (!selectedCategory) {
+      setSubmitError('Please select a problem category');
       return;
+    }
+    if (isInMyRoom === false) {
+      if (!selectedHouse) {
+        setSubmitError('Please select a house');
+        return;
+      }
+      if (!selectedFloor) {
+        setSubmitError('Please select a floor');
+        return;
+      }
     }
     
     try {
@@ -89,8 +127,10 @@ export default function ReportPage() {
         ownerName: userData.fullName || '',
         ownerRoomNumber: userData.roomNumber || '',
         description: desc.trim(),
-        house: selectedHouse,
-        floor: selectedFloor,
+        category: selectedCategory,
+        isInMyRoom: isInMyRoom,
+        house: isInMyRoom ? userData.house || '' : selectedHouse,
+        floor: isInMyRoom ? userData.floor || '' : selectedFloor,
         photoUrl: uploadedPhotoUrl || '',
         photoPath: uploadedPhotoPath || '',
         status: 'pending',
@@ -100,10 +140,26 @@ export default function ReportPage() {
       };
       
       await addDoc(collection(db, 'problemReports'), payload);
-      setSubmitSuccess('Problem report submitted successfully');
+      
+      // Store submitted report details for success modal
+      setSubmittedReport({
+        description: desc,
+        category: selectedCategory,
+        isInMyRoom: isInMyRoom,
+        house: isInMyRoom ? null : selectedHouse,
+        floor: isInMyRoom ? null : selectedFloor,
+        roomNumber: isInMyRoom ? userData.roomNumber : null,
+        photoUrl: uploadedPhotoUrl,
+        submittedAt: new Date()
+      });
+      
+      // Show success modal
+      setShowSuccessModal(true);
       
       // Reset form
       setDesc('');
+      setIsInMyRoom(null);
+      setSelectedCategory('');
       setSelectedHouse('');
       setSelectedFloor('');
       setUploadedPhotoUrl('');
@@ -162,68 +218,155 @@ export default function ReportPage() {
           {submitError && <div className="mb-4 w-full text-red-200 text-sm bg-red-500/20 rounded px-3 py-2">{submitError}</div>}
           {submitSuccess && <div className="mb-4 w-full text-green-200 text-sm bg-green-500/20 rounded px-3 py-2">{submitSuccess}</div>}
           
-          {/* House Selector */}
+          {/* Room Location Selector */}
           <div className="mb-6 w-full">
-            <label className="block text-lg mb-2 text-white font-semibold">{t('select_house')}</label>
+            <label className="block text-lg mb-2 text-white font-semibold">Where is the problem located?</label>
             <div className="flex gap-2">
               <button
-                onClick={() => setSelectedHouse(selectedHouse === 'new_house' ? '' : 'new_house')}
+                onClick={() => setIsInMyRoom(isInMyRoom === true ? null : true)}
                 className={`flex-1 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 hover:scale-105 ${
-                  selectedHouse === 'new_house' 
+                  isInMyRoom === true 
                     ? 'text-white' 
                     : 'text-white'
                 }`}
                 style={{ 
-                  background: selectedHouse === 'new_house' ? colors.primaryGreen : 'rgba(255, 255, 255, 0.1)',
-                  border: selectedHouse === 'new_house' ? 'none' : `2px solid rgba(255, 255, 255, 0.3)`,
-                  color: selectedHouse === 'new_house' ? colors.white : colors.white,
-                  boxShadow: selectedHouse === 'new_house' ? '0 4px 12px rgba(7, 99, 50, 0.3)' : 'none'
+                  background: isInMyRoom === true ? colors.primaryGreen : 'rgba(255, 255, 255, 0.1)',
+                  border: isInMyRoom === true ? 'none' : `2px solid rgba(255, 255, 255, 0.3)`,
+                  color: isInMyRoom === true ? colors.white : colors.white,
+                  boxShadow: isInMyRoom === true ? '0 4px 12px rgba(7, 99, 50, 0.3)' : 'none'
                 }}
               >
-                {t('houses.new_house')}
+                In my room
               </button>
               <button
-                onClick={() => setSelectedHouse(selectedHouse === 'original_house' ? '' : 'original_house')}
+                onClick={() => setIsInMyRoom(isInMyRoom === false ? null : false)}
                 className={`flex-1 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 hover:scale-105 ${
-                  selectedHouse === 'original_house' 
+                  isInMyRoom === false 
                     ? 'text-white' 
                     : 'text-white'
                 }`}
                 style={{ 
-                  background: selectedHouse === 'original_house' ? colors.primaryGreen : 'rgba(255, 255, 255, 0.1)',
-                  border: selectedHouse === 'original_house' ? 'none' : `2px solid rgba(255, 255, 255, 0.3)`,
-                  color: selectedHouse === 'original_house' ? colors.white : colors.white,
-                  boxShadow: selectedHouse === 'original_house' ? '0 4px 12px rgba(7, 99, 50, 0.3)' : 'none'
+                  background: isInMyRoom === false ? colors.primaryGreen : 'rgba(255, 255, 255, 0.1)',
+                  border: isInMyRoom === false ? 'none' : `2px solid rgba(255, 255, 255, 0.3)`,
+                  color: isInMyRoom === false ? colors.white : colors.white,
+                  boxShadow: isInMyRoom === false ? '0 4px 12px rgba(7, 99, 50, 0.3)' : 'none'
                 }}
               >
-                {t('houses.original_house')}
+                Not in my room
               </button>
             </div>
           </div>
 
-          {/* Floor Selector */}
-          <div className="mb-6 w-full">
-            <label className="block text-lg mb-2 text-white font-semibold">{t('select_floor')}</label>
-            <div className="grid grid-cols-3 gap-2">
-              {['-1', '0', '1', '2', '3'].map((floor) => (
+          {/* House Selector - Only show if not in my room */}
+          {isInMyRoom === false && (
+            <div className="mb-6 w-full">
+              <label className="block text-lg mb-2 text-white font-semibold">{t('select_house')}</label>
+              <div className="flex gap-2">
                 <button
-                  key={floor}
-                  onClick={() => setSelectedFloor(selectedFloor === floor ? '' : floor)}
-                  className={`px-3 py-3 rounded-xl text-sm font-semibold transition-all duration-200 hover:scale-105 ${
-                    selectedFloor === floor 
+                  onClick={() => setSelectedHouse(selectedHouse === 'new_house' ? '' : 'new_house')}
+                  className={`flex-1 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 hover:scale-105 ${
+                    selectedHouse === 'new_house' 
                       ? 'text-white' 
                       : 'text-white'
                   }`}
                   style={{ 
-                    background: selectedFloor === floor ? colors.primaryGreen : 'rgba(255, 255, 255, 0.1)',
-                    border: selectedFloor === floor ? 'none' : `2px solid rgba(255, 255, 255, 0.3)`,
-                    color: selectedFloor === floor ? colors.white : colors.white,
-                    boxShadow: selectedFloor === floor ? '0 4px 12px rgba(7, 99, 50, 0.3)' : 'none'
+                    background: selectedHouse === 'new_house' ? colors.primaryGreen : 'rgba(255, 255, 255, 0.1)',
+                    border: selectedHouse === 'new_house' ? 'none' : `2px solid rgba(255, 255, 255, 0.3)`,
+                    color: selectedHouse === 'new_house' ? colors.white : colors.white,
+                    boxShadow: selectedHouse === 'new_house' ? '0 4px 12px rgba(7, 99, 50, 0.3)' : 'none'
                   }}
                 >
-                  {t(`floors.${floor}`)}
+                  {t('houses.new_house')}
                 </button>
-              ))}
+                <button
+                  onClick={() => setSelectedHouse(selectedHouse === 'original_house' ? '' : 'original_house')}
+                  className={`flex-1 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 hover:scale-105 ${
+                    selectedHouse === 'original_house' 
+                      ? 'text-white' 
+                      : 'text-white'
+                  }`}
+                  style={{ 
+                    background: selectedHouse === 'original_house' ? colors.primaryGreen : 'rgba(255, 255, 255, 0.1)',
+                    border: selectedHouse === 'original_house' ? 'none' : `2px solid rgba(255, 255, 255, 0.3)`,
+                    color: selectedHouse === 'original_house' ? colors.white : colors.white,
+                    boxShadow: selectedHouse === 'original_house' ? '0 4px 12px rgba(7, 99, 50, 0.3)' : 'none'
+                  }}
+                >
+                  {t('houses.original_house')}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Floor Selector - Only show if not in my room */}
+          {isInMyRoom === false && (
+            <div className="mb-6 w-full">
+              <label className="block text-lg mb-2 text-white font-semibold">{t('select_floor')}</label>
+              <div className="grid grid-cols-3 gap-2">
+                {['-1', '0', '1', '2', '3'].map((floor) => (
+                  <button
+                    key={floor}
+                    onClick={() => setSelectedFloor(selectedFloor === floor ? '' : floor)}
+                    className={`px-3 py-3 rounded-xl text-sm font-semibold transition-all duration-200 hover:scale-105 ${
+                      selectedFloor === floor 
+                        ? 'text-white' 
+                        : 'text-white'
+                    }`}
+                    style={{ 
+                      background: selectedFloor === floor ? colors.primaryGreen : 'rgba(255, 255, 255, 0.1)',
+                      border: selectedFloor === floor ? 'none' : `2px solid rgba(255, 255, 255, 0.3)`,
+                      color: selectedFloor === floor ? colors.white : colors.white,
+                      boxShadow: selectedFloor === floor ? '0 4px 12px rgba(7, 99, 50, 0.3)' : 'none'
+                    }}
+                  >
+                    {t(`floors.${floor}`)}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Problem Category Selector */}
+          <div className="mb-6 w-full relative" ref={categoryDropdownRef}>
+            <label className="block text-lg mb-2 text-white font-semibold">Problem Category</label>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setCategoryDropdownOpen(!categoryDropdownOpen)}
+                className="w-full px-4 py-3 rounded-xl text-lg border border-white/30 bg-white text-black focus:outline-none focus:border-gold transition text-left flex items-center justify-between"
+              >
+                <span className={selectedCategory ? 'text-black' : 'text-gray-500'}>
+                  {selectedCategory ? categoryOptions.find(opt => opt.value === selectedCategory)?.label : 'Select a category...'}
+                </span>
+                <svg 
+                  className={`w-5 h-5 transition-transform ${categoryDropdownOpen ? 'rotate-180' : ''}`} 
+                  fill="none" 
+                  stroke="currentColor" 
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              
+              {categoryDropdownOpen && (
+                <div className="absolute z-10 w-full mt-1 bg-white rounded-xl shadow-lg border border-gray-200 max-h-60 overflow-auto">
+                  {categoryOptions.map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => {
+                        setSelectedCategory(option.value);
+                        setCategoryDropdownOpen(false);
+                      }}
+                      className={`w-full px-4 py-3 text-left text-lg hover:bg-gray-50 transition-colors first:rounded-t-xl last:rounded-b-xl ${
+                        selectedCategory === option.value ? 'bg-blue-50 text-blue-700' : 'text-gray-700'
+                      }`}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
@@ -300,6 +443,93 @@ export default function ReportPage() {
               
               <button onClick={handleRefundSave} disabled={refundSaving} className="w-full px-4 py-3 rounded-xl text-white font-semibold disabled:opacity-70 text-lg" style={{ background: colors.gold }}>
                 {refundSaving ? t('submitting') : t('submit_request')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Success Modal */}
+      {showSuccessModal && submittedReport && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between p-4 border-b flex-shrink-0" style={{ backgroundColor: colors.gold + '20' }}>
+              <h3 className="text-lg font-bold" style={{ color: colors.primaryGreen }}>Report Submitted Successfully!</h3>
+              <button 
+                onClick={() => setShowSuccessModal(false)} 
+                className="text-2xl transition-colors hover:opacity-70"
+                style={{ color: colors.primaryGreen }}
+              >
+                ✕
+              </button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto p-6">
+              <div className="text-center mb-6">
+                <div className="w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center" style={{ backgroundColor: colors.green + '20' }}>
+                  <svg className="w-8 h-8" style={{ color: colors.green }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <h4 className="text-xl font-semibold mb-2" style={{ color: colors.primaryGreen }}>Thank You!</h4>
+                <p className="text-gray-600">We've received your problem report and will look into it soon.</p>
+              </div>
+
+              <div className="bg-gray-50 rounded-xl p-4 space-y-3">
+                <h5 className="font-semibold text-gray-800 mb-3">Report Details:</h5>
+                
+                <div className="space-y-2">
+                  <div>
+                    <span className="text-sm font-medium text-gray-600">Description:</span>
+                    <p className="text-gray-800">{submittedReport.description}</p>
+                  </div>
+                  
+                  <div>
+                    <span className="text-sm font-medium text-gray-600">Category:</span>
+                    <p className="text-gray-800 capitalize">{submittedReport.category?.replace('_', ' ') || 'Not specified'}</p>
+                  </div>
+                  
+                  <div>
+                    <span className="text-sm font-medium text-gray-600">Location:</span>
+                    <p className="text-gray-800">
+                      {submittedReport.isInMyRoom 
+                        ? `Room ${submittedReport.roomNumber || 'N/A'}` 
+                        : `${submittedReport.house === 'new_house' ? 'New House' : 'Original House'} - Floor ${submittedReport.floor}`
+                      }
+                    </p>
+                  </div>
+                  
+                  <div>
+                    <span className="text-sm font-medium text-gray-600">Submitted:</span>
+                    <p className="text-gray-800">{submittedReport.submittedAt.toLocaleString()}</p>
+                  </div>
+                  
+                  {submittedReport.photoUrl && (
+                    <div>
+                      <span className="text-sm font-medium text-gray-600">Photo:</span>
+                      <div className="mt-2">
+                        <img 
+                          src={submittedReport.photoUrl} 
+                          alt="Submitted photo" 
+                          className="w-full h-32 object-cover rounded-lg"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="p-4 border-t" style={{ backgroundColor: colors.surface }}>
+              <button
+                onClick={() => setShowSuccessModal(false)}
+                className="w-full px-4 py-2 rounded-lg font-semibold transition-all duration-200 hover:shadow-md"
+                style={{ 
+                  backgroundColor: colors.primaryGreen,
+                  color: 'white'
+                }}
+              >
+                Close
               </button>
             </div>
           </div>
