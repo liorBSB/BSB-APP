@@ -36,10 +36,6 @@ const testHebrewTranslation = () => {
     'ממתין לאישור'
   ];
   
-  console.log('Hebrew Translation Test:');
-  testCases.forEach(test => {
-    console.log(`"${test}" → "${convertHebrewToReadable(test)}"`);
-  });
 };
 
 // Function to get user name by UID
@@ -367,14 +363,6 @@ const generateUnifiedPDF = async (items, type = 'expenses', dateRange = null, cu
       }
     });
     
-    console.log('Items with photos:', itemsWithPhotos.length);
-    console.log('Photo URLs found:', itemsWithPhotos.map(item => ({
-      title: item.title,
-      photoUrl: item.photoUrl,
-      receiptPhotoUrl: item.receiptPhotoUrl,
-      photoPath: item.photoPath
-    })));
-    
     if (itemsWithPhotos.length > 0) {
       // Add a new page for photos
       doc.addPage();
@@ -429,8 +417,6 @@ const generateUnifiedPDF = async (items, type = 'expenses', dateRange = null, cu
         doc.text(`${originalRowNumber}`, photoX, photoY - 5);
         
         // Try to load and add the actual image
-        console.log(`Attempting to load photo for: ${item.title}`, photoUrl);
-        
         // Load image through proxy to avoid CORS issues
         const imageLoaded = await new Promise((resolve) => {
           const img = new Image();
@@ -441,7 +427,6 @@ const generateUnifiedPDF = async (items, type = 'expenses', dateRange = null, cu
           
           // Add timeout to prevent hanging
           const timeout = setTimeout(() => {
-            console.warn(`Image load timeout for: ${photoUrl}`);
             addPlaceholder();
             resolve(false);
           }, 20000); // 20 second timeout
@@ -459,23 +444,19 @@ const generateUnifiedPDF = async (items, type = 'expenses', dateRange = null, cu
               
               // Add the actual image to PDF
               doc.addImage(img, format, photoX, photoY, photoWidth, photoHeight);
-                              console.log(`Successfully added photo #${originalRowNumber} from: ${photoUrl} (format: ${format})`);
               resolve(true);
-            } catch (error) {
-              console.warn(`Failed to add image to PDF:`, error);
+            } catch {
               addPlaceholder();
               resolve(false);
             }
           };
           
-          img.onerror = (error) => {
+          img.onerror = () => {
             clearTimeout(timeout);
-            console.warn(`Failed to load image via proxy: ${photoUrl}`, error);
             addPlaceholder();
             resolve(false);
           };
           
-          console.log(`Attempting to load image via proxy: ${proxyUrl}`);
           img.src = proxyUrl;
         });
         
@@ -501,8 +482,7 @@ const generateUnifiedPDF = async (items, type = 'expenses', dateRange = null, cu
           photosInCurrentRow = 0;
         }
         
-      } catch (error) {
-        console.warn(`Failed to load photo for item: ${item.title}`, error);
+      } catch {
         // Continue with next photo
       }
     }
@@ -691,34 +671,26 @@ export default function AdminExpensesPage() {
   useEffect(() => {
     const check = async () => {
       try {
-        console.log('Checking user access...');
         const user = auth.currentUser;
         if (!user) { 
-          console.log('No user, redirecting to /');
           router.push("/"); 
           return; 
         }
-        
-        console.log('User found:', user.uid);
         const uRef = doc(db, "users", user.uid);
         const uSnap = await getDoc(uRef);
         
         if (!uSnap.exists()) { 
-          console.log('User doc does not exist, redirecting to /home');
           router.push("/home"); 
           return; 
         }
         
         const userData = uSnap.data();
-        console.log('User data:', userData);
         
         if (userData?.userType !== "admin") { 
-          console.log('User is not admin, redirecting to /home');
           router.push("/home"); 
           return; 
         }
         
-        console.log('User is admin, setting userDoc');
         setUserDoc({ id: uSnap.id, ...userData });
         
       } catch (error) {
@@ -743,7 +715,6 @@ export default function AdminExpensesPage() {
   const showError = (msg) => { setError(msg); try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch {} };
 
   const handlePhotoUploaded = (photoUrl, photoPath) => {
-    console.log('Photo uploaded:', photoUrl, photoPath);
     setForm(prev => ({
       ...prev,
       photoUrl,
@@ -1118,14 +1089,9 @@ export default function AdminExpensesPage() {
   };
 
   const fetchReportData = async () => {
-    console.log('fetchReportData called');
-    console.log('Current filters:', reportFilters);
     setReportLoading(true);
     try {
-      // Super simple query - fetch all expenses without any constraints
-      console.log('Fetching all expenses...');
       const querySnapshot = await getDocs(collection(db, "expenses"));
-      console.log('Query completed, docs found:', querySnapshot.docs.length);
       
       // Convert to array and add user names
       let expenses = await Promise.all(querySnapshot.docs.map(async doc => {
@@ -1147,16 +1113,11 @@ export default function AdminExpensesPage() {
       
       // Apply category filtering in JavaScript
       if (reportFilters.category) {
-        console.log('Filtering by category:', reportFilters.category);
         expenses = expenses.filter(expense => expense.category === reportFilters.category);
-        console.log('After category filter:', expenses.length, 'expenses');
       }
       
-      // Apply payment method filtering in JavaScript
       if (reportFilters.paymentMethod) {
-        console.log('Filtering by payment method:', reportFilters.paymentMethod);
         expenses = expenses.filter(expense => expense.reimbursementMethod === reportFilters.paymentMethod);
-        console.log('After payment method filter:', expenses.length, 'expenses');
       }
       
       // Apply date filtering in JavaScript
@@ -1193,12 +1154,10 @@ export default function AdminExpensesPage() {
         }
         
         if (startDate && reportFilters.dateRange !== "custom") {
-          console.log('Filtering by date from:', startDate);
           expenses = expenses.filter(expense => {
             const expenseDate = expense.expenseDate?.toDate?.() || new Date(expense.expenseDate);
             return expenseDate >= startDate;
           });
-          console.log('After date filter:', expenses.length, 'expenses');
         }
       }
       
@@ -1209,8 +1168,6 @@ export default function AdminExpensesPage() {
         return dateB - dateA;
       });
       
-      console.log('Search results after filtering:', expenses.length, 'expenses found');
-      console.log('First expense sample:', expenses[0]);
       setReportItems(expenses);
       setShowSearchResults(true);
     } catch (error) {
@@ -1795,11 +1752,7 @@ export default function AdminExpensesPage() {
                 {/* Search Button */}
                 <div className="flex justify-center mb-6 sm:mb-4 flex-shrink-0">
                   <button 
-                    onClick={() => {
-                      console.log('Search button clicked');
-                      console.log('Current filters:', reportFilters);
-                      fetchReportData();
-                    }}
+                    onClick={fetchReportData}
                     disabled={reportLoading}
                     className="w-full sm:w-auto px-6 py-3 border-2 font-bold text-base sm:text-lg rounded-lg transition-colors duration-200"
                     style={{ 

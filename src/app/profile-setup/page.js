@@ -2,16 +2,20 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { auth, db } from '../../lib/firebase';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc, collection, query, where, getDocs, serverTimestamp } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { useTranslation } from 'react-i18next';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
 import SoldierNameSearch from '@/components/SoldierNameSearch';
-import { mapSoldierData, getAllSoldiers } from '@/lib/soldierDataService';
+import { mapSoldierData } from '@/lib/soldierDataService';
+import { FIELD_MAP, PRIMARY_KEY_APP } from '@/lib/sheetFieldMap';
+import { resetSoldierAccount } from '@/lib/database';
+import useAuthRedirect from '@/hooks/useAuthRedirect';
 import colors from '../colors';
 
 export default function ProfileSetup() {
   const router = useRouter();
+  const isReady = useAuthRedirect();
   const { t, i18n } = useTranslation('profilesetup');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -21,6 +25,11 @@ export default function ProfileSetup() {
   const [selectedSoldier, setSelectedSoldier] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingSoldierData, setIsLoadingSoldierData] = useState(false);
+  const [showReclaimModal, setShowReclaimModal] = useState(false);
+  const [verifyPersonalNumber, setVerifyPersonalNumber] = useState('');
+  const [claimedDocId, setClaimedDocId] = useState(null);
+  const [reclaimError, setReclaimError] = useState('');
+  const [isReclaiming, setIsReclaiming] = useState(false);
 
   const changeLanguage = (lng) => {
     i18n.changeLanguage(lng);
@@ -53,6 +62,48 @@ export default function ProfileSetup() {
   };
 
 
+  const handleReclaim = async () => {
+    if (!claimedDocId || !verifyPersonalNumber.trim()) return;
+
+    setIsReclaiming(true);
+    setReclaimError('');
+
+    try {
+      const existingDoc = await getDoc(doc(db, 'users', claimedDocId));
+      if (!existingDoc.exists()) {
+        setReclaimError(t('reclaim_failed'));
+        setIsReclaiming(false);
+        return;
+      }
+
+      const existingData = existingDoc.data();
+      if (
+        !existingData.personalNumber ||
+        String(existingData.personalNumber).trim() !== verifyPersonalNumber.trim()
+      ) {
+        setReclaimError(t('reclaim_failed'));
+        setIsReclaiming(false);
+        return;
+      }
+
+      await resetSoldierAccount(claimedDocId);
+
+      setShowReclaimModal(false);
+      setVerifyPersonalNumber('');
+      setClaimedDocId(null);
+      setError('');
+      setReclaimError('');
+
+      const fakeEvent = { preventDefault: () => {} };
+      handleSave(fakeEvent);
+    } catch (err) {
+      console.error('Reclaim error:', err);
+      setReclaimError(t('reclaim_failed'));
+    } finally {
+      setIsReclaiming(false);
+    }
+  };
+
   const handleSave = async (e) => {
     e.preventDefault();
     setIsLoading(true);
@@ -60,107 +111,72 @@ export default function ProfileSetup() {
 
     const uid = auth.currentUser?.uid;
     if (!uid) {
-      setError('No authenticated user. Please sign in again.');
+      setError(t('no_auth_error'));
       router.push('/');
       return;
     }
 
     // Validate required fields
     if (!selectedSoldier) {
-      setError('Please select your name from the list.');
+      setError(t('select_name_error'));
       setIsLoading(false);
       return;
     }
 
     try {
-      // Prepare user data with all information from Google Sheets
+      if (selectedSoldier.idNumber) {
+        const dupeQuery = query(
+          collection(db, 'users'),
+          where('idNumber', '==', selectedSoldier.idNumber)
+        );
+        const dupeSnap = await getDocs(dupeQuery);
+        const claimedDoc = dupeSnap.docs.find(d => d.id !== uid);
+        if (claimedDoc) {
+          setClaimedDocId(claimedDoc.id);
+          setError(t('already_claimed'));
+          setIsLoading(false);
+          return;
+        }
+      }
+
       const userData = {
-        // Basic info
-        fullName: selectedSoldier.fullName,
-        firstName: selectedSoldier.firstName,
-        lastName: selectedSoldier.lastName,
-        email: selectedSoldier.email || auth.currentUser.email,
+        uid,
         userType: 'user',
-        createdAt: new Date(),
-        
-        // Room info (from Google Sheets)
-        roomNumber: selectedSoldier.roomNumber,
-        floor: selectedSoldier.floor,
-        roomType: selectedSoldier.roomType,
-        roomStatus: selectedSoldier.roomStatus,
-        serviceMonths: selectedSoldier.serviceMonths,
-        serviceRange: selectedSoldier.serviceRange,
-        monthsUntilRelease: selectedSoldier.monthsUntilRelease,
-        age: selectedSoldier.age,
-        calculatedReleaseDate: selectedSoldier.calculatedReleaseDate,
-        roomGender: selectedSoldier.roomGender,
-        
-        // Personal info (from Google Sheets)
-        gender: selectedSoldier.gender,
-        dateOfBirth: selectedSoldier.dateOfBirth,
-        idNumber: selectedSoldier.idNumber,
-        idType: selectedSoldier.idType,
-        countryOfOrigin: selectedSoldier.countryOfOrigin,
-        phone: selectedSoldier.phone,
-        previousAddress: selectedSoldier.previousAddress,
-        education: selectedSoldier.education,
-        license: selectedSoldier.license,
-        
-        // Family info (from Google Sheets)
-        familyInIsrael: selectedSoldier.familyInIsrael,
-        fatherName: selectedSoldier.fatherName,
-        fatherPhone: selectedSoldier.fatherPhone,
-        motherName: selectedSoldier.motherName,
-        motherPhone: selectedSoldier.motherPhone,
-        parentsStatus: selectedSoldier.parentsStatus,
-        parentsAddress: selectedSoldier.parentsAddress,
-        parentsEmail: selectedSoldier.parentsEmail,
-        contactWithParents: selectedSoldier.contactWithParents,
-        
-        // Emergency contact (from Google Sheets)
-        emergencyContactName: selectedSoldier.emergencyContactName,
-        emergencyContactPhone: selectedSoldier.emergencyContactPhone,
-        emergencyContactAddress: selectedSoldier.emergencyContactAddress,
-        emergencyContactEmail: selectedSoldier.emergencyContactEmail,
-        
-        // Military info (from Google Sheets)
-        personalNumber: selectedSoldier.personalNumber,
-        enlistmentDate: selectedSoldier.enlistmentDate,
-        releaseDate: selectedSoldier.releaseDate,
-        unit: selectedSoldier.unit,
-        battalion: selectedSoldier.battalion,
-        mashakitTash: selectedSoldier.mashakitTash,
-        mashakitPhone: selectedSoldier.mashakitPhone,
-        officerName: selectedSoldier.officerName,
-        officerPhone: selectedSoldier.officerPhone,
-        disciplinaryRecord: selectedSoldier.disciplinaryRecord,
-        
-        // Medical info (from Google Sheets)
-        healthFund: selectedSoldier.healthFund,
-        
-        // Additional info (from Google Sheets)
-        cleanlinessLevel: selectedSoldier.cleanlinessLevel,
-        contractDate: selectedSoldier.contractDate,
-        
-        // Metadata
-        lastUpdated: new Date(),
+        isAdmin: false,
+        status: 'home',
+        email: selectedSoldier.email || auth.currentUser.email,
+        lastUpdated: serverTimestamp(),
         dataSource: 'google_sheets',
-        profileComplete: true // Mark as complete since all data comes from sheets
+        profileComplete: true,
       };
 
-      // Update user document with all profile information
-      await setDoc(doc(db, 'users', uid), userData);
+      for (const field of FIELD_MAP) {
+        const val = selectedSoldier[field.app];
+        if (val !== undefined && val !== null && val !== '') {
+          userData[field.app] = val;
+        }
+      }
+
+      await setDoc(doc(db, 'users', uid), userData, { merge: true });
 
 
       // After profile setup, go to consent step 1 for soldiers
       router.push('/register/consent/1?role=soldier');
     } catch (err) {
       console.error('Profile setup error:', err);
-      setError('Failed to save profile. Please try again.');
+      setError(t('save_failed'));
     } finally {
       setIsLoading(false);
     }
   };
+
+  if (!isReady) {
+    return (
+      <main className="min-h-screen flex items-center justify-center font-body" style={{ background: colors.white }}>
+        <div className="animate-spin rounded-full h-16 w-16 border-b-4" style={{ borderColor: colors.primaryGreen }}></div>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen flex items-center justify-center font-body px-4 phone-lg:px-0" style={{ background: colors.white }}>
@@ -170,13 +186,13 @@ export default function ProfileSetup() {
           bg-transparent rounded-none shadow-none p-0
           phone-lg:bg-white phone-lg:rounded-[2.5rem] phone-lg:shadow-lg phone-lg:p-[3.5rem_2.2rem]"
       >
-        <h2 style={{ fontWeight: 700, fontSize: '2.5rem', textAlign: 'center', marginBottom: '2.8rem', color: colors.text }}>Complete Your Profile</h2>
+        <h2 style={{ fontWeight: 700, fontSize: '2.5rem', textAlign: 'center', marginBottom: '2.8rem', color: colors.text }}>{t('completeProfile')}</h2>
         <form onSubmit={handleSave}>
           <div style={{ marginBottom: '2.2rem' }}>
-            <label style={{ display: 'block', color: colors.muted, fontWeight: 600, marginBottom: 12, fontSize: 18 }}>Search Your Name</label>
+            <label style={{ display: 'block', color: colors.muted, fontWeight: 600, marginBottom: 12, fontSize: 18 }}>{t('search_name')}</label>
             <SoldierNameSearch
               onSoldierSelect={handleSoldierSelect}
-              placeholder="חיפוש לפי שם מלא..."
+              placeholder={t('search_placeholder')}
               error={error}
             />
             
@@ -209,8 +225,13 @@ export default function ProfileSetup() {
                   </div>
                 )}
                 <div style={{ textAlign: 'right', fontSize: '1rem', opacity: isLoadingSoldierData ? 0.5 : 1 }}>
-                  <div style={{ fontWeight: 700, marginBottom: '0.75rem', color: colors.text, fontSize: '1.1rem' }}>
-                    {selectedSoldier.fullName}
+                  <div style={{ fontWeight: 700, marginBottom: '0.75rem', color: colors.text, fontSize: '1.1rem', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.5rem' }}>
+                    <span>{selectedSoldier.fullName}</span>
+                    {selectedSoldier.idNumber && (
+                      <span style={{ fontSize: '0.8rem', color: colors.muted, fontWeight: 400 }} dir="ltr">
+                        (ת.ז ...{selectedSoldier.idNumber.slice(-4)})
+                      </span>
+                    )}
                   </div>
                   <div style={{ color: colors.muted, fontSize: '0.95rem', lineHeight: '1.4' }}>
                     <div>חדר: {selectedSoldier.roomNumber}</div>
@@ -223,17 +244,43 @@ export default function ProfileSetup() {
           </div>
           
           {error && (
-            <div style={{ 
-              marginBottom: '1.5rem', 
-              padding: '1rem', 
-              backgroundColor: '#FEF2F2', 
-              border: `1px solid ${colors.red}`, 
-              borderRadius: '12px',
-              color: colors.red,
-              fontSize: '0.95rem',
-              textAlign: 'center'
-            }}>
-              {error}
+            <div style={{ marginBottom: '1.5rem' }}>
+              <div style={{ 
+                padding: '1rem', 
+                backgroundColor: '#FEF2F2', 
+                border: `1px solid ${colors.red}`, 
+                borderRadius: '12px',
+                color: colors.red,
+                fontSize: '0.95rem',
+                textAlign: 'center'
+              }}>
+                {error}
+              </div>
+              {claimedDocId && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowReclaimModal(true);
+                    setReclaimError('');
+                    setVerifyPersonalNumber('');
+                  }}
+                  style={{
+                    display: 'block',
+                    width: '100%',
+                    marginTop: '0.75rem',
+                    background: 'none',
+                    border: 'none',
+                    color: '#2563eb',
+                    fontSize: '0.9rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    textDecoration: 'underline',
+                    textAlign: 'center'
+                  }}
+                >
+                  {t('lost_access_link')}
+                </button>
+              )}
             </div>
           )}
           
@@ -271,10 +318,10 @@ export default function ProfileSetup() {
               {isLoading ? (
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
                   <div className="animate-spin rounded-full h-5 w-5 border-2 border-black border-t-transparent"></div>
-                  Loading...
+                  {t('loading')}
                 </div>
               ) : (
-                'Complete Registration'
+                t('complete_registration')
               )}
             </button>
             
@@ -302,11 +349,118 @@ export default function ProfileSetup() {
                 e.target.style.color = colors.primaryGreen;
               }}
             >
-              Cancel & Sign Out
+              {t('cancel_sign_out')}
             </button>
           </div>
         </form>
       </div>
+
+      {showReclaimModal && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          backgroundColor: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 50,
+          padding: '1rem'
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '1.5rem',
+            maxWidth: '24rem',
+            width: '100%',
+            overflow: 'hidden'
+          }}>
+            <div style={{ padding: '1.25rem 1.5rem', background: '#2563eb', color: 'white' }}>
+              <h3 style={{ fontSize: '1.15rem', fontWeight: 700, textAlign: 'center', margin: 0 }}>
+                {t('reclaim_title')}
+              </h3>
+            </div>
+
+            <div style={{ padding: '1.5rem' }}>
+              <p style={{ color: '#4b5563', fontSize: '0.9rem', textAlign: 'center', marginBottom: '1.25rem' }}>
+                {t('reclaim_description')}
+              </p>
+
+              <input
+                type="text"
+                value={verifyPersonalNumber}
+                onChange={(e) => setVerifyPersonalNumber(e.target.value)}
+                placeholder={t('personal_number_placeholder')}
+                dir="ltr"
+                style={{
+                  width: '100%',
+                  padding: '0.75rem 1rem',
+                  border: `2px solid ${reclaimError ? colors.red : '#d1d5db'}`,
+                  borderRadius: '0.75rem',
+                  fontSize: '1rem',
+                  textAlign: 'center',
+                  outline: 'none',
+                  boxSizing: 'border-box',
+                  marginBottom: '0.75rem'
+                }}
+                onFocus={(e) => {
+                  if (!reclaimError) e.target.style.borderColor = '#2563eb';
+                }}
+                onBlur={(e) => {
+                  if (!reclaimError) e.target.style.borderColor = '#d1d5db';
+                }}
+              />
+
+              {reclaimError && (
+                <p style={{ color: colors.red, fontSize: '0.85rem', textAlign: 'center', marginBottom: '0.75rem' }}>
+                  {reclaimError}
+                </p>
+              )}
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.5rem' }}>
+                <button
+                  onClick={handleReclaim}
+                  disabled={isReclaiming || !verifyPersonalNumber.trim()}
+                  style={{
+                    width: '100%',
+                    padding: '0.75rem',
+                    borderRadius: '0.75rem',
+                    fontWeight: 600,
+                    fontSize: '1rem',
+                    border: 'none',
+                    background: isReclaiming || !verifyPersonalNumber.trim() ? '#9ca3af' : '#2563eb',
+                    color: 'white',
+                    cursor: isReclaiming || !verifyPersonalNumber.trim() ? 'not-allowed' : 'pointer',
+                    opacity: isReclaiming || !verifyPersonalNumber.trim() ? 0.6 : 1,
+                    transition: 'all 0.2s ease'
+                  }}
+                >
+                  {isReclaiming ? t('loading') : t('reclaim_submit')}
+                </button>
+                <button
+                  onClick={() => {
+                    setShowReclaimModal(false);
+                    setVerifyPersonalNumber('');
+                    setReclaimError('');
+                  }}
+                  style={{
+                    width: '100%',
+                    padding: '0.75rem',
+                    borderRadius: '0.75rem',
+                    fontWeight: 600,
+                    fontSize: '0.95rem',
+                    border: `2px solid ${colors.primaryGreen}`,
+                    background: 'transparent',
+                    color: colors.primaryGreen,
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease'
+                  }}
+                >
+                  {t('reclaim_cancel')}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

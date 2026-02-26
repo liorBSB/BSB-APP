@@ -182,26 +182,35 @@ export default function SoldierNameSearch({
           className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto"
           style={{ boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}
         >
-          {suggestions.map((soldier, index) => (
-            <div
-              key={`${soldier.fullName || 'soldier'}-${index}`}
-              onClick={() => handleSuggestionClick(soldier)}
-              className="px-4 py-3 hover:bg-green-50 cursor-pointer border-b border-gray-100 last:border-b-0 transition-colors duration-150"
-            >
-              <div className="text-right">
-                <div className="font-medium text-gray-900" style={{ fontSize: '1rem' }}>
-                  {soldier.fullName || soldier['שם מלא                                  (מילוי אוטומטי: לא לגעת)'] || 'No name'}
-                </div>
-                {(soldier.roomNumber || soldier['חדר']) && (
-                  <div className="text-sm text-gray-500 mt-1">
-                    חדר: {soldier.roomNumber || soldier['חדר']}
-                    {(soldier.building || soldier['בניין']) && `, בניין: ${soldier.building || soldier['בניין']}`}
-                    {(soldier.floor || soldier['קומה']) && `, קומה: ${soldier.floor || soldier['קומה']}`}
+          {suggestions.map((soldier, index) => {
+            const idNum = soldier['מספר זהות'] || soldier.idNumber || '';
+            const lastFour = idNum.length >= 4 ? idNum.slice(-4) : idNum;
+            return (
+              <div
+                key={`${soldier.fullName || 'soldier'}-${index}`}
+                onClick={() => handleSuggestionClick(soldier)}
+                className="px-4 py-3 hover:bg-green-50 cursor-pointer border-b border-gray-100 last:border-b-0 transition-colors duration-150"
+              >
+                <div className="text-right">
+                  <div className="font-medium text-gray-900 flex items-center justify-end gap-2" style={{ fontSize: '1rem' }}>
+                    <span>{soldier.fullName || soldier['שם מלא                                  (מילוי אוטומטי: לא לגעת)'] || 'No name'}</span>
+                    {lastFour && (
+                      <span className="text-xs text-gray-400 font-normal" dir="ltr">
+                        (ת.ז ...{lastFour})
+                      </span>
+                    )}
                   </div>
-                )}
+                  {(soldier.roomNumber || soldier['חדר']) && (
+                    <div className="text-sm text-gray-500 mt-1">
+                      חדר: {soldier.roomNumber || soldier['חדר']}
+                      {(soldier.building || soldier['בניין']) && `, בניין: ${soldier.building || soldier['בניין']}`}
+                      {(soldier.floor || soldier['קומה']) && `, קומה: ${soldier.floor || soldier['קומה']}`}
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 

@@ -10,6 +10,7 @@ import EditFieldModal from '@/components/EditFieldModal';
 import PhotoUpload from '@/components/PhotoUpload';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
 import DeleteAccountModal from '@/components/DeleteAccountModal';
+import Image from 'next/image';
 import colors from '../colors';
 
 export default function SettingsPage() {
@@ -467,14 +468,12 @@ export default function SettingsPage() {
               
               {/* Logo */}
               <div className="text-center mb-6">
-                <img 
+                <Image 
                   src="/House_Logo.jpg" 
                   alt="House Logo" 
-                  className="h-16 mx-auto"
-                  onError={(e) => {
-                    console.log('Logo failed to load:', e.target.src);
-                    e.target.style.display = 'none';
-                  }}
+                  width={64}
+                  height={64}
+                  className="h-16 w-auto mx-auto"
                 />
               </div>
               

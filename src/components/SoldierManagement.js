@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { getActiveUsers, markUserAsLeft, updateUserData } from '@/lib/database';
+import { getActiveUsers, markUserAsLeft, resetSoldierAccount, updateUserData } from '@/lib/database';
 import { auth, db } from '@/lib/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
 import SoldierSearch from './SoldierSearch';
@@ -29,7 +29,9 @@ export default function SoldierManagement() {
   const [showGenderDropdown, setShowGenderDropdown] = useState(false);
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
   const [showFamilyDropdown, setShowFamilyDropdown] = useState(false);
-
+  const [showResetConfirmation, setShowResetConfirmation] = useState(false);
+  const [soldierToReset, setSoldierToReset] = useState(null);
+  const [showSaveConfirmation, setShowSaveConfirmation] = useState(false);
 
   useEffect(() => {
     loadSoldiers();
@@ -69,36 +71,23 @@ export default function SoldierManagement() {
   const loadSoldiers = async () => {
     try {
       setLoading(true);
-      console.log('Loading soldiers...');
       
-      // Get active users (soldiers)
       const activeSoldiers = await getActiveUsers();
-      console.log('Active soldiers loaded:', activeSoldiers);
-      console.log('Number of active soldiers:', activeSoldiers.length);
       
       if (activeSoldiers.length === 0) {
-        console.log('No soldiers found with userType === "user"');
-        console.log('Let\'s check what users exist in the database...');
-        
-        // Import the necessary Firebase functions
         const { collection, getDocs, query, orderBy } = await import('firebase/firestore');
         const { db } = await import('@/lib/firebase');
         
-        // Get all users to see what's in the database
         const allUsersQuery = query(collection(db, 'users'), orderBy('fullName'));
         const allUsersSnap = await getDocs(allUsersQuery);
         const allUsers = allUsersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         
-        console.log('All users in database:', allUsers);
-        console.log('User types found:', [...new Set(allUsers.map(u => u.userType))]);
-        
-        // Show all users for debugging purposes
         setSoldiers(allUsers);
       } else {
         setSoldiers(activeSoldiers);
       }
-    } catch (error) {
-      console.error('Error loading soldiers:', error);
+    } catch {
+      // Failed to load soldiers
     } finally {
       setLoading(false);
     }
@@ -310,16 +299,12 @@ export default function SoldierManagement() {
       });
 
       setSuccess('Soldier data updated successfully!');
-      
-      // Reload soldiers to reflect changes
       await loadSoldiers();
-      
-      // Close modal after a short delay
+
       setTimeout(() => {
         setShowEditModal(false);
         setShowSoldierDetails(false);
         setEditForm({});
-        setSuccess('');
       }, 1500);
       
     } catch (error) {
@@ -408,7 +393,33 @@ export default function SoldierManagement() {
     }
   };
 
+  const handleResetAccount = async (soldierId) => {
+    if (!auth.currentUser) return;
 
+    try {
+      setProcessingId(soldierId);
+      await resetSoldierAccount(soldierId);
+
+      setSoldiers(prev => prev.filter(s => s.id !== soldierId));
+      setSearchResults(prev => prev.filter(s => s.id !== soldierId));
+
+      if (selectedSoldier?.id === soldierId) {
+        setShowSoldierDetails(false);
+        setSelectedSoldier(null);
+      }
+
+      setShowResetConfirmation(false);
+      setSoldierToReset(null);
+
+      alert(`✅ Account for "${soldierToReset?.fullName || 'Unknown'}" has been reset. They can now re-register with a new Google account.`);
+
+    } catch (error) {
+      console.error('Error resetting soldier account:', error);
+      alert('❌ Error resetting soldier account');
+    } finally {
+      setProcessingId(null);
+    }
+  };
 
   // Helper function to get filtered soldiers
   const getFilteredSoldiers = () => {
@@ -728,6 +739,22 @@ export default function SoldierManagement() {
                     }}
                   >
                     Close
+                  </button>
+                  <button
+                    onClick={() => {
+                      setSoldierToReset(selectedSoldier);
+                      setShowResetConfirmation(true);
+                    }}
+                    disabled={processingId === selectedSoldier.id}
+                    className="px-4 phone-sm:px-6 py-3 rounded-xl font-semibold transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed text-sm phone-sm:text-base"
+                    style={{ 
+                      background: 'transparent', 
+                      color: '#2563eb',
+                      border: '2px solid #2563eb',
+                      boxShadow: '0 4px 12px rgba(37, 99, 235, 0.1)'
+                    }}
+                  >
+                    🔄 Reset Account
                   </button>
                   <button
                     onClick={() => showDeleteConfirmationDialog(selectedSoldier)}
@@ -1338,7 +1365,7 @@ export default function SoldierManagement() {
                     Cancel
                   </button>
                   <button
-                    onClick={handleSaveEdit}
+                    onClick={() => setShowSaveConfirmation(true)}
                     disabled={saving}
                     className="px-4 phone-sm:px-6 py-3 rounded-xl font-semibold transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed text-sm phone-sm:text-base"
                     style={{ 
@@ -1348,7 +1375,7 @@ export default function SoldierManagement() {
                       boxShadow: '0 4px 12px rgba(7, 99, 50, 0.1)'
                     }}
                   >
-                    {saving ? 'Saving...' : 'Save Changes'}
+                    Save Changes
                   </button>
                 </div>
               </div>
@@ -1493,6 +1520,149 @@ export default function SoldierManagement() {
         </div>
       )}
 
+      {/* Reset Account Confirmation Modal */}
+      {showResetConfirmation && soldierToReset && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-3 phone-sm:p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full">
+            <div className="p-4 phone-sm:p-6" style={{ background: '#2563eb', color: 'white' }}>
+              <h3 className="text-lg phone-sm:text-xl font-bold text-center">
+                Reset Google Account
+              </h3>
+            </div>
+
+            <div className="p-4 phone-sm:p-6">
+              <div className="mb-6">
+                <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background: '#dbeafe' }}>
+                  <span className="text-2xl">🔄</span>
+                </div>
+                <h4 className="text-lg font-semibold text-gray-800 mb-2 text-center">
+                  Reset account for {soldierToReset.fullName}?
+                </h4>
+                <p className="text-gray-600 text-sm text-center mb-3">
+                  This will unlink their Google account so they can sign in with a new one and re-register.
+                </p>
+                <p className="text-gray-500 text-xs text-center">
+                  The soldier is <strong>not</strong> being removed from the house. Their data will be re-imported from Google Sheets when they re-register.
+                </p>
+              </div>
+
+              <div className="flex flex-col phone-sm:flex-row gap-2 phone-sm:gap-3 justify-center">
+                <button
+                  onClick={() => {
+                    setShowResetConfirmation(false);
+                    setSoldierToReset(null);
+                  }}
+                  className="px-4 phone-sm:px-6 py-3 rounded-xl font-semibold transition-all duration-200 hover:scale-105 text-sm phone-sm:text-base"
+                  style={{
+                    background: 'transparent',
+                    color: colors.primaryGreen,
+                    border: `2px solid ${colors.primaryGreen}`,
+                    boxShadow: '0 4px 12px rgba(7, 99, 50, 0.1)'
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => handleResetAccount(soldierToReset.id)}
+                  disabled={processingId === soldierToReset.id}
+                  className="px-4 phone-sm:px-6 py-3 rounded-xl font-semibold transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed text-sm phone-sm:text-base"
+                  style={{
+                    background: 'transparent',
+                    color: '#2563eb',
+                    border: '2px solid #2563eb',
+                    boxShadow: '0 4px 12px rgba(37, 99, 235, 0.1)'
+                  }}
+                >
+                  {processingId === soldierToReset.id ? 'Processing...' : 'Reset Account'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Save Confirmation Modal */}
+      {showSaveConfirmation && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-3 phone-sm:p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full">
+            <div className="p-4 phone-sm:p-6" style={{ background: colors.gold, color: colors.black }}>
+              <h3 className="text-lg phone-sm:text-xl font-bold text-center">
+                {saving ? 'Saving...' : success ? 'Done!' : 'Confirm Changes'}
+              </h3>
+            </div>
+
+            <div className="p-4 phone-sm:p-6 text-center">
+              {saving ? (
+                <div className="py-8">
+                  <div className="animate-spin rounded-full h-12 w-12 border-4 border-t-transparent mx-auto mb-4" style={{ borderColor: colors.primaryGreen, borderTopColor: 'transparent' }}></div>
+                  <p className="text-gray-600 font-medium">Updating soldier data...</p>
+                </div>
+              ) : success ? (
+                <div className="py-8">
+                  <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background: colors.primaryGreen }}>
+                    <span className="text-white text-3xl">&#10003;</span>
+                  </div>
+                  <p className="text-lg font-semibold" style={{ color: colors.primaryGreen }}>
+                    {success}
+                  </p>
+                </div>
+              ) : error ? (
+                <div className="py-6">
+                  <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background: colors.red }}>
+                    <span className="text-white text-3xl">&#10007;</span>
+                  </div>
+                  <p className="text-lg font-semibold mb-4" style={{ color: colors.red }}>
+                    {error}
+                  </p>
+                  <button
+                    onClick={() => { setShowSaveConfirmation(false); setError(''); }}
+                    className="px-6 py-3 rounded-xl font-semibold"
+                    style={{ background: colors.primaryGreen, color: 'white' }}
+                  >
+                    Close
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <div className="mb-6">
+                    <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background: colors.gold }}>
+                      <span className="text-2xl">&#9998;</span>
+                    </div>
+                    <p className="text-gray-800 font-semibold text-lg mb-2">
+                      Are you sure you want to save these changes?
+                    </p>
+                    <p className="text-gray-500 text-sm">
+                      This will update {selectedSoldier?.fullName || 'this soldier'}&apos;s data.
+                    </p>
+                  </div>
+                  <div className="flex flex-col phone-sm:flex-row gap-2 phone-sm:gap-3 justify-center">
+                    <button
+                      onClick={() => setShowSaveConfirmation(false)}
+                      className="px-6 py-3 rounded-xl font-semibold transition-all duration-200 hover:scale-105"
+                      style={{ background: 'transparent', color: colors.primaryGreen, border: `2px solid ${colors.primaryGreen}` }}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={async () => {
+                        await handleSaveEdit();
+                        setTimeout(() => {
+                          setShowSaveConfirmation(false);
+                          setSuccess('');
+                        }, 1500);
+                      }}
+                      className="px-6 py-3 rounded-xl font-semibold transition-all duration-200 hover:scale-105"
+                      style={{ background: colors.primaryGreen, color: 'white' }}
+                    >
+                      Yes, Save
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

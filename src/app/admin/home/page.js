@@ -176,7 +176,6 @@ export default function AdminHomePage() {
       }
       
       // Sync scheduler starts automatically from simpleSyncService.js
-      console.log('✅ Admin loaded - sync scheduler will start automatically');
       
       // Check admin profile completeness
       const userRef = doc(db, 'users', user.uid);

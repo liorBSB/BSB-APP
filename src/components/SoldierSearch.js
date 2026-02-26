@@ -65,7 +65,7 @@ export default function SoldierSearch({ onSelectSoldier, onSearchResults }) {
       debouncedSearch(searchTerm);
     }
     return () => debouncedSearch.cancel();
-  }, [searchTerm, searchType]);
+  }, [searchTerm, searchType, debouncedSearch]);
 
   const handleSearchChange = (e) => {
     const value = e.target.value;

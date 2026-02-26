@@ -1,19 +1,17 @@
 'use client';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { onAuthStateChanged } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 
 export default function useAuthRedirect(redirectIfIncomplete = false) {
   const router = useRouter();
+  const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
-    const checkAuth = async () => {
-      const user = auth.currentUser;
-      console.log('Current user:', user?.uid);
-
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (!user) {
-        console.log('No user found, redirecting to login');
         router.push('/');
         return;
       }
@@ -21,26 +19,34 @@ export default function useAuthRedirect(redirectIfIncomplete = false) {
       if (redirectIfIncomplete) {
         const docRef = doc(db, 'users', user.uid);
         const docSnap = await getDoc(docRef);
-        console.log('Profile exists:', docSnap.exists());
-        console.log('Profile data:', docSnap.data());
 
         if (!docSnap.exists()) {
-          console.log('User document not found, redirecting to login');
           router.push('/');
           return;
         }
 
         const userData = docSnap.data();
-        
-        // Check if user-specific fields are missing
-        if (userData.userType === 'user' && (!userData.roomNumber || !userData.fullName || userData.fullName.trim() === '' || userData.roomNumber.trim() === '')) {
-          console.log('User profile incomplete, redirecting to selection');
-          router.push('/register/selection');
-          return;
+
+        if (userData.userType === 'user') {
+          const hasProfile = userData.fullName && userData.fullName.trim() !== ''
+            && userData.roomNumber && userData.roomNumber.trim() !== '';
+
+          if (!hasProfile) {
+            if (userData.roleChoice === 'live_here') {
+              router.push('/profile-setup');
+            } else {
+              router.push('/register/selection');
+            }
+            return;
+          }
         }
       }
-    };
 
-    checkAuth();
+      setIsReady(true);
+    });
+
+    return () => unsubscribe();
   }, [router, redirectIfIncomplete]);
+
+  return isReady;
 }

@@ -1,13 +1,15 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslation } from 'react-i18next';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import colors from '../colors';
 
 export default function RedirectPage() {
   const router = useRouter();
+  const { t } = useTranslation('login');
   const [missingUser, setMissingUser] = useState(false);
 
   useEffect(() => {
@@ -21,8 +23,6 @@ export default function RedirectPage() {
       const userDoc = await getDoc(userRef);
       
       if (!userDoc.exists()) {
-        // User is authenticated but no document exists - create one automatically
-        console.log('Creating user document for authenticated user:', user.uid);
         try {
           await setDoc(doc(db, 'users', user.uid), {
             uid: user.uid,
@@ -33,7 +33,7 @@ export default function RedirectPage() {
             status: 'home',
             roomNumber: '',
             roomLetter: '',
-            createdAt: new Date()
+            createdAt: serverTimestamp()
           });
           
           // After creating the document, redirect to selection
@@ -85,8 +85,13 @@ export default function RedirectPage() {
             router.replace('/register/selection');
           }
         } else {
-          // Profile complete - send to home
-          router.replace('/home');
+          const consentDone = userData.consents?.doc1?.accepted === true
+            || userData.consentSkipped === true;
+          if (!consentDone) {
+            router.replace('/register/consent/1?role=soldier');
+          } else {
+            router.replace('/home');
+          }
         }
         return;
       }
@@ -108,8 +113,8 @@ export default function RedirectPage() {
                 <path d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
             </div>
-            <h2 className="text-2xl font-bold mb-2" style={{ color: colors.primaryGreen }}>No account found</h2>
-            <p className="text-gray-600 mb-8">We couldn&apos;t find your account. Would you like to create one now?</p>
+            <h2 className="text-2xl font-bold mb-2" style={{ color: colors.primaryGreen }}>{t('no_account_found')}</h2>
+            <p className="text-gray-600 mb-8">{t('no_account_message')}</p>
           </div>
           
           <div className="space-y-4">
@@ -127,7 +132,7 @@ export default function RedirectPage() {
                 WebkitTapHighlightColor: 'transparent'
               }}
             >
-              Complete Registration
+              {t('complete_registration')}
             </button>
             <button
               onClick={async () => {
@@ -144,7 +149,7 @@ export default function RedirectPage() {
                 WebkitTapHighlightColor: 'transparent'
               }}
             >
-              Cancel
+              {t('cancel')}
             </button>
           </div>
         </div>
@@ -156,7 +161,7 @@ export default function RedirectPage() {
     <main className="min-h-screen flex items-center justify-center font-body" style={{ background: colors.white }}>
       <div className="flex flex-col items-center justify-center">
         <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-primaryGreen mb-6" style={{ borderColor: colors.primaryGreen }}></div>
-        <div style={{ color: colors.primaryGreen, fontWeight: 600, fontSize: 22 }}>Checking your account...</div>
+        <div style={{ color: colors.primaryGreen, fontWeight: 600, fontSize: 22 }}>{t('checking_account')}</div>
       </div>
     </main>
   );

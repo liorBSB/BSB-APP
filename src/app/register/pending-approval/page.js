@@ -1,64 +1,67 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslation } from 'react-i18next';
+import { onAuthStateChanged } from 'firebase/auth';
 import { auth, db } from '../../../lib/firebase';
-import { doc, getDoc, onSnapshot } from 'firebase/firestore';
+import { doc, onSnapshot } from 'firebase/firestore';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
 import colors from '../../colors';
 
 export default function PendingApprovalPage() {
   const router = useRouter();
+  const { t } = useTranslation('register');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    const user = auth.currentUser;
-    if (!user) {
-      setError('No authenticated user found');
-      setLoading(false);
-      return;
-    }
+    let unsubSnapshot = null;
 
-    // Set up real-time listener for user status changes
-    const userRef = doc(db, 'users', user.uid);
-    const unsubscribe = onSnapshot(userRef, (userDoc) => {
-      try {
-        if (!userDoc.exists()) {
-          setError('User document not found. Please complete your profile setup first.');
-          setLoading(false);
-          return;
-        }
-
-        const userData = userDoc.data();
-
-        if (userData?.userType === 'admin') {
-          // User is approved, redirect to admin home
-          router.push('/admin/home');
-          return;
-        }
-
-        // If user is not approved, just show the pending approval page
-        // The approval request should already be created by the admin profile setup page
-        if (userData?.userType !== 'pending_approval') {
-          setError('Invalid user status. Please complete your profile setup first.');
-          setLoading(false);
-          return;
-        }
-
-        setLoading(false);
-      } catch (error) {
-        console.error('Error checking user status:', error);
-        setError('Failed to check user status. Please try again.');
-        setLoading(false);
+    const unsubAuth = onAuthStateChanged(auth, (user) => {
+      if (!user) {
+        router.replace('/');
+        return;
       }
-    }, (error) => {
-      console.error('Error setting up user listener:', error);
-      setError('Failed to monitor user status. Please try again.');
-      setLoading(false);
+
+      const userRef = doc(db, 'users', user.uid);
+      unsubSnapshot = onSnapshot(userRef, (userDoc) => {
+        try {
+          if (!userDoc.exists()) {
+            setError(t('pending_approval.error_no_doc'));
+            setLoading(false);
+            return;
+          }
+
+          const userData = userDoc.data();
+
+          if (userData?.userType === 'admin') {
+            router.push('/admin/home');
+            return;
+          }
+
+          if (userData?.userType !== 'pending_approval') {
+            setError(t('pending_approval.error_invalid_status'));
+            setLoading(false);
+            return;
+          }
+
+          setLoading(false);
+        } catch (error) {
+          console.error('Error checking user status:', error);
+          setError(t('pending_approval.error_check_status'));
+          setLoading(false);
+        }
+      }, (error) => {
+        console.error('Error setting up user listener:', error);
+        setError(t('pending_approval.error_monitor'));
+        setLoading(false);
+      });
     });
 
-    // Cleanup listener on unmount
-    return () => unsubscribe();
+    return () => {
+      unsubAuth();
+      if (unsubSnapshot) unsubSnapshot();
+    };
   }, [router]);
 
   const handleSignOut = async () => {
@@ -74,8 +77,8 @@ export default function PendingApprovalPage() {
     return (
       <main className="min-h-screen flex items-center justify-center font-body px-4 phone-lg:px-0" style={{ background: colors.white }}>
         <div className="text-center">
-          <div className="text-muted mb-2">Processing your request...</div>
-          <div className="text-sm text-muted">Please wait</div>
+          <div className="text-muted mb-2">{t('pending_approval.processing')}</div>
+          <div className="text-sm text-muted">{t('pending_approval.please_wait')}</div>
         </div>
       </main>
     );
@@ -85,7 +88,7 @@ export default function PendingApprovalPage() {
     return (
       <main className="min-h-screen flex items-center justify-center font-body px-4 phone-lg:px-0" style={{ background: colors.white }}>
         <div className="text-center max-w-md">
-          <div className="text-2xl font-bold text-red-600 mb-4">⚠️ Error</div>
+          <div className="text-2xl font-bold text-red-600 mb-4">{t('pending_approval.error_title')}</div>
           <div className="text-muted mb-6">{error}</div>
           <button
             onClick={() => router.push('/register/selection')}
@@ -100,7 +103,7 @@ export default function PendingApprovalPage() {
               cursor: 'pointer'
             }}
           >
-            Try Again
+            {t('pending_approval.try_again')}
           </button>
         </div>
       </main>
@@ -127,12 +130,11 @@ export default function PendingApprovalPage() {
           </div>
 
           <h2 style={{ fontWeight: 700, fontSize: '2rem', textAlign: 'center', marginBottom: '1rem' }}>
-            Request Submitted!
+            {t('pending_approval.request_submitted')}
           </h2>
           
           <p style={{ color: colors.muted, fontSize: '1.1rem', marginBottom: '2rem', lineHeight: '1.5' }}>
-            Your request to work here has been submitted successfully. 
-            Please wait for your boss to approve your access.
+            {t('pending_approval.submitted_message')}
           </p>
 
           <div style={{ 
@@ -143,11 +145,11 @@ export default function PendingApprovalPage() {
             border: `1px solid ${colors.primaryGreen}20`
           }}>
             <div style={{ color: colors.primaryGreen, fontWeight: 600, marginBottom: '0.5rem' }}>
-              What happens next?
+              {t('pending_approval.what_next')}
             </div>
             <ul style={{ textAlign: 'left', color: colors.muted, fontSize: '0.9rem' }}>
-              <li style={{ marginBottom: '0.5rem' }}>• Your request will be reviewed by management</li>
-              <li style={{ marginBottom: '0.5rem' }}>• You can then log in and access the app</li>
+              <li style={{ marginBottom: '0.5rem' }}>• {t('pending_approval.next_step_1')}</li>
+              <li style={{ marginBottom: '0.5rem' }}>• {t('pending_approval.next_step_2')}</li>
             </ul>
           </div>
 
@@ -166,7 +168,7 @@ export default function PendingApprovalPage() {
               marginBottom: '1rem'
             }}
           >
-            Sign Out
+            {t('pending_approval.sign_out')}
           </button>
         </div>
       </div>

@@ -22,31 +22,23 @@ export default function AccountDeletionPage() {
           throw new Error('No authenticated user found');
         }
 
-        console.log('Starting account deletion for user:', user.uid);
-        
-        // Step 1: Delete Firestore data
         setCurrentStep('Deleting your data...');
         const userRef = doc(db, 'users', user.uid);
-        console.log('Deleting user document from Firestore...');
         await deleteDoc(userRef);
-        console.log('User document deleted from Firestore successfully');
         
         // Small delay for better UX
         await new Promise(resolve => setTimeout(resolve, 500));
         
         // Step 2: Delete Firebase Auth account
         setCurrentStep('Deleting your account...');
-        console.log('Deleting user from Firebase Auth...');
         try {
           await deleteUser(user);
-          console.log('User deleted from Firebase Auth successfully');
           setCurrentStep('Account deleted successfully!');
           await new Promise(resolve => setTimeout(resolve, 1000));
           setStatus('success');
         } catch (authError) {
           // If auth deletion fails, we still consider it a success since data is deleted
           if (authError.code === 'auth/requires-recent-login') {
-            console.log('Auth deletion requires recent login, but data is deleted');
             setCurrentStep('Data deleted successfully!');
             await new Promise(resolve => setTimeout(resolve, 1000));
             setStatus('success');

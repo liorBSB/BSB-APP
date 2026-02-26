@@ -12,7 +12,7 @@ import LanguageSwitcher from '@/components/LanguageSwitcher';
 import colors from './colors';
 
 export default function AuthPage() {
-  const { t } = useTranslation(); // 👈 i18n hook
+  const { t } = useTranslation('login');
   const router = useRouter();
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -46,25 +46,20 @@ export default function AuthPage() {
       // The redirect page will handle user document creation if needed
       
     } catch (error) {
-      console.error('Google Authentication Error:', error);
-      
-      // Handle specific Firebase auth errors gracefully
       if (error.code === 'auth/popup-closed-by-user') {
-        // User closed the popup - this is normal, no need to show error
-        console.log('User closed Google sign-in popup');
+        // User closed the popup - normal, no error needed
       } else if (error.code === 'auth/cancelled-popup-request') {
-        // User cancelled the popup request - also normal
-        console.log('User cancelled Google sign-in popup');
+        // User cancelled - normal, no error needed
       } else if (error.code === 'auth/popup-blocked') {
-        setError('Popup was blocked by your browser. Please allow popups for this site and try again.');
+        setError(t('error_popup_blocked'));
       } else if (error.code === 'auth/network-request-failed') {
-        setError('Network error. Please check your internet connection and try again.');
+        setError(t('error_network'));
       } else if (error.code === 'auth/account-exists-with-different-credential') {
-        setError('An account already exists with this email using a different sign-in method.');
+        setError(t('error_account_exists'));
       } else if (error.code === 'auth/email-already-in-use') {
-        setError('This email is already registered. Please try signing in instead.');
+        setError(t('error_email_in_use'));
       } else {
-        setError('Authentication failed. Please try again.');
+        setError(t('error_auth_failed'));
       }
     } finally {
       setIsSigningIn(false);
@@ -77,7 +72,7 @@ export default function AuthPage() {
       <main className="min-h-screen flex items-center justify-center font-body px-4 phone-lg:px-0" style={{ background: colors.white }}>
         <div className="text-center">
           <div className="animate-spin rounded-full h-16 w-16 border-b-4 mx-auto mb-6" style={{ borderColor: colors.primaryGreen }}></div>
-          <div style={{ color: colors.primaryGreen, fontWeight: 600, fontSize: 22 }}>Loading...</div>
+          <div style={{ color: colors.primaryGreen, fontWeight: 600, fontSize: 22 }}>{t('loading')}</div>
         </div>
       </main>
     );
@@ -110,7 +105,7 @@ export default function AuthPage() {
             color: colors.primaryGreen,
             letterSpacing: '-0.02em'
           }}>
-            Welcome Home
+            {t('welcome_home')}
           </h1>
           
           <p style={{ 
@@ -119,7 +114,7 @@ export default function AuthPage() {
             marginBottom: '0',
             fontWeight: 500
           }}>
-            Sign in to get started
+            {t('sign_in_subtitle')}
           </p>
         </div>
 
@@ -181,7 +176,7 @@ export default function AuthPage() {
           {isSigningIn ? (
             <>
               <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-gray-400"></div>
-              Signing in...
+              {t('signing_in')}
             </>
           ) : (
             <>
@@ -191,7 +186,7 @@ export default function AuthPage() {
                 width={20}
                 height={20}
               />
-              Continue with Google
+              {t('continue_with_google')}
             </>
           )}
         </button>
@@ -204,7 +199,7 @@ export default function AuthPage() {
           lineHeight: '1.4'
         }}>
           <p>
-            By continuing, you agree to our terms and privacy policy
+            {t('terms_notice')}
           </p>
         </div>
       </div>

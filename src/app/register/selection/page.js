@@ -1,13 +1,17 @@
 'use client';
 import { useRouter } from 'next/navigation';
+import { useTranslation } from 'react-i18next';
 import { auth, db } from '@/lib/firebase';
 import { doc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
+import useAuthRedirect from '@/hooks/useAuthRedirect';
 import colors from '../../colors';
 
 export default function SelectionPage() {
   const router = useRouter();
+  const { t } = useTranslation('register');
+  const isReady = useAuthRedirect();
 
   const handleWorkHere = async () => {
     try {
@@ -72,6 +76,14 @@ export default function SelectionPage() {
     }
   };
 
+  if (!isReady) {
+    return (
+      <main className="min-h-screen flex items-center justify-center font-body" style={{ background: colors.white }}>
+        <div className="animate-spin rounded-full h-16 w-16 border-b-4" style={{ borderColor: colors.primaryGreen }}></div>
+      </main>
+    );
+  }
+
   return (
     <main className="min-h-screen flex items-center justify-center font-body px-4 phone-lg:px-0" style={{ background: colors.white }}>
       <LanguageSwitcher className="absolute top-4 right-4 bg-surface p-2 rounded-full text-white text-xl hover:text-text" />
@@ -80,7 +92,7 @@ export default function SelectionPage() {
           bg-transparent rounded-none shadow-none p-0
           phone-lg:bg-white phone-lg:rounded-[2.5rem] phone-lg:shadow-lg phone-lg:p-[3.5rem_2.2rem]"
       >
-        <h2 style={{ fontWeight: 700, fontSize: '2.5rem', textAlign: 'center', marginBottom: '2.8rem' }}>Do you...</h2>
+        <h2 style={{ fontWeight: 700, fontSize: '2.5rem', textAlign: 'center', marginBottom: '2.8rem' }}>{t('selection.do_you')}</h2>
         
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <button
@@ -98,7 +110,7 @@ export default function SelectionPage() {
               marginBottom: '1rem'
             }}
           >
-            Work Here
+            {t('selection.work_here')}
           </button>
           
           <button
@@ -116,7 +128,7 @@ export default function SelectionPage() {
               marginBottom: '2rem'
             }}
           >
-            Live Here
+            {t('selection.live_here')}
           </button>
 
           <button
@@ -133,7 +145,7 @@ export default function SelectionPage() {
               cursor: 'pointer'
             }}
           >
-            Cancel
+            {t('selection.cancel')}
           </button>
         </div>
       </div>

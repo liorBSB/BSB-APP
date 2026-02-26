@@ -1,4 +1,3 @@
-// src/lib/database.js
 import { 
   collection, 
   doc, 
@@ -18,19 +17,9 @@ import { db } from './firebase';
 import { exportSoldierToSheets } from './googleSheets';
 import { syncToSheets } from './simpleSyncService';
 
-// ============================================================================
-// DATABASE STRUCTURE & CONSTANTS
-// ============================================================================
-
-// Collection names
 export const COLLECTIONS = {
-  USERS: 'users' // Main collection for all user/soldier data
+  USERS: 'users'
 };
-
-
-// ============================================================================
-// USERS COLLECTION (All user/soldier data)
-// ============================================================================
 
 /**
  * Update user's current status
@@ -42,65 +31,55 @@ export const updateUserStatus = async (uid, statusData) => {
     updatedAt: Timestamp.now()
   });
   
-  // Trigger sync to Google Sheets (async, don't wait)
-  syncToSheets(uid, { ...statusData, updatedAt: new Date().toISOString() })
-    .then(result => {
-      if (result.success) {
-        console.log('Status update synced to sheets successfully');
-      } else {
-        console.warn('Failed to sync status update to sheets:', result.message);
-      }
-    })
-    .catch(error => {
-      console.error('Error syncing status update to sheets:', error);
-    });
+  syncToSheets(uid, { ...statusData, updatedAt: new Date().toISOString() }).catch(err => console.error('[Sheet Sync]', err));
 };
 
 /**
  * Mark user as left (admin only)
  */
 export const markUserAsLeft = async (uid, adminUid) => {
-  try {
-    // Get user data before marking as left
-    const userData = await getDoc(doc(db, COLLECTIONS.USERS, uid));
-    
-    if (!userData.exists()) {
-      throw new Error('User not found');
-    }
-    
-    // Create archived data structure with timestamps
-    const archivedData = {
-      ...userData.data(),
-      archivedAt: Timestamp.now(),
-      archivedBy: adminUid,
-      originalUid: uid,
-      leftDate: Timestamp.now()
-    };
-    
-    // Export to Google Sheets before archiving
-    const exportResult = await exportSoldierToSheets(userData.data());
-    
-    if (!exportResult.success) {
-      throw new Error(`Export failed: ${exportResult.message}`);
-    }
-    
-    // Move data to archivedUsers collection
-    const archivedUserRef = doc(db, 'archivedUsers', uid);
-    await setDoc(archivedUserRef, archivedData);
-    
-    // Hard delete from main users collection
-    await deleteDoc(doc(db, COLLECTIONS.USERS, uid));
-    
-    return {
-      success: true,
-      message: 'User archived and data exported successfully',
-      exportResult
-    };
-    
-  } catch (error) {
-    console.error('Error marking soldier as left:', error);
-    throw error;
+  const userData = await getDoc(doc(db, COLLECTIONS.USERS, uid));
+  
+  if (!userData.exists()) {
+    throw new Error('User not found');
   }
+  
+  const archivedData = {
+    ...userData.data(),
+    archivedAt: Timestamp.now(),
+    archivedBy: adminUid,
+    originalUid: uid,
+    leftDate: Timestamp.now()
+  };
+  
+  const exportResult = await exportSoldierToSheets(userData.data());
+  
+  if (!exportResult.success) {
+    throw new Error(`Export failed: ${exportResult.message}`);
+  }
+  
+  const archivedUserRef = doc(db, 'archivedUsers', uid);
+  await setDoc(archivedUserRef, archivedData);
+  
+  await deleteDoc(doc(db, COLLECTIONS.USERS, uid));
+  
+  return {
+    success: true,
+    message: 'User archived and data exported successfully',
+    exportResult
+  };
+};
+
+/**
+ * Reset a soldier's account link — deletes the Firestore user document so
+ * the soldier can re-register with a new Google account.
+ * No archiving (that's for alumni via markUserAsLeft).
+ */
+export const resetSoldierAccount = async (uid) => {
+  const userData = await getDoc(doc(db, COLLECTIONS.USERS, uid));
+  if (!userData.exists()) throw new Error('User not found');
+  await deleteDoc(doc(db, COLLECTIONS.USERS, uid));
+  return { success: true };
 };
 
 /**
@@ -120,66 +99,37 @@ export const getUser = async (uid) => {
  * Get archived users (admin only)
  */
 export const getArchivedUsers = async () => {
-  try {
-    const archivedUsersRef = collection(db, 'archivedUsers');
-    const querySnapshot = await getDocs(archivedUsersRef);
-    
-    const archivedUsers = [];
-    querySnapshot.forEach((doc) => {
-      archivedUsers.push({
-        id: doc.id,
-        ...doc.data()
-      });
-    });
-    
-    return archivedUsers;
-  } catch (error) {
-    console.error('Error getting archived users:', error);
-    throw error;
-  }
+  const archivedUsersRef = collection(db, 'archivedUsers');
+  const querySnapshot = await getDocs(archivedUsersRef);
+  
+  return querySnapshot.docs.map((doc) => ({
+    id: doc.id,
+    ...doc.data()
+  }));
 };
 
 /**
- * Get all users (soldiers)
+ * Get all active users (soldiers)
  */
 export const getActiveUsers = async () => {
   try {
-    console.log('getActiveUsers: Starting query...');
-    
-    // Simple query without ordering to avoid index requirement
-    let usersQuery = query(
+    const usersQuery = query(
       collection(db, COLLECTIONS.USERS),
       where('userType', '==', 'user')
     );
     
-    let usersSnap = await getDocs(usersQuery);
-    console.log('getActiveUsers: Query successful, found:', usersSnap.docs.length);
-    
+    const usersSnap = await getDocs(usersQuery);
     return usersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     
   } catch (error) {
-    console.error('getActiveUsers: Error in query:', error);
+    // Fallback: get all users and filter manually if index is missing
+    const allUsersQuery = query(collection(db, COLLECTIONS.USERS));
+    const allUsersSnap = await getDocs(allUsersQuery);
+    const allUsers = allUsersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     
-    // If there's an error with the query, try to get all users and filter manually
-    try {
-      console.log('getActiveUsers: Trying manual filter...');
-      const allUsersQuery = query(collection(db, COLLECTIONS.USERS));
-      const allUsersSnap = await getDocs(allUsersQuery);
-      const allUsers = allUsersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      
-      const filteredUsers = allUsers.filter(user => user.userType === 'user');
-      console.log('getActiveUsers: Manual filter found:', filteredUsers.length);
-      
-      return filteredUsers;
-    } catch (fallbackError) {
-      console.error('getActiveUsers: Fallback also failed:', fallbackError);
-      throw error; // Throw the original error
-    }
+    return allUsers.filter(user => user.userType === 'user');
   }
 };
-
-
-
 
 /**
  * Update specific answer in profile
@@ -187,50 +137,23 @@ export const getActiveUsers = async () => {
 export const updateProfileAnswer = async (uid, questionId, answer) => {
   const userRef = doc(db, 'users', uid);
   
-  try {
-    // Try to update existing document
-    await updateDoc(userRef, {
-      [questionId]: answer,
-      updatedAt: Timestamp.now()
-    });
-    
-    // Trigger sync to Google Sheets (async, don't wait)
-    const updateData = { [questionId]: answer, updatedAt: new Date().toISOString() };
-    syncToSheets(uid, updateData)
-      .then(result => {
-        if (result.success) {
-          console.log('Profile answer update synced to sheets successfully');
-        } else {
-          console.warn('Failed to sync profile answer to sheets:', result.message);
-        }
-      })
-      .catch(error => {
-        console.error('Error syncing profile answer to sheets:', error);
-      });
-      
-  } catch (error) {
-    console.error('Error updating user answer:', error);
-    throw error;
-  }
+  await updateDoc(userRef, {
+    [questionId]: answer,
+    updatedAt: Timestamp.now()
+  });
+  
+  const updateData = { [questionId]: answer, updatedAt: new Date().toISOString() };
+  syncToSheets(uid, updateData).catch(err => console.error('[Sheet Sync]', err));
 };
 
-
-
-
-
-// ============================================================================
-// SEARCH FUNCTIONS
-// ============================================================================
-
 /**
- * Search users (soldiers) in the users collection
- * Supports both text search and date range search
+ * Search users (soldiers) in the users collection.
+ * Supports both text search and date range search.
  */
 export const searchUsers = async (searchTerm, options = {}) => {
   const results = [];
 
   try {
-    // Get all users (no complex queries to avoid index issues)
     const usersQuery = query(
       collection(db, COLLECTIONS.USERS),
       where('userType', '==', 'user')
@@ -241,7 +164,6 @@ export const searchUsers = async (searchTerm, options = {}) => {
       const data = doc.data();
       let shouldInclude = false;
       
-      // Date range search
       if (options.startDate && options.endDate) {
         if (data.entryDate) {
           const entryDate = new Date(data.entryDate.seconds * 1000);
@@ -252,9 +174,7 @@ export const searchUsers = async (searchTerm, options = {}) => {
             shouldInclude = true;
           }
         }
-      }
-      // Text search
-      else if (searchTerm && searchTerm.trim().length >= 2) {
+      } else if (searchTerm && searchTerm.trim().length >= 2) {
         const term = searchTerm.trim().toLowerCase();
         if (
           String(data.fullName || '').toLowerCase().includes(term) ||
@@ -274,10 +194,7 @@ export const searchUsers = async (searchTerm, options = {}) => {
       }
       
       if (shouldInclude) {
-        results.push({
-          id: doc.id,
-          ...data
-        });
+        results.push({ id: doc.id, ...data });
       }
     });
 
@@ -288,58 +205,32 @@ export const searchUsers = async (searchTerm, options = {}) => {
   return results;
 };
 
-// ============================================================================
-// UTILITY FUNCTIONS
-// ============================================================================
-
-
-
 /**
  * Update user data with automatic sync to Google Sheets
- * @param {string} uid - User ID
- * @param {Object} updateData - Data to update
- * @param {boolean} syncToSheet - Whether to sync to Google Sheets (default: true)
- * @returns {Promise<void>}
  */
 export const updateUserData = async (uid, updateData, syncToSheet = true) => {
-  try {
-    const userRef = doc(db, COLLECTIONS.USERS, uid);
-    const dataWithTimestamp = {
-      ...updateData,
-      updatedAt: Timestamp.now()
-    };
-    
-    await updateDoc(userRef, dataWithTimestamp);
-    
-    // Trigger sync to Google Sheets if enabled
-    if (syncToSheet) {
-      const syncData = { 
-        ...updateData, 
-        updatedAt: new Date().toISOString() 
-      };
-      
-      syncToSheets(uid, syncData)
-        .then(result => {
-          if (result.success) {
-            console.log('User data synced to sheets successfully');
-          } else {
-            console.warn('Failed to sync user data to sheets:', result.message);
-          }
-        })
-        .catch(error => {
-          console.error('Error syncing user data to sheets:', error);
-        });
-    }
-  } catch (error) {
-    console.error('Error updating user data:', error);
-    throw error;
+  const userRef = doc(db, COLLECTIONS.USERS, uid);
+  const dataWithTimestamp = {
+    ...updateData,
+    updatedAt: Timestamp.now()
+  };
+  
+  await updateDoc(userRef, dataWithTimestamp);
+  
+  if (syncToSheet) {
+    const syncData = { ...updateData, updatedAt: new Date().toISOString() };
+    syncToSheets(uid, syncData).then(result => {
+      if (!result.success) console.error('[Sheet Sync] Failed:', result.message);
+      else console.log('[Sheet Sync] Success');
+    }).catch(err => console.error('[Sheet Sync] Error:', err));
   }
 };
 
-export default {
+const databaseService = {
   COLLECTIONS,
   updateUserStatus,
   markUserAsLeft,
+  resetSoldierAccount,
   getUser,
   getArchivedUsers,
   getActiveUsers,
@@ -347,3 +238,5 @@ export default {
   updateProfileAnswer,
   updateUserData
 };
+
+export default databaseService;

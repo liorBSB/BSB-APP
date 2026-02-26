@@ -118,26 +118,6 @@ export default function HomePage() {
     // Only fetch data if profile is complete
     if (!profileComplete) return;
 
-    // Temporarily disabled until new system is ready
-    // const fetchSoldierData = async () => {
-    //   try {
-    //     const user = auth.currentUser;
-    //     if (user) {
-    //       const soldier = await getSoldier(user.uid);
-    //       const profile = await getSoldierProfile(user.uid);
-    //       
-    //       setSoldierData(soldier);
-    //       setProfileData(profile);
-    //       
-    //       if (profile?.answers) {
-    //         setAnsweredQuestions(Object.keys(profile.answers));
-    //       }
-    //     }
-    //   } catch (error) {
-    //     console.error('Error loading soldier data:', error);
-    //   }
-    // };
-
     const fetchSurveys = async () => {
       setLoadingSurveys(true);
       const now = new Date();
@@ -158,7 +138,6 @@ export default function HomePage() {
       setLoadingMessages(false);
     };
 
-    // fetchSoldierData(); // Temporarily disabled
     fetchEvents();
     fetchSurveys();
     fetchMessages();

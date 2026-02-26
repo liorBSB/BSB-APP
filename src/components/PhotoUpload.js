@@ -35,8 +35,7 @@ export default function PhotoUpload({
           const videoDevices = devices.filter(device => device.kind === 'videoinput');
           setHasMultipleCameras(videoDevices.length > 1);
         }
-      } catch (error) {
-        console.log('Could not enumerate devices:', error);
+      } catch {
         setHasMultipleCameras(false);
       }
     };
@@ -74,9 +73,6 @@ export default function PhotoUpload({
         setCameraStream(null);
       }
 
-      console.log('Requesting camera access...');
-      
-      // Use simpler, more compatible constraints
       const constraints = {
         video: {
           facingMode: useFrontCamera ? 'user' : 'environment'
@@ -84,45 +80,33 @@ export default function PhotoUpload({
       };
       
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
-      console.log('Camera stream obtained:', stream);
       
-      // Set the stream and show camera immediately
       setCameraStream(stream);
       setShowCamera(true);
       
-      // Wait a bit for the video element to be ready
       setTimeout(() => {
         if (videoRef.current) {
-          console.log('Setting video srcObject...');
           videoRef.current.srcObject = stream;
           
-          // Ensure video plays
           videoRef.current.play().then(() => {
-            console.log('Video playing successfully');
             setCameraLoading(false);
             setCameraReady(true);
-          }).catch(playError => {
-            console.error('Play error:', playError);
-            // Try alternative approach
+          }).catch(() => {
             videoRef.current.muted = true;
             videoRef.current.play().then(() => {
-              console.log('Video playing with muted fallback');
               setCameraLoading(false);
               setCameraReady(true);
-            }).catch(e => {
-              console.error('Muted play also failed:', e);
+            }).catch(() => {
               setCameraLoading(false);
               setCameraReady(false);
             });
           });
         } else {
-          console.error('Video ref not available');
           setCameraLoading(false);
         }
       }, 100);
       
     } catch (error) {
-      console.error('Camera access error:', error);
       setCameraLoading(false);
       if (error.name === 'NotAllowedError') {
         setUploadError('Camera access denied. Please allow camera permissions.');
@@ -242,14 +226,10 @@ export default function PhotoUpload({
       
       // Call the callback with the new photo URL
       if (onPhotoUploaded) {
-        console.log('Calling onPhotoUploaded callback with:', downloadURL, path);
         onPhotoUploaded(downloadURL, path);
-      } else {
-        console.log('No onPhotoUploaded callback provided');
       }
 
-    } catch (error) {
-      console.error('Upload error:', error);
+    } catch {
       setUploadError('Failed to upload photo. Please try again.');
     } finally {
       setUploading(false);
@@ -313,14 +293,10 @@ export default function PhotoUpload({
       
       // Call the callback with the new photo URL
       if (onPhotoUploaded) {
-        console.log('File upload: Calling onPhotoUploaded callback with:', downloadURL, path);
         onPhotoUploaded(downloadURL, path);
-      } else {
-        console.log('File upload: No onPhotoUploaded callback provided');
       }
 
-    } catch (error) {
-      console.error('Upload error:', error);
+    } catch {
       setUploadError('Failed to upload photo. Please try again.');
     } finally {
       setUploading(false);
@@ -396,20 +372,8 @@ export default function PhotoUpload({
             controls={false}
             className="w-full h-64 object-cover"
             style={{ backgroundColor: 'black' }}
-            onLoadedMetadata={() => {
-              console.log('Video metadata loaded');
-              console.log('Video dimensions:', videoRef.current?.videoWidth, 'x', videoRef.current?.videoHeight);
-            }}
-            onCanPlay={() => {
-              console.log('Video can play');
-              setCameraLoading(false);
-            }}
-            onError={(e) => {
-              console.error('Video error:', e);
-              setUploadError('Video error occurred. Please try again.');
-            }}
-            onLoadStart={() => console.log('Video load started')}
-            onLoadedData={() => console.log('Video data loaded')}
+            onCanPlay={() => setCameraLoading(false)}
+            onError={() => setUploadError('Video error occurred. Please try again.')}
           />
           
           {cameraLoading && (
