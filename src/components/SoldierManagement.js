@@ -5,6 +5,7 @@ import { getActiveUsers, markUserAsLeft, resetSoldierAccount, updateUserData } f
 import { auth, db } from '@/lib/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
 import SoldierSearch from './SoldierSearch';
+import { SOLDIER_EDIT_ENABLED } from '@/lib/sheetFieldMap';
 import colors from '../app/colors';
 
 export default function SoldierManagement() {
@@ -503,9 +504,9 @@ export default function SoldierManagement() {
                   border: `2px solid ${colors.white}`,
                   boxShadow: '0 4px 12px rgba(255, 255, 255, 0.1)'
                 }}
-                title="Edit Soldier"
+                title={SOLDIER_EDIT_ENABLED ? "Edit Soldier" : "View Soldier"}
               >
-                Edit
+                {SOLDIER_EDIT_ENABLED ? 'Edit' : 'View'}
               </button>
             </div>
           </div>
@@ -716,18 +717,20 @@ export default function SoldierManagement() {
               {/* Actions */}
               <div className="mt-6 phone-sm:mt-8 pt-4 phone-sm:pt-6 border-t">
                 <div className="flex flex-col gap-2 phone-sm:gap-3">
-                  <button
-                    onClick={() => handleOpenEditModal(selectedSoldier)}
-                    className="px-4 phone-sm:px-6 py-3 rounded-xl font-semibold transition-all duration-200 hover:scale-105 text-sm phone-sm:text-base"
-                    style={{ 
-                      background: 'transparent', 
-                      color: colors.gold,
-                      border: `2px solid ${colors.gold}`,
-                      boxShadow: '0 4px 12px rgba(237, 195, 129, 0.1)'
-                    }}
-                  >
-                    ✏️ Edit Soldier
-                  </button>
+                  {SOLDIER_EDIT_ENABLED && (
+                    <button
+                      onClick={() => handleOpenEditModal(selectedSoldier)}
+                      className="px-4 phone-sm:px-6 py-3 rounded-xl font-semibold transition-all duration-200 hover:scale-105 text-sm phone-sm:text-base"
+                      style={{ 
+                        background: 'transparent', 
+                        color: colors.gold,
+                        border: `2px solid ${colors.gold}`,
+                        boxShadow: '0 4px 12px rgba(237, 195, 129, 0.1)'
+                      }}
+                    >
+                      ✏️ Edit Soldier
+                    </button>
+                  )}
                   <button
                     onClick={() => setShowSoldierDetails(false)}
                     className="px-4 phone-sm:px-6 py-3 rounded-xl font-semibold transition-all duration-200 hover:scale-105 text-sm phone-sm:text-base"
@@ -777,7 +780,7 @@ export default function SoldierManagement() {
       )}
 
       {/* Edit Soldier Modal */}
-      {showEditModal && selectedSoldier && (
+      {SOLDIER_EDIT_ENABLED && showEditModal && selectedSoldier && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 phone-sm:p-4">
           <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[95vh] phone-sm:max-h-[90vh] overflow-hidden">
             {/* Header */}
@@ -1582,7 +1585,7 @@ export default function SoldierManagement() {
       )}
 
       {/* Save Confirmation Modal */}
-      {showSaveConfirmation && (
+      {SOLDIER_EDIT_ENABLED && showSaveConfirmation && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-3 phone-sm:p-4">
           <div className="bg-white rounded-2xl max-w-md w-full">
             <div className="p-4 phone-sm:p-6" style={{ background: colors.gold, color: colors.black }}>

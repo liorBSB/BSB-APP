@@ -86,6 +86,9 @@ export const FIELD_MAP = [
   { sheet: 'הערות', app: 'notes' },
 ];
 
+// ── Feature flags ───────────────────────────────────────────────────
+export const SOLDIER_EDIT_ENABLED = false; // flip to true to re-enable app editing
+
 // ── Primary key ──────────────────────────────────────────────────────
 export const PRIMARY_KEY_SHEET = 'מספר זהות';
 export const PRIMARY_KEY_APP = 'idNumber';

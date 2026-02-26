@@ -11,6 +11,7 @@ import PhotoUpload from '@/components/PhotoUpload';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
 import DeleteAccountModal from '@/components/DeleteAccountModal';
 import Image from 'next/image';
+import { SOLDIER_EDIT_ENABLED } from '@/lib/sheetFieldMap';
 import colors from '../colors';
 
 export default function SettingsPage() {
@@ -381,32 +382,36 @@ export default function SettingsPage() {
                     <div className="font-semibold text-white text-lg mb-1">{fieldLabels[field]}</div>
                     <div className="text-base text-white/80 mt-1">{fields[field]}</div>
                   </div>
-                  <button
-                    className="ml-4 p-3 rounded-full hover:bg-[#EDC381]/20"
-                    onClick={() => setEditField(field)}
-                    aria-label={t('edit')}
-                  >
-                    <svg width="28" height="28" fill="none" stroke="#EDC381" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19.5 3 21l1.5-4L16.5 3.5z"/></svg>
-                  </button>
+                  {SOLDIER_EDIT_ENABLED && (
+                    <button
+                      className="ml-4 p-3 rounded-full hover:bg-[#EDC381]/20"
+                      onClick={() => setEditField(field)}
+                      aria-label={t('edit')}
+                    >
+                      <svg width="28" height="28" fill="none" stroke="#EDC381" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19.5 3 21l1.5-4L16.5 3.5z"/></svg>
+                    </button>
+                  )}
                 </div>
               ))}
               
               
               {/* Edit All Fields Button */}
-              <div className="w-full mt-4">
-                <button
-                  onClick={handleOpenEditAll}
-                  className="w-full py-4 px-6 font-bold text-lg rounded-xl transition-all duration-200 hover:scale-105"
-                  style={{ 
-                    background: colors.gold, 
-                    color: colors.black,
-                    boxShadow: '0 6px 20px rgba(237, 195, 129, 0.4)',
-                    border: `3px solid ${colors.gold}`
-                  }}
-                >
-                  ✏️ Edit All Fields
-                </button>
-              </div>
+              {SOLDIER_EDIT_ENABLED && (
+                <div className="w-full mt-4">
+                  <button
+                    onClick={handleOpenEditAll}
+                    className="w-full py-4 px-6 font-bold text-lg rounded-xl transition-all duration-200 hover:scale-105"
+                    style={{ 
+                      background: colors.gold, 
+                      color: colors.black,
+                      boxShadow: '0 6px 20px rgba(237, 195, 129, 0.4)',
+                      border: `3px solid ${colors.gold}`
+                    }}
+                  >
+                    ✏️ Edit All Fields
+                  </button>
+                </div>
+              )}
               
               {success && <div className="text-green-300 text-lg mb-2">{success}</div>}
               {error && <div className="text-red-300 text-lg mb-2">{error}</div>}
@@ -439,13 +444,15 @@ export default function SettingsPage() {
 {t('delete_account')}
         </button>
       </div>
-      <EditFieldModal
-        open={!!editField}
-        onClose={() => setEditField(null)}
-        onSave={(val) => handleSaveField(editField, val)}
-        label={editField ? fieldLabels[editField] : ''}
-        value={editField ? fields[editField] : ''}
-      />
+      {SOLDIER_EDIT_ENABLED && (
+        <EditFieldModal
+          open={!!editField}
+          onClose={() => setEditField(null)}
+          onSave={(val) => handleSaveField(editField, val)}
+          label={editField ? fieldLabels[editField] : ''}
+          value={editField ? fields[editField] : ''}
+        />
+      )}
 
       {/* Personal ID Modal */}
       {showPersonalId && (
@@ -596,7 +603,7 @@ export default function SettingsPage() {
       />
 
       {/* Edit All Fields Modal */}
-      {showEditAllModal && (
+      {SOLDIER_EDIT_ENABLED && showEditAllModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
             {/* Header */}

@@ -141,6 +141,13 @@ function isCalculatedHeader(header) {
   return h.indexOf('מילוי אוטומטי') !== -1 || h.indexOf('לא לגעת') !== -1;
 }
 
+function isErrorValue(val) {
+  if (val == null) return false;
+  var s = String(val);
+  return s === '#ERROR!' || s === '#REF!' || s === '#N/A' || s === '#VALUE!'
+      || s === '#DIV/0!' || s === '#NAME?' || s === '#NULL!' || s.indexOf('#ERROR') !== -1;
+}
+
 // ─── Web App entry points (app talks to soldiers tab only) ───────────
 
 function doGet(e) {
@@ -347,7 +354,7 @@ function syncFromMaster() {
         if (h === LAST_SEEN_COL) return now;
         if (h === LAST_APP_UPDATE_COL) return '';
         var val = masterRow[h];
-        return (val != null && val !== '') ? val : '';
+        return (val != null && val !== '' && !isErrorValue(val)) ? val : '';
       });
       soldiersSheet.appendRow(newRow);
       added++;
@@ -357,7 +364,7 @@ function syncFromMaster() {
       for (var c = 0; c < syncCols.length; c++) {
         var col = syncCols[c];
         var masterVal = masterRow[col];
-        if (masterVal == null || masterVal === '') continue;
+        if (masterVal == null || masterVal === '' || isErrorValue(masterVal)) continue;
 
         var currentVal = existing[col];
         if (String(masterVal) !== String(currentVal != null ? currentVal : '')) {
