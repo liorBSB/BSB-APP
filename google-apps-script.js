@@ -102,7 +102,7 @@ function getCopySpreadsheet() {
 
 function getOrCreateTab(ss, tabName) {
   var sheet = ss.getSheetByName(tabName);
-  if (!sheet) {
+    if (!sheet) {
     sheet = ss.insertSheet(tabName);
   }
   return sheet;
@@ -130,11 +130,11 @@ function sheetToObjects(sheet) {
 }
 
 function jsonResponse(obj) {
-  return ContentService
+      return ContentService
     .createTextOutput(JSON.stringify(obj))
-    .setMimeType(ContentService.MimeType.JSON);
-}
-
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+    
 function isCalculatedHeader(header) {
   if (!header) return false;
   var h = String(header);
@@ -149,7 +149,7 @@ function doGet(e) {
     var ss = getCopySpreadsheet();
     var sheet = ss.getSheetByName(SOLDIERS_TAB);
     if (!sheet) return jsonResponse({ success: false, error: 'soldiers tab not found. Run syncFromMaster first.' });
-
+    
     switch (action) {
       case 'getAllSoldiers':
         return handleGetAllSoldiers(sheet);
@@ -174,7 +174,7 @@ function doPost(e) {
     var ss = getCopySpreadsheet();
     var sheet = ss.getSheetByName(SOLDIERS_TAB);
     if (!sheet) return jsonResponse({ success: false, error: 'soldiers tab not found. Run syncFromMaster first.' });
-
+    
     switch (action) {
       case 'updateSoldierData':
         return handleUpdateSoldierData(sheet, payload.data);
@@ -196,7 +196,7 @@ function handleGetAllSoldiers(sheet) {
 }
 
 function handleSearchSoldiers(sheet, searchTerm) {
-  if (!searchTerm || searchTerm.length < 2) {
+    if (!searchTerm || searchTerm.length < 2) {
     return jsonResponse({ success: true, soldiers: [], count: 0 });
   }
 

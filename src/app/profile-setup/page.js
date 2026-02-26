@@ -1,4 +1,5 @@
 'use client';
+import '@/i18n';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { auth, db } from '../../lib/firebase';
@@ -125,17 +126,21 @@ export default function ProfileSetup() {
 
     try {
       if (selectedSoldier.idNumber) {
-        const dupeQuery = query(
-          collection(db, 'users'),
-          where('idNumber', '==', selectedSoldier.idNumber)
-        );
-        const dupeSnap = await getDocs(dupeQuery);
-        const claimedDoc = dupeSnap.docs.find(d => d.id !== uid);
-        if (claimedDoc) {
-          setClaimedDocId(claimedDoc.id);
-          setError(t('already_claimed'));
-          setIsLoading(false);
-          return;
+        try {
+          const dupeQuery = query(
+            collection(db, 'users'),
+            where('idNumber', '==', selectedSoldier.idNumber)
+          );
+          const dupeSnap = await getDocs(dupeQuery);
+          const claimedDoc = dupeSnap.docs.find(d => d.id !== uid);
+          if (claimedDoc) {
+            setClaimedDocId(claimedDoc.id);
+            setError(t('already_claimed'));
+            setIsLoading(false);
+            return;
+          }
+        } catch (permErr) {
+          console.warn('Duplicate check skipped (permissions):', permErr.message);
         }
       }
 
@@ -172,19 +177,18 @@ export default function ProfileSetup() {
 
   if (!isReady) {
     return (
-      <main className="min-h-screen flex items-center justify-center font-body" style={{ background: colors.white }}>
+      <main className="min-h-screen flex items-center justify-center font-body bg-gradient-to-br from-blue-200/60 to-green-100/60">
         <div className="animate-spin rounded-full h-16 w-16 border-b-4" style={{ borderColor: colors.primaryGreen }}></div>
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center font-body px-4 phone-lg:px-0" style={{ background: colors.white }}>
+    <main className="min-h-screen flex items-center justify-center font-body px-4 pb-8 bg-gradient-to-br from-blue-200/60 to-green-100/60">
       <LanguageSwitcher className="absolute top-4 right-4 bg-surface p-2 rounded-full text-white text-xl hover:text-text" />
       <div
-        className="w-full max-w-xs phone-md:max-w-sm phone-lg:max-w-md mx-auto 
-          bg-transparent rounded-none shadow-none p-0
-          phone-lg:bg-white phone-lg:rounded-[2.5rem] phone-lg:shadow-lg phone-lg:p-[3.5rem_2.2rem]"
+        className="w-full max-w-md mx-auto 
+          bg-white rounded-2xl shadow-lg p-6 phone-lg:p-8"
       >
         <h2 style={{ fontWeight: 700, fontSize: '2.5rem', textAlign: 'center', marginBottom: '2.8rem', color: colors.text }}>{t('completeProfile')}</h2>
         <form onSubmit={handleSave}>
@@ -227,9 +231,9 @@ export default function ProfileSetup() {
                 <div style={{ textAlign: 'right', fontSize: '1rem', opacity: isLoadingSoldierData ? 0.5 : 1 }}>
                   <div style={{ fontWeight: 700, marginBottom: '0.75rem', color: colors.text, fontSize: '1.1rem', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.5rem' }}>
                     <span>{selectedSoldier.fullName}</span>
-                    {selectedSoldier.idNumber && (
+                    {selectedSoldier.idNumber != null && (
                       <span style={{ fontSize: '0.8rem', color: colors.muted, fontWeight: 400 }} dir="ltr">
-                        (ת.ז ...{selectedSoldier.idNumber.slice(-4)})
+                        (ת.ז ...{String(selectedSoldier.idNumber).slice(-4)})
                       </span>
                     )}
                   </div>

@@ -2,77 +2,96 @@
 
 'use client';
 import { useState, useEffect, useRef } from 'react';
-import { searchSoldiersByName } from '@/lib/soldierDataService';
+import { getSoldiersWithCache } from '@/lib/soldierDataService';
 import colors from '../app/colors';
 
+const FULL_NAME_COL = 'שם מלא                                  (מילוי אוטומטי: לא לגעת)';
+const ID_COL = 'מספר זהות';
+const ROOM_COL = 'חדר';
+
 /**
- * Soldier Name Search Component
- * Provides autocomplete functionality for selecting soldiers from Google Sheets
+ * Soldier Search Component — search by name or ID number.
+ * Loads all soldiers once and filters client-side for instant results.
  */
-export default function SoldierNameSearch({ 
-  onSoldierSelect, 
-  placeholder = "חיפוש לפי שם מלא...",
+export default function SoldierNameSearch({
+  onSoldierSelect,
+  placeholder = 'חיפוש לפי שם או ת.ז...',
   disabled = false,
-  error = null 
+  error = null
 }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [suggestions, setSuggestions] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isLoadingSoldier, setIsLoadingSoldier] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [allSoldiers, setAllSoldiers] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [selectedSoldier, setSelectedSoldier] = useState(null);
-  
+
   const inputRef = useRef(null);
   const suggestionsRef = useRef(null);
-  const searchTimeoutRef = useRef(null);
 
-  // Debounced search function
-  const performSearch = async (term) => {
-    if (term.length < 2) {
+  // Load all soldiers once on mount (single API call, then instant client-side search)
+  useEffect(() => {
+    let cancelled = false;
+    getSoldiersWithCache()
+      .then((soldiers) => {
+        if (!cancelled) {
+          setAllSoldiers(soldiers || []);
+        }
+      })
+      .catch((err) => {
+        console.error('Error loading soldiers:', err);
+        if (!cancelled) setAllSoldiers([]);
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, []);
+
+  // Filter soldiers by name or ID (client-side, instant)
+  const filterSoldiers = (term) => {
+    const t = String(term || '').trim();
+    if (t.length < 1) return [];
+
+    const tLower = t.toLowerCase();
+    const isNumeric = /^\d+$/.test(t);
+
+    return allSoldiers.filter((s) => {
+      const fullName = String(s[FULL_NAME_COL] || s.fullName || '').replace(/\s+/g, ' ').trim();
+      const idNum = String(s[ID_COL] || s.idNumber || '').trim();
+
+      if (isNumeric) {
+        return idNum.includes(t) || idNum.endsWith(t) || idNum.startsWith(t);
+      }
+      const nameWords = fullName.toLowerCase().split(/\s+/).filter(Boolean);
+      const searchWords = tLower.split(/\s+/).filter(Boolean);
+      return searchWords.every((sw) =>
+        nameWords.some((nw) => nw.includes(sw) || nw.startsWith(sw))
+      );
+    });
+  };
+
+  const handleInputChange = (e) => {
+    const value = e.target.value;
+    setSearchTerm(value);
+
+    if (value.trim().length < 1) {
       setSuggestions([]);
       setShowSuggestions(false);
       return;
     }
 
-    setIsLoading(true);
-    try {
-      const results = await searchSoldiersByName(term);
-      
-      setSuggestions(results);
-      setShowSuggestions(true);
-    } catch (error) {
-      console.error('Error searching soldiers:', error);
-      setSuggestions([]);
-      setShowSuggestions(false);
-    } finally {
-      setIsLoading(false);
-    }
+    const results = filterSoldiers(value);
+    setSuggestions(results);
+    setShowSuggestions(true);
   };
 
-  // Handle input change with debouncing
-  const handleInputChange = (e) => {
-    const value = e.target.value;
-    setSearchTerm(value);
-    
-    // Clear previous timeout
-    if (searchTimeoutRef.current) {
-      clearTimeout(searchTimeoutRef.current);
-    }
-    
-    // Set new timeout for search
-    searchTimeoutRef.current = setTimeout(() => {
-      performSearch(value);
-    }, 300);
-  };
-
-  // Handle suggestion selection
   const handleSuggestionClick = (soldier) => {
-    setSearchTerm(soldier.fullName || soldier['שם מלא                                  (מילוי אוטומטי: לא לגעת)'] || '');
+    const name = soldier[FULL_NAME_COL] || soldier.fullName || '';
+    setSearchTerm(name);
     setSelectedSoldier(soldier);
     setShowSuggestions(false);
     setSuggestions([]);
-    
-    // Use the soldier data we already have from the search
     onSoldierSelect(soldier);
   };
 
@@ -109,15 +128,6 @@ export default function SoldierNameSearch({
     inputRef.current?.focus();
   };
 
-  // Cleanup timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (searchTimeoutRef.current) {
-        clearTimeout(searchTimeoutRef.current);
-      }
-    };
-  }, []);
-
   return (
     <div className="relative w-full">
       {/* Input Field */}
@@ -131,7 +141,7 @@ export default function SoldierNameSearch({
           onBlur={handleInputBlur}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
-          disabled={disabled}
+          disabled={disabled || isLoading}
           className={`
             w-full px-4 py-3 border-2 rounded-lg text-right
             focus:outline-none focus:ring-2 focus:ring-opacity-50
@@ -149,15 +159,8 @@ export default function SoldierNameSearch({
           }}
         />
         
-        {/* Loading indicator */}
+        {/* Loading indicator (initial soldier list) */}
         {isLoading && (
-          <div className="absolute left-3 top-1/2 transform -translate-y-1/2">
-            <div className="animate-spin rounded-full h-5 w-5 border-2 border-green-500 border-t-transparent"></div>
-          </div>
-        )}
-        
-        {/* Loading soldier data indicator */}
-        {isLoadingSoldier && (
           <div className="absolute left-3 top-1/2 transform -translate-y-1/2">
             <div className="animate-spin rounded-full h-5 w-5 border-2 border-green-500 border-t-transparent"></div>
           </div>
@@ -183,28 +186,30 @@ export default function SoldierNameSearch({
           style={{ boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}
         >
           {suggestions.map((soldier, index) => {
-            const idNum = soldier['מספר זהות'] || soldier.idNumber || '';
+            const idNum = String(soldier[ID_COL] || soldier.idNumber || '');
             const lastFour = idNum.length >= 4 ? idNum.slice(-4) : idNum;
+            const name = soldier[FULL_NAME_COL] || soldier.fullName || '';
+            const room = soldier[ROOM_COL] || soldier.roomNumber;
             return (
               <div
-                key={`${soldier.fullName || 'soldier'}-${index}`}
+                key={`${idNum || name}-${index}`}
                 onClick={() => handleSuggestionClick(soldier)}
                 className="px-4 py-3 hover:bg-green-50 cursor-pointer border-b border-gray-100 last:border-b-0 transition-colors duration-150"
               >
                 <div className="text-right">
                   <div className="font-medium text-gray-900 flex items-center justify-end gap-2" style={{ fontSize: '1rem' }}>
-                    <span>{soldier.fullName || soldier['שם מלא                                  (מילוי אוטומטי: לא לגעת)'] || 'No name'}</span>
+                    <span>{name || '—'}</span>
                     {lastFour && (
                       <span className="text-xs text-gray-400 font-normal" dir="ltr">
                         (ת.ז ...{lastFour})
                       </span>
                     )}
                   </div>
-                  {(soldier.roomNumber || soldier['חדר']) && (
+                  {room && (
                     <div className="text-sm text-gray-500 mt-1">
-                      חדר: {soldier.roomNumber || soldier['חדר']}
-                      {(soldier.building || soldier['בניין']) && `, בניין: ${soldier.building || soldier['בניין']}`}
-                      {(soldier.floor || soldier['קומה']) && `, קומה: ${soldier.floor || soldier['קומה']}`}
+                      חדר: {room}
+                      {(soldier['בניין'] || soldier.building) && `, בניין: ${soldier['בניין'] || soldier.building}`}
+                      {(soldier['קומה'] || soldier.floor) && `, קומה: ${soldier['קומה'] || soldier.floor}`}
                     </div>
                   )}
                 </div>
@@ -215,7 +220,7 @@ export default function SoldierNameSearch({
       )}
 
       {/* No results message */}
-      {showSuggestions && suggestions.length === 0 && searchTerm.length >= 2 && !isLoading && (
+      {showSuggestions && suggestions.length === 0 && searchTerm.trim().length >= 1 && !isLoading && (
         <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg p-4 text-center text-gray-500">
           לא נמצאו תוצאות עבור &quot;{searchTerm}&quot;
         </div>
