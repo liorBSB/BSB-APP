@@ -1,7 +1,6 @@
 import { 
   collection, 
   doc, 
-  setDoc, 
   getDoc, 
   getDocs, 
   updateDoc, 
@@ -18,7 +17,57 @@ import { exportSoldierToSheets } from './googleSheets';
 import { syncToSheets } from './simpleSyncService';
 
 export const COLLECTIONS = {
-  USERS: 'users'
+  USERS: 'users',
+  SOLDIERS: 'soldiers',
+  SOLDIER_PROFILES: 'soldierProfiles',
+  REFUND_REQUESTS: 'refundRequests',
+  PROBLEM_REPORTS: 'problemReports',
+  APPROVAL_REQUESTS: 'approvalRequests',
+};
+
+/**
+ * Delete all operational data related to a user across secondary collections.
+ * Shared by both "delete account" and "mark as left" flows.
+ * Does NOT delete the users/{uid} doc — callers handle that separately.
+ */
+export const deleteRelatedUserData = async (uid) => {
+  const batch = writeBatch(db);
+
+  const uidKeyedCollections = [
+    COLLECTIONS.SOLDIERS,
+    COLLECTIONS.SOLDIER_PROFILES,
+  ];
+  for (const col of uidKeyedCollections) {
+    batch.delete(doc(db, col, uid));
+  }
+
+  const ownerQueryCollections = [
+    COLLECTIONS.REFUND_REQUESTS,
+    COLLECTIONS.PROBLEM_REPORTS,
+  ];
+  for (const col of ownerQueryCollections) {
+    const q = query(collection(db, col), where('ownerUid', '==', uid));
+    const snap = await getDocs(q);
+    snap.docs.forEach(d => batch.delete(d.ref));
+  }
+
+  const approvalQ = query(
+    collection(db, COLLECTIONS.APPROVAL_REQUESTS),
+    where('uid', '==', uid)
+  );
+  const approvalSnap = await getDocs(approvalQ);
+  approvalSnap.docs.forEach(d => batch.delete(d.ref));
+
+  await batch.commit();
+};
+
+/**
+ * Delete ALL Firestore data for a user (users doc + all related collections).
+ * Used by the self-service "delete account" flow.
+ */
+export const deleteAllUserData = async (uid) => {
+  await deleteRelatedUserData(uid);
+  await deleteDoc(doc(db, COLLECTIONS.USERS, uid));
 };
 
 /**
@@ -44,28 +93,18 @@ export const markUserAsLeft = async (uid, adminUid) => {
     throw new Error('User not found');
   }
   
-  const archivedData = {
-    ...userData.data(),
-    archivedAt: Timestamp.now(),
-    archivedBy: adminUid,
-    originalUid: uid,
-    leftDate: Timestamp.now()
-  };
-  
   const exportResult = await exportSoldierToSheets(userData.data());
   
   if (!exportResult.success) {
     throw new Error(`Export failed: ${exportResult.message}`);
   }
   
-  const archivedUserRef = doc(db, 'archivedUsers', uid);
-  await setDoc(archivedUserRef, archivedData);
-  
   await deleteDoc(doc(db, COLLECTIONS.USERS, uid));
+  await deleteRelatedUserData(uid);
   
   return {
     success: true,
-    message: 'User archived and data exported successfully',
+    message: 'Soldier exported to archive sheet and removed',
     exportResult
   };
 };
@@ -93,19 +132,6 @@ export const getUser = async (uid) => {
     return { id: userSnap.id, ...userSnap.data() };
   }
   return null;
-};
-
-/**
- * Get archived users (admin only)
- */
-export const getArchivedUsers = async () => {
-  const archivedUsersRef = collection(db, 'archivedUsers');
-  const querySnapshot = await getDocs(archivedUsersRef);
-  
-  return querySnapshot.docs.map((doc) => ({
-    id: doc.id,
-    ...doc.data()
-  }));
 };
 
 /**
@@ -180,7 +206,6 @@ export const searchUsers = async (searchTerm, options = {}) => {
           String(data.fullName || '').toLowerCase().includes(term) ||
           String(data.roomNumber || '').includes(term) ||
           String(data.email || '').toLowerCase().includes(term) ||
-          String(data.phoneNumber || '').includes(term) ||
           String(data.phone || '').includes(term) ||
           String(data.personalNumber || '').includes(term) ||
           String(data.unit || '').toLowerCase().includes(term) ||
@@ -228,11 +253,12 @@ export const updateUserData = async (uid, updateData, syncToSheet = true) => {
 
 const databaseService = {
   COLLECTIONS,
+  deleteRelatedUserData,
+  deleteAllUserData,
   updateUserStatus,
   markUserAsLeft,
   resetSoldierAccount,
   getUser,
-  getArchivedUsers,
   getActiveUsers,
   searchUsers,
   updateProfileAnswer,

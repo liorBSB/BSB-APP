@@ -149,7 +149,7 @@ export default function SettingsPage() {
           const data = userSnap.data();
           setPersonalIdData({
             personalNumber: data.personalNumber || '',
-            phone: data.phoneNumber || data.phone || '',
+            phone: data.phone || '',
             profilePhotoUrl: data.profilePhotoUrl || '',
           });
         }
@@ -202,7 +202,7 @@ export default function SettingsPage() {
             // Basic info
             fullName: data.fullName || '',
             email: data.email || '',
-            phoneNumber: data.phoneNumber || data.phone || '',
+            phone: data.phone || '',
             roomNumber: data.roomNumber || '',
             age: formatNumber(data.age),
             
@@ -285,7 +285,7 @@ export default function SettingsPage() {
           // Basic info
           fullName: editAllForm.fullName || null,
           email: editAllForm.email || null,
-          phoneNumber: editAllForm.phoneNumber || null,
+          phone: editAllForm.phone || null,
           roomNumber: editAllForm.roomNumber || null,
           age: formatNumberForSave(editAllForm.age),
           
@@ -337,7 +337,7 @@ export default function SettingsPage() {
         setPersonalIdData(prev => ({
           ...prev,
           personalNumber: editAllForm.personalNumber,
-          phone: editAllForm.phoneNumber,
+          phone: editAllForm.phone,
         }));
         
         setSuccess(t('saved_successfully'));
@@ -650,7 +650,7 @@ export default function SettingsPage() {
                       <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
                       <input
                         type="tel"
-                        value={editAllForm.phoneNumber || ''}
+                        value={editAllForm.phone || ''}
                         disabled
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed"
                       />

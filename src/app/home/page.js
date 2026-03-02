@@ -21,7 +21,7 @@ export default function HomePage() {
   const router = useRouter();
   const [isCheckingProfile, setIsCheckingProfile] = useState(true);
   const [profileComplete, setProfileComplete] = useState(false);
-  useAuthRedirect(true);
+  useAuthRedirect();
   const { t } = useTranslation('home');
   const [status, setStatus] = useState('home');
   const [userData, setUserData] = useState(null);

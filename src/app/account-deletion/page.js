@@ -1,16 +1,16 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { auth, db } from '@/lib/firebase';
-import { deleteUser } from 'firebase/auth';
-import { doc, deleteDoc } from 'firebase/firestore';
+import { auth, googleProvider } from '@/lib/firebase';
+import { deleteUser, reauthenticateWithPopup } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
+import { deleteAllUserData } from '@/lib/database';
 import colors from '../colors';
 
 export default function AccountDeletionPage() {
   const { t } = useTranslation('settings');
   const router = useRouter();
-  const [status, setStatus] = useState('loading'); // 'loading', 'success', 'error'
+  const [status, setStatus] = useState('loading');
   const [errorMessage, setErrorMessage] = useState('');
   const [currentStep, setCurrentStep] = useState('');
 
@@ -22,31 +22,20 @@ export default function AccountDeletionPage() {
           throw new Error('No authenticated user found');
         }
 
-        setCurrentStep('Deleting your data...');
-        const userRef = doc(db, 'users', user.uid);
-        await deleteDoc(userRef);
-        
-        // Small delay for better UX
+        setCurrentStep(t('reauth_step') || 'Verifying your identity...');
+        await reauthenticateWithPopup(user, googleProvider);
+
+        setCurrentStep(t('deleting_data_step') || 'Deleting your data...');
+        await deleteAllUserData(user.uid);
+
         await new Promise(resolve => setTimeout(resolve, 500));
-        
-        // Step 2: Delete Firebase Auth account
-        setCurrentStep('Deleting your account...');
-        try {
-          await deleteUser(user);
-          setCurrentStep('Account deleted successfully!');
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          setStatus('success');
-        } catch (authError) {
-          // If auth deletion fails, we still consider it a success since data is deleted
-          if (authError.code === 'auth/requires-recent-login') {
-            setCurrentStep('Data deleted successfully!');
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            setStatus('success');
-          } else {
-            throw authError;
-          }
-        }
-        
+
+        setCurrentStep(t('deleting_auth_step') || 'Deleting your account...');
+        await deleteUser(user);
+
+        setCurrentStep(t('deletion_complete_step') || 'Account deleted successfully!');
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        setStatus('success');
       } catch (error) {
         console.error('Error deleting account:', error);
         setStatus('error');
@@ -54,7 +43,6 @@ export default function AccountDeletionPage() {
       }
     };
 
-    // Start deletion process
     deleteAccount();
   }, []);
 

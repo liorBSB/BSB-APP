@@ -45,11 +45,7 @@ var KNOWN_COLUMNS = [
   'כתובת מייל חייל',
   'חדר',
   'קומה',
-  'אפיון חדר',
-  'סטטוס חדר (מילוי אוטומטי: לא לגעת)',
-  'מגדר חדר',
   'תאריך כניסה לבית (חתימת החוזה)',
-  'מקום מגורים לפני הבית',
   'השכלה',
   'רישיון',
   'משפחה בארץ',
@@ -75,19 +71,9 @@ var KNOWN_COLUMNS = [
   'שם קצין',
   'טלפון קצין',
   'עברות משמעת',
-  'חודשי שרות',
-  'טווח           חודשי שרות',
-  'חודשים עד שחרור',
   'תאריך שחרור משוקלל',
   'קופת חולים לפני הצבא',
-  'בעיות רפואיות',
-  'אלרגיות',
-  'אשפוזים',
-  'טיפול פסיכיאטרי',
-  'תרופות קבועות',
-  'רמת ניקיון',
-  'תרומות',
-  'הערות'
+  'רמת ניקיון'
 ];
 
 // ─── Config helpers ──────────────────────────────────────────────────
@@ -117,7 +103,7 @@ function getMasterSheet() {
 // ─── Helpers ─────────────────────────────────────────────────────────
 
 function sheetToObjects(sheet) {
-  var data = sheet.getDataRange().getValues();
+  var data = sheet.getDataRange().getDisplayValues();
   if (data.length < 2) return { headers: data[0] || [], rows: [] };
   var headers = data[0];
   var rows = data.slice(1).map(function(row, idx) {
@@ -254,7 +240,9 @@ function handleUpdateSoldierData(sheet, updateData) {
     var newVal = updateData[key] != null ? updateData[key] : '';
     var curVal = match[key] != null ? match[key] : '';
     if (String(newVal) !== String(curVal)) {
-      sheet.getRange(rowNum, colIdx + 1).setValue(newVal);
+      var cell = sheet.getRange(rowNum, colIdx + 1);
+      cell.setNumberFormat('@');
+      cell.setValue(newVal);
       updatedFields.push(key);
     }
   });
@@ -285,10 +273,12 @@ function syncFromMaster() {
   var soldiersSheet = getOrCreateTab(ss, SOLDIERS_TAB);
 
   // ── Step 1: dump master into master_mirror (full overwrite) ────────
-  var masterData = masterSheet.getDataRange().getValues();
+  var masterData = masterSheet.getDataRange().getDisplayValues();
   mirrorSheet.clearContents();
   if (masterData.length > 0) {
-    mirrorSheet.getRange(1, 1, masterData.length, masterData[0].length).setValues(masterData);
+    var mirrorRange = mirrorSheet.getRange(1, 1, masterData.length, masterData[0].length);
+    mirrorRange.setNumberFormat('@');
+    mirrorRange.setValues(masterData);
   }
   console.log('Mirror updated: ' + (masterData.length - 1) + ' rows from master');
 
@@ -356,7 +346,10 @@ function syncFromMaster() {
         var val = masterRow[h];
         return (val != null && val !== '' && !isErrorValue(val)) ? val : '';
       });
-      soldiersSheet.appendRow(newRow);
+      var nextRow = soldiersSheet.getLastRow() + 1;
+      var newRange = soldiersSheet.getRange(nextRow, 1, 1, newRow.length);
+      newRange.setNumberFormat('@');
+      newRange.setValues([newRow]);
       added++;
     } else {
       // Existing soldier — update overlapping columns with non-empty master values
@@ -369,7 +362,9 @@ function syncFromMaster() {
         var currentVal = existing[col];
         if (String(masterVal) !== String(currentVal != null ? currentVal : '')) {
           var colIdx = sHeaders.indexOf(col);
-          soldiersSheet.getRange(rowNum, colIdx + 1).setValue(masterVal);
+          var cell = soldiersSheet.getRange(rowNum, colIdx + 1);
+          cell.setNumberFormat('@');
+          cell.setValue(masterVal);
         }
       }
       // Stamp _lastSeenInMaster

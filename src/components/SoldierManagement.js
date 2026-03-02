@@ -76,10 +76,10 @@ export default function SoldierManagement() {
       const activeSoldiers = await getActiveUsers();
       
       if (activeSoldiers.length === 0) {
-        const { collection, getDocs, query, orderBy } = await import('firebase/firestore');
+        const { collection, getDocs, query, orderBy, where } = await import('firebase/firestore');
         const { db } = await import('@/lib/firebase');
         
-        const allUsersQuery = query(collection(db, 'users'), orderBy('fullName'));
+        const allUsersQuery = query(collection(db, 'users'), where('userType', '==', 'user'), orderBy('fullName'));
         const allUsersSnap = await getDocs(allUsersQuery);
         const allUsers = allUsersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         
@@ -137,15 +137,9 @@ export default function SoldierManagement() {
         // Basic info
         fullName: soldier.fullName || '',
         email: soldier.email || '',
-        phoneNumber: soldier.phoneNumber || soldier.phone || '',
+        phone: soldier.phone || '',
         roomNumber: soldier.roomNumber || '',
-        roomType: soldier.roomType || '',
-        roomStatus: soldier.roomStatus || '',
-        serviceMonths: formatNumber(soldier.serviceMonths),
-        serviceRange: soldier.serviceRange || '',
-        monthsUntilRelease: formatNumber(soldier.monthsUntilRelease),
         age: formatNumber(soldier.age),
-        calculatedReleaseDate: formatDateForInput(soldier.calculatedReleaseDate),
         
         // Personal info
         gender: soldier.gender || '',
@@ -180,16 +174,10 @@ export default function SoldierManagement() {
         officerPhone: soldier.officerPhone || '',
         disciplinaryRecord: soldier.disciplinaryRecord || '',
         
-        // Medical info
+        // Health & welfare
         healthFund: soldier.healthFund || '',
-        medicalProblems: soldier.medicalProblems || '',
-        allergies: soldier.allergies || '',
-        hospitalizations: soldier.hospitalizations || '',
-        psychiatricTreatment: soldier.psychiatricTreatment || '',
-        regularMedication: soldier.regularMedication || '',
-        
-        // Additional info
-        notes: soldier.notes || '',
+
+        // Housing
         contractDate: formatDateForInput(soldier.contractDate),
         
         // Check-in and status info
@@ -239,15 +227,9 @@ export default function SoldierManagement() {
         // Basic info
         fullName: editForm.fullName || null,
         email: editForm.email || null,
-        phoneNumber: editForm.phoneNumber || null,
+        phone: editForm.phone || null,
         roomNumber: editForm.roomNumber || null,
-        roomType: editForm.roomType || null,
-        roomStatus: editForm.roomStatus || null,
-        serviceMonths: formatNumberForSave(editForm.serviceMonths),
-        serviceRange: editForm.serviceRange || null,
-        monthsUntilRelease: formatNumberForSave(editForm.monthsUntilRelease),
         age: formatNumberForSave(editForm.age),
-        calculatedReleaseDate: formatDateForSave(editForm.calculatedReleaseDate),
         
         // Personal info
         gender: editForm.gender || null,
@@ -282,16 +264,10 @@ export default function SoldierManagement() {
         officerPhone: editForm.officerPhone || null,
         disciplinaryRecord: editForm.disciplinaryRecord || null,
         
-        // Medical info
+        // Health & welfare
         healthFund: editForm.healthFund || null,
-        medicalProblems: editForm.medicalProblems || null,
-        allergies: editForm.allergies || null,
-        hospitalizations: editForm.hospitalizations || null,
-        psychiatricTreatment: editForm.psychiatricTreatment || null,
-        regularMedication: editForm.regularMedication || null,
-        
-        // Additional info
-        notes: editForm.notes || null,
+
+        // Housing
         contractDate: formatDateForSave(editForm.contractDate),
         
         // Status info
@@ -354,11 +330,12 @@ export default function SoldierManagement() {
   };
 
   const proceedToDelete = () => {
-    setShowDelayModal(false);
-    setShowDeleteConfirmation(true);
     if (delayTimer) {
       clearInterval(delayTimer);
       setDelayTimer(null);
+    }
+    if (soldierToDelete) {
+      handleMarkAsLeft(soldierToDelete.id);
     }
   };
 
@@ -379,11 +356,10 @@ export default function SoldierManagement() {
         setSelectedSoldier(null);
       }
       
-      // Close confirmation dialog
+      setShowDelayModal(false);
       setShowDeleteConfirmation(false);
       setSoldierToDelete(null);
       
-      // Show success message
       alert(`✅ Soldier "${soldierToDelete?.fullName || 'Unknown'}" has been successfully marked as left and archived.`);
       
     } catch (error) {
@@ -683,7 +659,7 @@ export default function SoldierManagement() {
                   <div className="space-y-3 text-sm text-gray-600">
                     <div><span className="font-medium">Full Name:</span> {selectedSoldier.fullName}</div>
                     <div><span className="font-medium">Email:</span> {selectedSoldier.email || 'Not specified'}</div>
-                    <div><span className="font-medium">Phone:</span> {selectedSoldier.phoneNumber || selectedSoldier.phone || 'Not specified'}</div>
+                    <div><span className="font-medium">Phone:</span> {selectedSoldier.phone || 'Not specified'}</div>
                     <div><span className="font-medium">Room:</span> {selectedSoldier.roomNumber || 'Not specified'}</div>
                     <div><span className="font-medium">Status:</span> {selectedSoldier.status === 'home' ? '🏠 Home' : 
                                                                         selectedSoldier.status === 'away' ? '🚪 Away' : 
@@ -839,8 +815,8 @@ export default function SoldierManagement() {
                       <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
                       <input
                         type="tel"
-                        value={editForm.phoneNumber || ''}
-                        onChange={(e) => handleEditFormChange('phoneNumber', e.target.value)}
+                        value={editForm.phone || ''}
+                        onChange={(e) => handleEditFormChange('phone', e.target.value)}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
                       />
                     </div>
@@ -1023,40 +999,6 @@ export default function SoldierManagement() {
                         type="date"
                         value={editForm.checkInDate || ''}
                         onChange={(e) => handleEditFormChange('checkInDate', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Room Information */}
-                <div className="space-y-3 phone-sm:space-y-4">
-                  <h4 className="text-base phone-sm:text-lg font-semibold text-gray-800 border-b pb-2">Room Information</h4>
-                  <div className="grid grid-cols-1 phone-sm:grid-cols-2 gap-3 phone-sm:gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Room Number</label>
-                      <input
-                        type="text"
-                        value={editForm.roomNumber || ''}
-                        onChange={(e) => handleEditFormChange('roomNumber', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Room Type</label>
-                      <input
-                        type="text"
-                        value={editForm.roomType || ''}
-                        onChange={(e) => handleEditFormChange('roomType', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Room Status</label>
-                      <input
-                        type="text"
-                        value={editForm.roomStatus || ''}
-                        onChange={(e) => handleEditFormChange('roomStatus', e.target.value)}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
                       />
                     </div>
@@ -1335,21 +1277,6 @@ export default function SoldierManagement() {
                   </div>
                 </div>
 
-                {/* Additional Information */}
-                <div className="space-y-3 phone-sm:space-y-4">
-                  <h4 className="text-base phone-sm:text-lg font-semibold text-gray-800 border-b pb-2">Additional Information</h4>
-                  <div className="grid grid-cols-1 phone-sm:grid-cols-2 gap-3 phone-sm:gap-4">
-                    <div className="md:col-span-2">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
-                      <textarea
-                        value={editForm.notes || ''}
-                        onChange={(e) => handleEditFormChange('notes', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
-                        rows="4"
-                      />
-                    </div>
-                  </div>
-                </div>
               </div>
 
               {/* Actions */}
@@ -1440,7 +1367,7 @@ export default function SoldierManagement() {
                 </button>
                 <button
                   onClick={proceedToDelete}
-                  disabled={delayCountdown > 0}
+                  disabled={delayCountdown > 0 || processingId === soldierToDelete.id}
                   className="px-4 phone-sm:px-6 py-3 rounded-xl font-semibold transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed text-sm phone-sm:text-base"
                   style={{ 
                     background: 'transparent', 
@@ -1449,7 +1376,7 @@ export default function SoldierManagement() {
                     boxShadow: '0 4px 12px rgba(255, 82, 82, 0.1)'
                   }}
                 >
-                  {delayCountdown > 0 ? `Wait ${delayCountdown}s` : 'Confirm Removal'}
+                  {processingId === soldierToDelete.id ? 'Processing...' : delayCountdown > 0 ? `Wait ${delayCountdown}s` : 'Remove Soldier'}
                 </button>
               </div>
             </div>
@@ -1457,71 +1384,6 @@ export default function SoldierManagement() {
         </div>
       )}
 
-      {/* Delete Confirmation Modal */}
-      {showDeleteConfirmation && soldierToDelete && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-3 phone-sm:p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full">
-            {/* Header */}
-            <div className="p-4 phone-sm:p-6" style={{ background: colors.red, color: colors.white }}>
-              <h3 className="text-lg phone-sm:text-xl font-bold text-center">
-                Confirm Soldier Removal
-              </h3>
-            </div>
-
-            {/* Content */}
-            <div className="p-4 phone-sm:p-6 text-center">
-              <div className="mb-6">
-                <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background: colors.red }}>
-                  <span className="text-2xl">⚠️</span>
-                </div>
-                <h4 className="text-lg font-semibold text-gray-800 mb-2">
-                  Remove {soldierToDelete.fullName}?
-                </h4>
-                <p className="text-gray-600 text-sm">
-                  This action will:
-                </p>
-                <ul className="text-gray-600 text-sm mt-2 space-y-1">
-                  <li>• Export their data to Google Sheets</li>
-                  <li>• Archive their profile</li>
-                  <li>• Remove them from active soldiers</li>
-                </ul>
-                <p className="text-red-600 text-sm font-medium mt-3">
-                  This action cannot be undone.
-                </p>
-              </div>
-
-              {/* Actions */}
-              <div className="flex flex-col phone-sm:flex-row gap-2 phone-sm:gap-3 justify-center">
-                <button
-                  onClick={cancelDelete}
-                  className="px-4 phone-sm:px-6 py-3 rounded-xl font-semibold transition-all duration-200 hover:scale-105 text-sm phone-sm:text-base"
-                  style={{ 
-                    background: 'transparent', 
-                    color: colors.primaryGreen,
-                    border: `2px solid ${colors.primaryGreen}`,
-                    boxShadow: '0 4px 12px rgba(7, 99, 50, 0.1)'
-                  }}
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => handleMarkAsLeft(soldierToDelete.id)}
-                  disabled={processingId === soldierToDelete.id}
-                  className="px-4 phone-sm:px-6 py-3 rounded-xl font-semibold transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed text-sm phone-sm:text-base"
-                  style={{ 
-                    background: 'transparent', 
-                    color: colors.red,
-                    border: `2px solid ${colors.red}`,
-                    boxShadow: '0 4px 12px rgba(255, 82, 82, 0.1)'
-                  }}
-                >
-                  {processingId === soldierToDelete.id ? 'Processing...' : 'Remove Soldier'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Reset Account Confirmation Modal */}
       {showResetConfirmation && soldierToReset && (

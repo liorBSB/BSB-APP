@@ -1,6 +1,7 @@
 "use client";
 import { useTranslation } from 'react-i18next';
 import BottomNavBar from '@/components/BottomNavBar';
+import ComingSoon from '@/components/ComingSoon';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
 import PhotoUpload from '@/components/PhotoUpload';
 import { useState, useEffect, useRef } from 'react';
@@ -9,7 +10,8 @@ import { auth, db, storage } from '@/lib/firebase';
 import { addDoc, collection, doc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { ref as storageRef, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 
-export default function ReportPage() {
+// --- FEATURE GATE: To re-enable reports, replace the bottom wrapper with `export default ReportPageContent;` ---
+function ReportPageContent() {
   const { t, i18n } = useTranslation('report');
   const [desc, setDesc] = useState('');
   const [isInMyRoom, setIsInMyRoom] = useState(null); // null, true (in my room), false (not in my room)
@@ -537,4 +539,9 @@ export default function ReportPage() {
       )}
     </main>
   );
-} 
+}
+
+export default function ReportPage() {
+  return <ComingSoon navBar={<BottomNavBar active="report" />} />;
+}
+// --- END FEATURE GATE ---

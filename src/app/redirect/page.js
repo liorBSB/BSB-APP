@@ -32,7 +32,6 @@ export default function RedirectPage() {
             isAdmin: false,
             status: 'home',
             roomNumber: '',
-            roomLetter: '',
             createdAt: serverTimestamp()
           });
           

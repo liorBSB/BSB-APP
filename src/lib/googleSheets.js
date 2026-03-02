@@ -1,27 +1,21 @@
 /**
  * Google Sheets archive export.
  * Used when a soldier is marked as "left" — exports their data to the
- * archive/departed sheet before removing them from the active users collection.
+ * ArchivedSoldiers spreadsheet via a dedicated Apps Script deployment.
  */
 
 import { FIELD_MAP } from './sheetFieldMap';
-
-export const getSheetsConfig = () => ({
-  spreadsheetId: process.env.NEXT_PUBLIC_GOOGLE_SHEETS_ID,
-  sheetName: 'Soldiers Data',
-});
 
 export const exportSoldierToSheets = async (soldierData) => {
   try {
     const exportData = {};
 
     for (const field of FIELD_MAP) {
-      exportData[field.app] = soldierData[field.app] || '';
+      exportData[field.sheet] = soldierData[field.app] || '';
     }
 
-    exportData.leftDate = new Date().toISOString();
-    exportData.exportedAt = new Date().toISOString();
-    exportData.exportedBy = 'system';
+    exportData['תאריך עזיבה'] = new Date().toLocaleDateString('he-IL');
+    exportData['תאריך ייצוא'] = new Date().toISOString();
 
     return await sendToArchiveSheet(exportData);
   } catch (error) {
@@ -31,29 +25,17 @@ export const exportSoldierToSheets = async (soldierData) => {
 };
 
 async function sendToArchiveSheet(exportData) {
-  const config = getSheetsConfig();
-  if (!config.spreadsheetId) {
-    throw new Error('Google Sheets ID missing. Please check NEXT_PUBLIC_GOOGLE_SHEETS_ID.');
-  }
-
-  const scriptUrl = process.env.NEXT_PUBLIC_GOOGLE_SHEETS_SCRIPT_URL
-    || process.env.NEXT_PUBLIC_SOLDIER_SHEETS_SCRIPT_URL;
+  const scriptUrl = process.env.NEXT_PUBLIC_LEFT_SOLDIERS_SCRIPT_URL;
 
   if (!scriptUrl) {
-    throw new Error('Google Sheets script URL missing.');
+    throw new Error('Left soldiers script URL missing. Set NEXT_PUBLIC_LEFT_SOLDIERS_SCRIPT_URL.');
   }
 
-  const params = new URLSearchParams();
-  params.append('spreadsheetId', config.spreadsheetId);
-  params.append('sheetName', config.sheetName);
-  params.append('data', JSON.stringify(exportData));
-
-  const response = await fetch(`${scriptUrl}?${params.toString()}`, { method: 'GET' });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Export failed: HTTP ${response.status} - ${errorText}`);
-  }
+  const response = await fetch(scriptUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify({ action: 'archiveSoldier', data: exportData }),
+  });
 
   const result = await response.text();
   try {
@@ -61,27 +43,7 @@ async function sendToArchiveSheet(exportData) {
     if (!parsed.success) throw new Error(`Script error: ${parsed.error || 'Unknown error'}`);
     return parsed;
   } catch {
+    if (!response.ok) throw new Error(`Export failed: HTTP ${response.status} - ${result}`);
     return { success: true, message: result };
   }
 }
-
-export const validateSheetsConnection = async () => {
-  const config = getSheetsConfig();
-  if (!config.spreadsheetId) {
-    return { valid: false, message: 'Google Sheets configuration missing' };
-  }
-  return { valid: true, message: 'Google Sheets connection validated' };
-};
-
-export const archiveSoldierData = async () => {
-  return { success: true, message: 'Soldier data archived successfully' };
-};
-
-const googleSheetsService = {
-  exportSoldierToSheets,
-  getSheetsConfig,
-  validateSheetsConnection,
-  archiveSoldierData,
-};
-
-export default googleSheetsService;

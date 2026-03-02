@@ -8,6 +8,7 @@ import { signOut } from 'firebase/auth';
 import { useTranslation } from 'react-i18next';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
 import SoldierNameSearch from '@/components/SoldierNameSearch';
+import HouseLoader from '@/components/HouseLoader';
 import { mapSoldierData } from '@/lib/soldierDataService';
 import { FIELD_MAP, PRIMARY_KEY_APP } from '@/lib/sheetFieldMap';
 import { resetSoldierAccount } from '@/lib/database';
@@ -21,7 +22,6 @@ export default function ProfileSetup() {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [roomNumber, setRoomNumber] = useState('');
-  const [roomLetter, setRoomLetter] = useState('');
   const [error, setError] = useState('');
   const [selectedSoldier, setSelectedSoldier] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -31,6 +31,7 @@ export default function ProfileSetup() {
   const [claimedDocId, setClaimedDocId] = useState(null);
   const [reclaimError, setReclaimError] = useState('');
   const [isReclaiming, setIsReclaiming] = useState(false);
+  const [sheetLoading, setSheetLoading] = useState(true);
 
   const changeLanguage = (lng) => {
     i18n.changeLanguage(lng);
@@ -45,7 +46,6 @@ export default function ProfileSetup() {
       setFirstName(mappedData.firstName || '');
       setLastName(mappedData.lastName || '');
       setRoomNumber(mappedData.roomNumber || '');
-      setRoomLetter(mappedData.roomLetter || '');
       setError('');
       
       // Simulate a small delay to show loading state
@@ -57,7 +57,6 @@ export default function ProfileSetup() {
       setFirstName('');
       setLastName('');
       setRoomNumber('');
-      setRoomLetter('');
       setIsLoadingSoldierData(false);
     }
   };
@@ -164,24 +163,23 @@ export default function ProfileSetup() {
 
       await setDoc(doc(db, 'users', uid), userData, { merge: true });
 
-
-      // After profile setup, go to consent step 1 for soldiers
-      router.push('/register/consent/1?role=soldier');
+      router.push('/home');
     } catch (err) {
       console.error('Profile setup error:', err);
       setError(t('save_failed'));
-    } finally {
       setIsLoading(false);
     }
   };
 
-  if (!isReady) {
+  if (isLoading) {
     return (
       <main className="min-h-screen flex items-center justify-center font-body bg-gradient-to-br from-blue-200/60 to-green-100/60">
-        <div className="animate-spin rounded-full h-16 w-16 border-b-4" style={{ borderColor: colors.primaryGreen }}></div>
+        <HouseLoader size={100} />
       </main>
     );
   }
+
+  if (!isReady) return null;
 
   return (
     <main className="min-h-screen flex items-center justify-center font-body px-4 pb-8 bg-gradient-to-br from-blue-200/60 to-green-100/60">
@@ -193,12 +191,20 @@ export default function ProfileSetup() {
         <h2 style={{ fontWeight: 700, fontSize: '2.5rem', textAlign: 'center', marginBottom: '2.8rem', color: colors.text }}>{t('completeProfile')}</h2>
         <form onSubmit={handleSave}>
           <div style={{ marginBottom: '2.2rem' }}>
-            <label style={{ display: 'block', color: colors.muted, fontWeight: 600, marginBottom: 12, fontSize: 18 }}>{t('search_name')}</label>
-            <SoldierNameSearch
-              onSoldierSelect={handleSoldierSelect}
-              placeholder={t('search_placeholder')}
-              error={error}
-            />
+            {sheetLoading && (
+              <div style={{ display: 'flex', justifyContent: 'center', padding: '2rem 0' }}>
+                <HouseLoader size={90} />
+              </div>
+            )}
+            <div style={{ display: sheetLoading ? 'none' : undefined }}>
+              <label style={{ display: 'block', color: colors.muted, fontWeight: 600, marginBottom: 12, fontSize: 18 }}>{t('search_name')}</label>
+              <SoldierNameSearch
+                onSoldierSelect={handleSoldierSelect}
+                onLoadingChange={setSheetLoading}
+                placeholder={t('search_placeholder')}
+                error={error}
+              />
+            </div>
             
             {/* Display selected soldier info */}
             {selectedSoldier && (

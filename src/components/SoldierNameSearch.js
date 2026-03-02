@@ -15,6 +15,7 @@ const ROOM_COL = 'חדר';
  */
 export default function SoldierNameSearch({
   onSoldierSelect,
+  onLoadingChange,
   placeholder = 'חיפוש לפי שם או ת.ז...',
   disabled = false,
   error = null
@@ -47,6 +48,10 @@ export default function SoldierNameSearch({
       });
     return () => { cancelled = true; };
   }, []);
+
+  useEffect(() => {
+    onLoadingChange?.(isLoading);
+  }, [isLoading, onLoadingChange]);
 
   // Filter soldiers by name or ID (client-side, instant)
   const filterSoldiers = (term) => {

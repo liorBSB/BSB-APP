@@ -27,13 +27,9 @@ export const FIELD_MAP = [
   // ── Housing ────────────────────────────────────────────────────────
   { sheet: 'חדר', app: 'roomNumber' },
   { sheet: 'קומה', app: 'floor' },
-  { sheet: 'אפיון חדר', app: 'roomType' },
-  { sheet: 'סטטוס חדר (מילוי אוטומטי: לא לגעת)', app: 'roomStatus', isCalculated: true },
-  { sheet: 'מגדר חדר', app: 'roomGender', isCalculated: true },
   { sheet: 'תאריך כניסה לבית (חתימת החוזה)', app: 'contractDate', isDate: true },
 
   // ── Background ─────────────────────────────────────────────────────
-  { sheet: 'מקום מגורים לפני הבית', app: 'previousAddress' },
   { sheet: 'השכלה', app: 'education' },
   { sheet: 'רישיון', app: 'license' },
 
@@ -67,23 +63,13 @@ export const FIELD_MAP = [
   { sheet: 'עברות משמעת', app: 'disciplinaryRecord' },
 
   // ── Calculated military fields ─────────────────────────────────────
-  { sheet: 'חודשי שרות', app: 'serviceMonths', isCalculated: true },
-  { sheet: 'טווח           חודשי שרות', app: 'serviceRange', isCalculated: true },
-  { sheet: 'חודשים עד שחרור', app: 'monthsUntilRelease', isCalculated: true },
   { sheet: 'תאריך שחרור משוקלל', app: 'calculatedReleaseDate', isCalculated: true },
 
   // ── Health & welfare ───────────────────────────────────────────────
   { sheet: 'קופת חולים לפני הצבא', app: 'healthFund' },
-  { sheet: 'בעיות רפואיות', app: 'medicalProblems' },
-  { sheet: 'אלרגיות', app: 'allergies' },
-  { sheet: 'אשפוזים', app: 'hospitalizations' },
-  { sheet: 'טיפול פסיכיאטרי', app: 'psychiatricTreatment' },
-  { sheet: 'תרופות קבועות', app: 'regularMedication' },
 
   // ── House-specific ─────────────────────────────────────────────────
   { sheet: 'רמת ניקיון', app: 'cleanlinessLevel' },
-  { sheet: 'תרומות', app: 'contributions' },
-  { sheet: 'הערות', app: 'notes' },
 ];
 
 // ── Feature flags ───────────────────────────────────────────────────

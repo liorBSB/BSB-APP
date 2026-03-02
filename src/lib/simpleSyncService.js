@@ -16,7 +16,7 @@ import {
   Timestamp,
 } from 'firebase/firestore';
 import { db } from './firebase';
-import { COLLECTIONS } from './database';
+import { COLLECTIONS, markUserAsLeft } from './database';
 import {
   FIELD_MAP,
   PRIMARY_KEY_SHEET,
@@ -154,7 +154,30 @@ export const syncFromSheets = async () => {
       }
     }
 
-    return { success: true, updated: updatedCount };
+    // Archive Firebase soldiers whose idNumber no longer appears in the Soldiers tab
+    const sheetIdSet = new Set(
+      sheetSoldiers
+        .map(r => String(r[PRIMARY_KEY_SHEET] || '').trim())
+        .filter(Boolean)
+    );
+
+    let archivedCount = 0;
+    for (const soldier of appSoldiers) {
+      if (soldier.dataSource !== 'google_sheets') continue;
+      const soldierId = String(soldier[PRIMARY_KEY_APP] || '').trim();
+      if (!soldierId) continue;
+      if (!sheetIdSet.has(soldierId)) {
+        try {
+          await markUserAsLeft(soldier.id, 'system');
+          archivedCount++;
+          console.log('[syncFromSheets] Auto-archived missing soldier:', soldier.fullName);
+        } catch (err) {
+          console.error('[syncFromSheets] Failed to auto-archive:', soldier.id, err);
+        }
+      }
+    }
+
+    return { success: true, updated: updatedCount, archived: archivedCount };
   } catch (error) {
     return { success: false, message: error.message };
   }

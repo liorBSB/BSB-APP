@@ -1,0 +1,22 @@
+# Build artifacts & dependencies
+node_modules/
+.next/
+build/
+out/
+
+# Lock file
+package-lock.json
+
+# Binary/media assets
+public/blurred-bg.png
+public/House_Logo.pdf
+public/House_Logo.jpg
+public/google-logo.png
+public/google-sign-in.png
+
+# Default Next.js boilerplate SVGs
+public/file.svg
+public/globe.svg
+public/next.svg
+public/vercel.svg
+public/window.svg

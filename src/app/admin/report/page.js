@@ -9,9 +9,11 @@ import { db, storage, auth } from '@/lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import colors from '../../colors';
 import AdminBottomNavBar from '@/components/AdminBottomNavBar';
+import ComingSoon from '@/components/ComingSoon';
 import PhotoUpload from '@/components/PhotoUpload';
 
-export default function AdminReportPage() {
+// --- FEATURE GATE: To re-enable reports, replace the bottom wrapper with `export default AdminReportPageContent;` ---
+function AdminReportPageContent() {
   const router = useRouter();
   const { t, i18n } = useTranslation('report');
   const [reports, setReports] = useState([]);
@@ -1640,4 +1642,9 @@ export default function AdminReportPage() {
 
     </main>
   );
-} 
+}
+
+export default function AdminReportPage() {
+  return <ComingSoon navBar={<AdminBottomNavBar active="report" />} />;
+}
+// --- END FEATURE GATE ---
