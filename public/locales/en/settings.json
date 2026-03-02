@@ -45,5 +45,8 @@
   "deleting_data_step": "Deleting your data...",
   "deleting_auth_step": "Deleting your account...",
   "deletion_complete_step": "Account deleted successfully!",
-  "go_back_to_start": "Go Back to Start"
+  "go_back_to_start": "Go Back to Start",
+  "verify_and_delete": "Verify & Delete My Account",
+  "verify_delete_desc": "To proceed, you will need to verify your identity via Google sign-in.",
+  "deletion_cancelled": "Verification was cancelled. You can try again when ready."
 } 

@@ -51,12 +51,7 @@ export const deleteRelatedUserData = async (uid) => {
     snap.docs.forEach(d => batch.delete(d.ref));
   }
 
-  const approvalQ = query(
-    collection(db, COLLECTIONS.APPROVAL_REQUESTS),
-    where('uid', '==', uid)
-  );
-  const approvalSnap = await getDocs(approvalQ);
-  approvalSnap.docs.forEach(d => batch.delete(d.ref));
+  batch.delete(doc(db, COLLECTIONS.APPROVAL_REQUESTS, uid));
 
   await batch.commit();
 };

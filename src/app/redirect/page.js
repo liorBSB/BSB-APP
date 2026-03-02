@@ -75,22 +75,13 @@ export default function RedirectPage() {
       if (userData.userType === 'user') {
         // Check if user has completed profile setup (has name and room number)
         if (!userData.fullName || !userData.roomNumber || userData.fullName.trim() === '' || userData.roomNumber.trim() === '') {
-          // Profile incomplete - check if they've already made a role choice
           if (userData.roleChoice === 'live_here') {
-            // They chose to live here, continue to profile setup
             router.replace('/profile-setup');
           } else {
-            // No choice made yet, send to selection page
             router.replace('/register/selection');
           }
         } else {
-          const consentDone = userData.consents?.doc1?.accepted === true
-            || userData.consentSkipped === true;
-          if (!consentDone) {
-            router.replace('/register/consent/1?role=soldier');
-          } else {
-            router.replace('/home');
-          }
+          router.replace('/home');
         }
         return;
       }

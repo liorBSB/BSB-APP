@@ -520,52 +520,6 @@ const getDateRangeText = (dateRange, customFrom, customTo) => {
   }
 };
 
-function ApprovalRequestsBody({ items, loading, onApprove, onReject, processingId }) {
-  return (
-    <div className="flex-1 overflow-auto">
-      {loading ? (
-        <div className="p-4">Loading...</div>
-      ) : items.length === 0 ? (
-        <div className="p-4">No pending approval requests</div>
-      ) : (
-        <ul className="space-y-3">
-          {items.map((req) => (
-            <li key={req.id} className="bg-white rounded-xl border p-4 shadow">
-              <div className="flex items-start gap-3">
-                <span className="text-2xl">👤</span>
-                <div className="flex-1">
-                  <div className="font-semibold text-lg">{req.userName || req.firstName || ''} {req.lastName || ''}</div>
-                  {req.userEmail && <div className="text-sm text-gray-600">{req.userEmail}</div>}
-                  {req.jobTitle && <div className="text-sm text-gray-600">Job: {req.jobTitle}</div>}
-                  <div className="text-xs text-gray-500 mt-1">Requested: {req.createdAt?.toDate?.()?.toLocaleString?.() || ''}</div>
-                </div>
-              </div>
-              <div className="mt-3 grid grid-cols-2 gap-2">
-                <button
-                  onClick={() => onApprove && onApprove(req)}
-                  disabled={processingId === req.id}
-                  className="px-4 py-2 rounded-lg font-semibold text-white flex items-center justify-center gap-1"
-                  style={{ background: colors.primaryGreen }}
-                >
-                  <span>✅</span> <span>{processingId === req.id ? 'Processing...' : 'Accept'}</span>
-                </button>
-                <button
-                  onClick={() => onReject && onReject(req)}
-                  disabled={processingId === req.id}
-                  className="px-4 py-2 rounded-lg font-semibold flex items-center justify-center gap-1"
-                  style={{ borderColor: '#dc2626', color: '#dc2626', borderWidth: 2, borderStyle: 'solid' }}
-                >
-                  <span>❌</span> <span>Deny</span>
-                </button>
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-}
-
 const CATEGORIES = ["Food","Equipment","Maintenance","Transport","Utilities","Other"];
 const REIMBURSEMENT_METHODS = ["Credit Card","Bank Transfer","Cash","Other"];
 
@@ -642,15 +596,9 @@ export default function AdminExpensesPage() {
   const [photoViewerOpen, setPhotoViewerOpen] = useState(false);
   const [selectedPhoto, setSelectedPhoto] = useState(null);
 
-  // Approval state
-  const [approvalOpen, setApprovalOpen] = useState(false);
-  const [approvalItems, setApprovalItems] = useState([]);
-  const [approvalLoading, setApprovalLoading] = useState(false);
-  const [approvalProcessingId, setApprovalProcessingId] = useState("");
-
   // Prevent background scrolling when modals are open
   useEffect(() => {
-    if (reportOpen || editingExpense || deleteConfirmOpen || photoViewerOpen || approvalOpen || exportModalOpen) {
+    if (reportOpen || editingExpense || deleteConfirmOpen || photoViewerOpen || exportModalOpen) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = 'unset';
@@ -660,7 +608,7 @@ export default function AdminExpensesPage() {
     return () => {
       document.body.style.overflow = 'unset';
     };
-  }, [reportOpen, editingExpense, deleteConfirmOpen, photoViewerOpen, approvalOpen, exportModalOpen]);
+  }, [reportOpen, editingExpense, deleteConfirmOpen, photoViewerOpen, exportModalOpen]);
 
   // Test Hebrew translation on component mount (remove in production)
   useEffect(() => {
@@ -1048,11 +996,6 @@ export default function AdminExpensesPage() {
   useEffect(() => { fetchRefundRequests(); }, []);
 
   const amountFormatted = (amt) => new Intl.NumberFormat("he-IL", { style: "currency", currency: "ILS" }).format(amt || 0);
-
-  // Report and approvals (kept minimal, unchanged)
-  const fetchPendingRequests = async () => {
-    try { setApprovalLoading(true); const qReq = query(collection(db, 'approvalRequests'), where('status','==','pending')); const snap = await getDocs(qReq); setApprovalItems(snap.docs.map(d=>({ id:d.id, ...d.data() }))); } finally { setApprovalLoading(false); }
-  };
 
   const openPhotoViewer = (photoUrl, expenseTitle) => {
     setSelectedPhoto({ url: photoUrl, title: expenseTitle });
@@ -2127,22 +2070,6 @@ export default function AdminExpensesPage() {
       )}
 
       <DatePickerModal open={datePickerOpen} mode="single" title="Choose expense date" onClose={()=>setDatePickerOpen(false)} onSelect={({date})=>{ const dt=new Date(date+"T12:00"); setForm(f=>({...f,expenseDate:dt.toISOString().slice(0,16)})); setDatePickerOpen(false); }} />
-
-      {/* Approval Requests Modal */}
-      {approvalOpen && (
-        <div className="fixed inset-0 z-[56] bg-black/50 flex items-center justify-center p-2 sm:p-4">
-          <div className="bg-white rounded-2xl w-full h-full sm:h-auto sm:max-w-2xl mx-0 sm:mx-4 p-3 sm:p-5 max-h-[80vh] flex flex-col">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-lg sm:text-xl font-bold">Approval requests</h3>
-              <div className="flex items-center gap-2">
-                <button onClick={fetchPendingRequests} className="px-3 py-1 rounded-full border text-sm" style={{ borderColor: colors.primaryGreen, color: colors.primaryGreen }}>Refresh</button>
-                <button onClick={()=>setApprovalOpen(false)} className="text-gray-600">✕</button>
-              </div>
-            </div>
-            <ApprovalRequestsBody items={approvalItems} loading={approvalLoading} onApprove={async (req)=>{ try { setApprovalProcessingId(req.id); await updateDoc(doc(db,'users', req.userId), { userType: 'admin', approvedAt: new Date(), approvedBy: auth.currentUser.uid }); await deleteDoc(doc(db,'approvalRequests', req.id)); await fetchPendingRequests(); } finally { setApprovalProcessingId(""); } }} onReject={async (req)=>{ try { setApprovalProcessingId(req.id); await updateDoc(doc(db,'users', req.userId), { userType: 'user', rejectedAt: new Date(), rejectedBy: auth.currentUser.uid }); await deleteDoc(doc(db,'approvalRequests', req.id)); await fetchPendingRequests(); } finally { setApprovalProcessingId(""); } }} processingId={approvalProcessingId} />
-          </div>
-        </div>
-      )}
 
       {/* Edit Expense Modal */}
       {editingExpense && (

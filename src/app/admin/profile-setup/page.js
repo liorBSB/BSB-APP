@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import { auth, db } from '@/lib/firebase';
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, setDoc, getDoc, writeBatch, serverTimestamp } from 'firebase/firestore';
 import useAuthRedirect from '@/hooks/useAuthRedirect';
 import colors from '../../colors';
 
@@ -30,7 +30,16 @@ export default function AdminProfileSetupPage() {
         throw new Error('No user logged in');
       }
 
-      await setDoc(doc(db, 'users', user.uid), {
+      const userRef = doc(db, 'users', user.uid);
+      const existingDoc = await getDoc(userRef);
+      if (existingDoc.exists() && existingDoc.data().userType === 'admin') {
+        router.push('/admin/home');
+        return;
+      }
+
+      const batch = writeBatch(db);
+
+      batch.set(userRef, {
         uid: user.uid,
         firstName: formData.firstName,
         lastName: formData.lastName,
@@ -41,7 +50,7 @@ export default function AdminProfileSetupPage() {
         isAdmin: false,
       }, { merge: true });
 
-      await setDoc(doc(db, 'approvalRequests', user.uid), {
+      batch.set(doc(db, 'approvalRequests', user.uid), {
         userId: user.uid,
         userEmail: user.email,
         userName: `${formData.firstName} ${formData.lastName}`,
@@ -52,7 +61,8 @@ export default function AdminProfileSetupPage() {
         updatedAt: serverTimestamp()
       });
 
-      // Redirect to pending approval page
+      await batch.commit();
+
       router.push('/register/pending-approval');
     } catch (error) {
       console.error('Profile setup error:', error);
