@@ -7,6 +7,7 @@ import i18n from '@/i18n';
 import { doc, updateDoc, collection, getDoc, getDocs, query, where, orderBy, onSnapshot, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import { syncStatusToReceptionSheet, normalizeStatus, fetchStatusFromSheet } from '@/lib/receptionSync';
+import HouseLoader from '@/components/HouseLoader';
 import WelcomeHeader from '@/components/home/WelcomeHeader';
 import CollapsibleSection from '@/components/home/CollapsibleSection';
 import ListItem from '@/components/home/ListItem';
@@ -263,7 +264,7 @@ export default function HomePage() {
   if (isCheckingProfile) {
     return (
       <main className="min-h-screen bg-gradient-to-br from-blue-200/60 to-green-100/60 font-body flex items-center justify-center">
-        <div className="text-center text-muted">Loading...</div>
+        <HouseLoader />
       </main>
     );
   }
@@ -302,7 +303,7 @@ export default function HomePage() {
     <main className="min-h-screen bg-gradient-to-br from-blue-200/60 to-green-100/60 font-body flex flex-col items-center pt-6 pb-32 px-4">
       <div className="w-full max-w-md">
         {loadingUser ? (
-          <div className="text-center text-muted py-4">Loading...</div>
+          <div className="flex justify-center py-4"><HouseLoader size={60} /></div>
         ) : (
           <WelcomeHeader status={status} userData={userData} />
         )}
