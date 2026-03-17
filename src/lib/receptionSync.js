@@ -37,7 +37,7 @@ export async function fetchStatusFromSheet(roomNumber) {
   try {
     if (!RECEPTION_SCRIPT_URL || !roomNumber) return 'Home';
 
-    const res = await fetch(RECEPTION_SCRIPT_URL);
+    const res = await fetch(`${RECEPTION_SCRIPT_URL}?t=${Date.now()}`);
     if (!res.ok) return 'Home';
 
     const soldiers = await res.json();

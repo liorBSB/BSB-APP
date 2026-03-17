@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { adminWipeUserData, getActiveUsers, markUserAsLeft, updateUserData } from '@/lib/database';
 import { auth, db } from '@/lib/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
@@ -53,7 +53,16 @@ export default function SoldierManagement() {
 
   useEffect(() => {
     loadSoldiers();
+
+    const pollInterval = setInterval(() => {
+      reconcileStatusesWithSheet(soldiersRef.current);
+    }, 20000);
+
+    return () => clearInterval(pollInterval);
   }, []);
+
+  const soldiersRef = useRef([]);
+  useEffect(() => { soldiersRef.current = soldiers; }, [soldiers]);
 
   // Cleanup timer on unmount
   useEffect(() => {
@@ -118,7 +127,7 @@ export default function SoldierManagement() {
     try {
       const RECEPTION_URL = process.env.NEXT_PUBLIC_RECEPTION_SCRIPT_URL;
       if (!RECEPTION_URL) return;
-      const res = await fetch(RECEPTION_URL);
+      const res = await fetch(`${RECEPTION_URL}?t=${Date.now()}`);
       if (!res.ok) return;
       const sheetData = await res.json();
 

@@ -17,7 +17,7 @@ export async function POST(request) {
       return NextResponse.json({ success: false, message: 'Invalid status' }, { status: 400 });
     }
 
-    const res = await fetch(RECEPTION_SCRIPT_URL);
+    const res = await fetch(`${RECEPTION_SCRIPT_URL}?t=${Date.now()}`);
     if (!res.ok) throw new Error(`GET failed: HTTP ${res.status}`);
 
     const soldiers = await res.json();
