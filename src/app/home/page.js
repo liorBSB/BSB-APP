@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import i18n from '@/i18n';
 import { doc, updateDoc, collection, getDoc, getDocs, query, where, orderBy, onSnapshot, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
-import { syncStatusToReceptionSheet, normalizeStatus } from '@/lib/receptionSync';
+import { syncStatusToReceptionSheet, normalizeStatus, fetchStatusFromSheet } from '@/lib/receptionSync';
 import WelcomeHeader from '@/components/home/WelcomeHeader';
 import CollapsibleSection from '@/components/home/CollapsibleSection';
 import ListItem from '@/components/home/ListItem';
@@ -76,6 +76,16 @@ export default function HomePage() {
           setLoadingUser(false);
           setIsCheckingProfile(false);
           return;
+        }
+
+        // Reconcile status with reception sheet (covers cases where webhook missed)
+        if (data.roomNumber) {
+          fetchStatusFromSheet(data.roomNumber).then((sheetStatus) => {
+            const currentStatus = normalizeStatus(data.status);
+            if (sheetStatus && sheetStatus !== currentStatus) {
+              updateDoc(userRef, { status: sheetStatus }).catch(() => {});
+            }
+          }).catch(() => {});
         }
 
         // Live updates for user data (progress bar updates in real-time)

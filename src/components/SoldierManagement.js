@@ -6,7 +6,7 @@ import { auth, db } from '@/lib/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
 import SoldierSearch from './SoldierSearch';
 import { SOLDIER_EDIT_ENABLED } from '@/lib/sheetFieldMap';
-import { syncStatusToReceptionSheet, normalizeStatus } from '@/lib/receptionSync';
+import { syncStatusToReceptionSheet, normalizeStatus, fetchStatusFromSheet } from '@/lib/receptionSync';
 import colors from '../app/colors';
 
 const STATUS_OPTIONS = ['Home', 'Out', 'In base', 'Abroad'];
@@ -91,6 +91,7 @@ export default function SoldierManagement() {
       setLoading(true);
       
       const activeSoldiers = await getActiveUsers();
+      let soldierList;
       
       if (activeSoldiers.length === 0) {
         const { collection, getDocs, query, orderBy, where } = await import('firebase/firestore');
@@ -98,16 +99,55 @@ export default function SoldierManagement() {
         
         const allUsersQuery = query(collection(db, 'users'), where('userType', '==', 'user'), orderBy('fullName'));
         const allUsersSnap = await getDocs(allUsersQuery);
-        const allUsers = allUsersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        
-        setSoldiers(allUsers);
+        soldierList = allUsersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       } else {
-        setSoldiers(activeSoldiers);
+        soldierList = activeSoldiers;
       }
+
+      setSoldiers(soldierList);
+
+      reconcileStatusesWithSheet(soldierList);
     } catch {
       // Failed to load soldiers
     } finally {
       setLoading(false);
+    }
+  };
+
+  const reconcileStatusesWithSheet = async (soldierList) => {
+    try {
+      const RECEPTION_URL = process.env.NEXT_PUBLIC_RECEPTION_SCRIPT_URL;
+      if (!RECEPTION_URL) return;
+      const res = await fetch(RECEPTION_URL);
+      if (!res.ok) return;
+      const sheetData = await res.json();
+
+      const sheetByRoom = {};
+      for (const row of sheetData) {
+        if (row.room && row.status && row.status !== 'Empty') {
+          sheetByRoom[String(row.room).trim()] = row.status;
+        }
+      }
+
+      const updates = [];
+      for (const soldier of soldierList) {
+        if (!soldier.roomNumber) continue;
+        const roomKey = String(soldier.roomNumber).trim();
+        const sheetStatus = sheetByRoom[roomKey];
+        if (sheetStatus && sheetStatus !== normalizeStatus(soldier.status)) {
+          updates.push({ ...soldier, status: sheetStatus });
+          updateUserData(soldier.id, { status: sheetStatus }, false).catch(() => {});
+        }
+      }
+
+      if (updates.length > 0) {
+        setSoldiers(prev => prev.map(s => {
+          const upd = updates.find(u => u.id === s.id);
+          return upd ? { ...s, status: upd.status } : s;
+        }));
+      }
+    } catch {
+      // Best-effort reconciliation
     }
   };
 
