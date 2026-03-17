@@ -71,21 +71,21 @@ export default function HomePage() {
             setIsCheckingProfile(false);
             return;
           }
+
+          // Reconcile status with reception sheet (covers cases where webhook missed)
+          if (data.roomNumber) {
+            fetchStatusFromSheet(data.roomNumber).then((sheetStatus) => {
+              const currentStatus = normalizeStatus(data.status);
+              if (sheetStatus && sheetStatus !== currentStatus) {
+                updateDoc(userRef, { status: sheetStatus }).catch(() => {});
+              }
+            }).catch(() => {});
+          }
         } else {
           router.push('/profile-setup');
           setLoadingUser(false);
           setIsCheckingProfile(false);
           return;
-        }
-
-        // Reconcile status with reception sheet (covers cases where webhook missed)
-        if (data.roomNumber) {
-          fetchStatusFromSheet(data.roomNumber).then((sheetStatus) => {
-            const currentStatus = normalizeStatus(data.status);
-            if (sheetStatus && sheetStatus !== currentStatus) {
-              updateDoc(userRef, { status: sheetStatus }).catch(() => {});
-            }
-          }).catch(() => {});
         }
 
         // Live updates for user data (progress bar updates in real-time)
