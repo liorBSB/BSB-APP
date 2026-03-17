@@ -27,6 +27,7 @@ export default function HomePage() {
   useAuthRedirect();
   const { t } = useTranslation('home');
   const [status, setStatus] = useState('Home');
+  const [syncingStatus, setSyncingStatus] = useState(true);
   const [userData, setUserData] = useState(null);
   const [events, setEvents] = useState([]);
   const [surveys, setSurveys] = useState([]);
@@ -70,6 +71,7 @@ export default function HomePage() {
             router.push('/profile-setup');
             setLoadingUser(false);
             setIsCheckingProfile(false);
+            setSyncingStatus(false);
             return;
           }
 
@@ -80,12 +82,15 @@ export default function HomePage() {
               if (sheetStatus && sheetStatus !== currentStatus) {
                 updateDoc(userRef, { status: sheetStatus }).catch(() => {});
               }
-            }).catch(() => {});
+            }).catch(() => {}).finally(() => setSyncingStatus(false));
+          } else {
+            setSyncingStatus(false);
           }
         } else {
           router.push('/profile-setup');
           setLoadingUser(false);
           setIsCheckingProfile(false);
+          setSyncingStatus(false);
           return;
         }
 
@@ -315,6 +320,9 @@ export default function HomePage() {
           className="rounded-2xl p-4 flex flex-col items-center mb-6 shadow-sm"
           style={{ background: colors.sectionBg, color: colors.primaryGreen, ...thinGoldWrap }}
         >
+          {syncingStatus ? (
+            <div className="flex justify-center py-4"><HouseLoader size={50} /></div>
+          ) : (<>
           <div className="grid grid-cols-2 gap-4 w-full mb-4">
             <button
               className={`flex flex-col items-center focus:outline-none`}
@@ -386,6 +394,7 @@ export default function HomePage() {
               {t('cleanMyRoom', 'Clean My Room')}
             </button>
           )}
+          </>)}
         </div>
 
         {/* Events Section */}
