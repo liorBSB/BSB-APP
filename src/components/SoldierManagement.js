@@ -1340,7 +1340,7 @@ export default function SoldierManagement() {
                   Delete account for {soldierToDeleteAccount.fullName}?
                 </h4>
                 <p className="text-gray-600 text-sm text-center mb-3">
-                  This will <strong>permanently delete</strong> all of this user's data, including their profile, uploaded files, reports, and refund requests.
+                  This will <strong>permanently delete</strong> all of this user&apos;s data, including their profile, uploaded files, reports, and refund requests.
                 </p>
                 <p className="text-red-500 text-xs text-center font-medium">
                   This action cannot be undone.
