@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { adminDb } from '@/lib/firebaseAdmin';
+import { getAdminDb } from '@/lib/firebaseAdmin';
 
 const VALID_STATUSES = ['Home', 'Out', 'In base', 'Abroad', 'Empty'];
 
@@ -25,7 +25,7 @@ export async function POST(request) {
     }
 
     const roomTrimmed = String(room).trim();
-    const snapshot = await adminDb
+    const snapshot = await getAdminDb()
       .collection('users')
       .where('roomNumber', '==', roomTrimmed)
       .where('userType', '==', 'user')

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { adminDb } from '@/lib/firebaseAdmin';
+import { getAdminDb } from '@/lib/firebaseAdmin';
 
 export async function POST(request) {
   try {
@@ -13,7 +13,7 @@ export async function POST(request) {
     }
 
     const normalized = String(idNumber).trim();
-    const snapshot = await adminDb
+    const snapshot = await getAdminDb()
       .collection('users')
       .where('idNumber', '==', normalized)
       .get();

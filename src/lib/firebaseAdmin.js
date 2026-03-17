@@ -1,8 +1,9 @@
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 
-if (!getApps().length) {
-  initializeApp({
+function getAdminApp() {
+  if (getApps().length) return getApps()[0];
+  return initializeApp({
     credential: cert({
       projectId: process.env.FIREBASE_PROJECT_ID,
       clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
@@ -11,4 +12,11 @@ if (!getApps().length) {
   });
 }
 
-export const adminDb = getFirestore();
+let _db;
+export function getAdminDb() {
+  if (!_db) {
+    getAdminApp();
+    _db = getFirestore();
+  }
+  return _db;
+}
