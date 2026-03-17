@@ -55,8 +55,11 @@ service cloud.firestore {
         isAdmin(request.auth.uid) ||
         (resource.data.ownerUid == request.auth.uid && resource.data.status in ['waiting'])
       );
-      // Soft delete flag only; restrict hard delete to admins
-      allow delete: if isSignedIn() && isAdmin(request.auth.uid);
+      // Allow owners to delete their own requests; admins can always delete
+      allow delete: if isSignedIn() && (
+        resource.data.ownerUid == request.auth.uid ||
+        isAdmin(request.auth.uid)
+      );
     }
 
     // Problem reports (created by soldiers; reviewed by admins)
@@ -71,8 +74,11 @@ service cloud.firestore {
         isAdmin(request.auth.uid) ||
         (resource.data.ownerUid == request.auth.uid && resource.data.status in ['pending'])
       );
-      // Soft delete flag only; restrict hard delete to admins
-      allow delete: if isSignedIn() && isAdmin(request.auth.uid);
+      // Allow owners to delete their own reports; admins can always delete
+      allow delete: if isSignedIn() && (
+        resource.data.ownerUid == request.auth.uid ||
+        isAdmin(request.auth.uid)
+      );
     }
 
     // Fixed problems (archived reports moved here by admins)
@@ -89,7 +95,9 @@ service cloud.firestore {
       allow create: if isSignedIn();
       // only admins can read and manage requests
       allow read: if isSignedIn() && isAdmin(request.auth.uid);
-      allow update, delete: if isSignedIn() && isAdmin(request.auth.uid);
+      allow update: if isSignedIn() && isAdmin(request.auth.uid);
+      // Allow users to delete their own pending request (doc id = uid); admins can always delete
+      allow delete: if isSignedIn() && (isOwner(reqId) || isAdmin(request.auth.uid));
     }
 
     // Soldiers collection (current daily data)
@@ -110,12 +118,6 @@ service cloud.firestore {
 
     // Archived soldiers collection (for export purposes)
     match /archivedSoldiers/{archivedId} {
-      // Only admins can access archived data
-      allow read, write: if isSignedIn() && isAdmin(request.auth.uid);
-    }
-
-    // Archived users collection (for export purposes)
-    match /archivedUsers/{archivedId} {
       // Only admins can access archived data
       allow read, write: if isSignedIn() && isAdmin(request.auth.uid);
     }

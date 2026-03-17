@@ -4,10 +4,11 @@ import '@/i18n';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
-import { collection, addDoc, getDocs, query, orderBy, doc, getDoc, updateDoc, where, deleteDoc, Timestamp } from 'firebase/firestore';
+import { collection, addDoc, getDocs, query, orderBy, doc, getDoc, updateDoc, where, deleteDoc } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
-import { getActiveUsers, deleteAllUserData } from '@/lib/database';
+import { getActiveUsers, adminWipeUserData, promoteUserToAdmin } from '@/lib/database';
 import { simpleScheduler } from '@/lib/simpleSyncService';
+import { normalizeStatus } from '@/lib/receptionSync';
 import colors from '../../colors';
 import CollapsibleSection from '@/components/home/CollapsibleSection';
 import ListItem from '@/components/home/ListItem';
@@ -96,7 +97,7 @@ export default function AdminHomePage() {
       const homeSoldiers = allSoldiers.filter(soldier => {
         // Try different possible field structures for presence
         return soldier.currentStatus?.isPresent === true || 
-               soldier.status === 'home' || 
+               normalizeStatus(soldier.status) === 'Home' || 
                soldier.isPresent === true ||
                (soldier.currentStatus && soldier.currentStatus.isPresent === true);
       }).length;
@@ -121,11 +122,7 @@ export default function AdminHomePage() {
   const handleApprove = async (requestId, userId) => {
     setProcessingApproval(true);
     try {
-      await updateDoc(doc(db, 'users', userId), {
-        userType: 'admin',
-        approvedAt: Timestamp.now(),
-        approvedBy: auth.currentUser.uid
-      });
+      await promoteUserToAdmin(userId, auth.currentUser.uid);
       await deleteDoc(doc(db, 'approvalRequests', requestId));
       await fetchData();
     } catch (error) {
@@ -139,7 +136,7 @@ export default function AdminHomePage() {
   const handleReject = async (requestId, userId) => {
     setProcessingApproval(true);
     try {
-      await deleteAllUserData(userId);
+      await adminWipeUserData(userId);
       await fetchData();
     } catch (error) {
       console.error('Error rejecting request:', error);
@@ -197,6 +194,10 @@ export default function AdminHomePage() {
       </main>
     );
   }
+
+  const thinGoldWrap = {
+    border: `1px solid ${colors.gold}`,
+  };
 
   const handleAddSave = async (form) => {
     setAddLoading(true);
@@ -356,8 +357,8 @@ Welcome,
 
 
         {/* Events Section */}
-        <div className="mb-8">
-          <div className="flex items-center px-4 py-3 rounded-t-lg shadow-sm select-none" style={{ background: colors.sectionBg, color: colors.white }}>
+        <div className="mb-8 rounded-xl overflow-hidden" style={thinGoldWrap}>
+          <div className="flex items-center px-4 py-3 shadow-sm select-none" style={{ background: colors.sectionBg, color: colors.white }}>
             <button
               className="font-semibold text-lg flex-1 focus:outline-none bg-transparent border-none"
               onClick={() => setOpenEvents((prev) => !prev)}
@@ -373,7 +374,7 @@ Welcome,
 + {t('add_event', 'Add Event')}
             </button>
           </div>
-          <div className="rounded-b-lg p-5" style={{ background: 'rgba(0,0,0,0.18)' }}>
+          <div className="p-5" style={{ background: 'rgba(0,0,0,0.18)' }}>
             {loading ? (
               <div className="text-center text-muted py-3">{t('loading', 'Loading...')}</div>
             ) : events.length === 0 ? (
@@ -471,8 +472,8 @@ Welcome,
         </div>
 
         {/* Surveys Section */}
-        <div className="mb-8">
-          <div className="flex items-center px-4 py-3 rounded-t-lg shadow-sm select-none" style={{ background: colors.sectionBg, color: colors.white }}>
+        <div className="mb-8 rounded-xl overflow-hidden" style={thinGoldWrap}>
+          <div className="flex items-center px-4 py-3 shadow-sm select-none" style={{ background: colors.sectionBg, color: colors.white }}>
             <button
               className="font-semibold text-lg flex-1 focus:outline-none bg-transparent border-none"
               onClick={() => setOpenSurveys((prev) => !prev)}
@@ -488,7 +489,7 @@ Welcome,
 + {t('add_survey', 'Add Survey')}
             </button>
           </div>
-          <div className="rounded-b-lg p-5" style={{ background: 'rgba(0,0,0,0.18)' }}>
+          <div className="p-5" style={{ background: 'rgba(0,0,0,0.18)' }}>
             {loading ? (
               <div className="text-center text-muted py-3">{t('loading', 'Loading...')}</div>
             ) : surveys.length === 0 ? (
@@ -554,8 +555,8 @@ Welcome,
         </div>
 
         {/* Messages Section */}
-        <div className="mb-8">
-          <div className="flex items-center px-4 py-3 rounded-t-lg shadow-sm select-none" style={{ background: colors.sectionBg, color: colors.white }}>
+        <div className="mb-8 rounded-xl overflow-hidden" style={thinGoldWrap}>
+          <div className="flex items-center px-4 py-3 shadow-sm select-none" style={{ background: colors.sectionBg, color: colors.white }}>
             <button
               className="font-semibold text-lg flex-1 focus:outline-none bg-transparent border-none"
               onClick={() => setOpenMessages((prev) => !prev)}
@@ -571,7 +572,7 @@ Welcome,
 + {t('add_message', 'Add Message')}
             </button>
           </div>
-          <div className="rounded-b-lg p-5" style={{ background: 'rgba(0,0,0,0.18)' }}>
+          <div className="p-5" style={{ background: 'rgba(0,0,0,0.18)' }}>
             {loading ? (
               <div className="text-center text-muted py-3">{t('loading', 'Loading...')}</div>
             ) : messages.length === 0 ? (
@@ -653,8 +654,8 @@ Welcome,
         </div>
 
         {/* Approval Requests Section */}
-        <div className="mb-8">
-          <div className="flex items-center px-4 py-3 rounded-t-lg shadow-sm select-none" style={{ background: colors.sectionBg, color: colors.white }}>
+        <div className="mb-8 rounded-xl overflow-hidden" style={thinGoldWrap}>
+          <div className="flex items-center px-4 py-3 shadow-sm select-none" style={{ background: colors.sectionBg, color: colors.white }}>
             <button
               className="font-semibold text-lg flex-1 focus:outline-none bg-transparent border-none"
               onClick={() => setOpenApprovalRequests((prev) => !prev)}
@@ -666,7 +667,7 @@ Welcome,
               {approvalRequests.length} pending
             </div>
           </div>
-          <div className="rounded-b-lg p-5" style={{ background: 'rgba(0,0,0,0.18)' }}>
+          <div className="p-5" style={{ background: 'rgba(0,0,0,0.18)' }}>
             {loading ? (
               <div className="text-center text-muted py-3">{t('loading', 'Loading...')}</div>
             ) : approvalRequests.length === 0 ? (

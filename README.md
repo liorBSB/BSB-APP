@@ -140,7 +140,6 @@ The app will be available at http://localhost:3000.
 | `problemReports` | Problem reports from soldiers |
 | `fixedProblems` | Archived resolved problems |
 | `approvalRequests` | Admin access requests |
-| `archivedUsers` | Data for soldiers who have left |
 
 ## Google Sheets Integration
 

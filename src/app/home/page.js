@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import i18n from '@/i18n';
 import { doc, updateDoc, collection, getDoc, getDocs, query, where, orderBy, onSnapshot, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
+import { syncStatusToReceptionSheet, normalizeStatus } from '@/lib/receptionSync';
 import WelcomeHeader from '@/components/home/WelcomeHeader';
 import CollapsibleSection from '@/components/home/CollapsibleSection';
 import ListItem from '@/components/home/ListItem';
@@ -19,11 +20,12 @@ import { useRouter } from 'next/navigation';
 
 export default function HomePage() {
   const router = useRouter();
+  const CLEAN_ROOM_FEATURE_ENABLED = false;
   const [isCheckingProfile, setIsCheckingProfile] = useState(true);
   const [profileComplete, setProfileComplete] = useState(false);
   useAuthRedirect();
   const { t } = useTranslation('home');
-  const [status, setStatus] = useState('home');
+  const [status, setStatus] = useState('Home');
   const [userData, setUserData] = useState(null);
   const [events, setEvents] = useState([]);
   const [surveys, setSurveys] = useState([]);
@@ -143,12 +145,19 @@ export default function HomePage() {
     fetchMessages();
   }, [profileComplete]);
 
+  useEffect(() => {
+    if (userData?.status) {
+      setStatus(normalizeStatus(userData.status));
+    }
+  }, [userData?.status]);
+
   const handleStatusToggle = async (newStatus) => {
     setStatus(newStatus);
     const uid = auth.currentUser?.uid;
     if (uid) {
       const userRef = doc(db, 'users', uid);
       await updateDoc(userRef, { status: newStatus });
+      syncStatusToReceptionSheet(userData?.roomNumber, newStatus).catch(() => {});
     }
   };
 
@@ -236,6 +245,10 @@ export default function HomePage() {
     .filter(msg => msg.endTime && new Date(msg.endTime.seconds ? msg.endTime.seconds * 1000 : msg.endTime) > now)
     .sort((a, b) => new Date((a.endTime.seconds ? a.endTime.seconds * 1000 : a.endTime)) - new Date((b.endTime.seconds ? b.endTime.seconds * 1000 : b.endTime)));
 
+  const thinGoldWrap = {
+    border: `1px solid ${colors.gold}`,
+  };
+
   // Show loading state while checking profile
   if (isCheckingProfile) {
     return (
@@ -287,86 +300,91 @@ export default function HomePage() {
         
 
         {/* Status Switcher */}
-        <div className="rounded-2xl p-4 flex flex-col items-center mb-6 shadow-sm" style={{ background: colors.sectionBg, color: colors.primaryGreen }}>
+        <div
+          className="rounded-2xl p-4 flex flex-col items-center mb-6 shadow-sm"
+          style={{ background: colors.sectionBg, color: colors.primaryGreen, ...thinGoldWrap }}
+        >
           <div className="grid grid-cols-2 gap-4 w-full mb-4">
             <button
               className={`flex flex-col items-center focus:outline-none`}
-              onClick={() => handleStatusToggle('home')}
+              onClick={() => handleStatusToggle('Home')}
             >
               <div className={`w-12 h-12 flex items-center justify-center rounded-full transition-all duration-200`}
-                style={{ background: status === 'home' ? colors.primaryGreen : colors.white, boxShadow: status === 'home' ? '0 2px 8px rgba(7,99,50,0.15)' : 'none' }}>
+                style={{ background: status === 'Home' ? colors.primaryGreen : colors.white, boxShadow: status === 'Home' ? '0 2px 8px rgba(7,99,50,0.15)' : 'none' }}>
                 <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M3 10.5L12 4L21 10.5" stroke={status === 'home' ? colors.white : colors.primaryGreen} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  <path d="M5 10V19C5 19.5523 5.44772 20 6 20H18C18.5523 20 19 19.5523 19 19V10" stroke={status === 'home' ? colors.white : colors.primaryGreen} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M3 10.5L12 4L21 10.5" stroke={status === 'Home' ? colors.white : colors.primaryGreen} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M5 10V19C5 19.5523 5.44772 20 6 20H18C18.5523 20 19 19.5523 19 19V10" stroke={status === 'Home' ? colors.white : colors.primaryGreen} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
               </div>
-              <span className={`mt-2 text-sm font-semibold ${status === 'home' ? 'text-white' : 'text-[#076332] opacity-70'}`}>{t('home')}</span>
+              <span className={`mt-2 text-sm font-semibold ${status === 'Home' ? 'text-white' : 'text-[#076332] opacity-70'}`}>{t('Home')}</span>
             </button>
             <button
               className={`flex flex-col items-center focus:outline-none`}
-              onClick={() => handleStatusToggle('away')}
+              onClick={() => handleStatusToggle('Out')}
             >
               <div className={`w-12 h-12 flex items-center justify-center rounded-full transition-all duration-200`}
-                style={{ background: status === 'away' ? colors.primaryGreen : colors.white, boxShadow: status === 'away' ? '0 2px 8px rgba(7,99,50,0.15)' : 'none' }}>
+                style={{ background: status === 'Out' ? colors.primaryGreen : colors.white, boxShadow: status === 'Out' ? '0 2px 8px rgba(7,99,50,0.15)' : 'none' }}>
                 <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <circle cx="12" cy="6" r="2.2" fill={status === 'away' ? colors.white : colors.primaryGreen} />
-                  <path d="M12 8.5V13.5" stroke={status === 'away' ? colors.white : colors.primaryGreen} strokeWidth="2" strokeLinecap="round" />
-                  <path d="M12 13.5L9.5 19" stroke={status === 'away' ? colors.white : colors.primaryGreen} strokeWidth="2" strokeLinecap="round" />
-                  <path d="M12 13.5L14.5 19" stroke={status === 'away' ? colors.white : colors.primaryGreen} strokeWidth="2" strokeLinecap="round" />
-                  <path d="M12 10.5L15 12.5" stroke={status === 'away' ? colors.white : colors.primaryGreen} strokeWidth="2" strokeLinecap="round" />
-                  <path d="M12 10.5L10 12.5" stroke={status === 'away' ? colors.white : colors.primaryGreen} strokeWidth="2" strokeLinecap="round" />
-                  <path d="M14.5 19C14.5 19 15 20 16 20" stroke={status === 'away' ? colors.white : colors.primaryGreen} strokeWidth="2" strokeLinecap="round" />
-                  <path d="M9.5 19C9.5 19 9 20 8 20" stroke={status === 'away' ? colors.white : colors.primaryGreen} strokeWidth="2" strokeLinecap="round" />
+                  <circle cx="12" cy="6" r="2.2" fill={status === 'Out' ? colors.white : colors.primaryGreen} />
+                  <path d="M12 8.5V13.5" stroke={status === 'Out' ? colors.white : colors.primaryGreen} strokeWidth="2" strokeLinecap="round" />
+                  <path d="M12 13.5L9.5 19" stroke={status === 'Out' ? colors.white : colors.primaryGreen} strokeWidth="2" strokeLinecap="round" />
+                  <path d="M12 13.5L14.5 19" stroke={status === 'Out' ? colors.white : colors.primaryGreen} strokeWidth="2" strokeLinecap="round" />
+                  <path d="M12 10.5L15 12.5" stroke={status === 'Out' ? colors.white : colors.primaryGreen} strokeWidth="2" strokeLinecap="round" />
+                  <path d="M12 10.5L10 12.5" stroke={status === 'Out' ? colors.white : colors.primaryGreen} strokeWidth="2" strokeLinecap="round" />
+                  <path d="M14.5 19C14.5 19 15 20 16 20" stroke={status === 'Out' ? colors.white : colors.primaryGreen} strokeWidth="2" strokeLinecap="round" />
+                  <path d="M9.5 19C9.5 19 9 20 8 20" stroke={status === 'Out' ? colors.white : colors.primaryGreen} strokeWidth="2" strokeLinecap="round" />
                 </svg>
               </div>
-              <span className={`mt-2 text-sm font-semibold ${status === 'away' ? 'text-white' : 'text-[#076332] opacity-70'}`}>{t('away')}</span>
+              <span className={`mt-2 text-sm font-semibold ${status === 'Out' ? 'text-white' : 'text-[#076332] opacity-70'}`}>{t('Out')}</span>
             </button>
             <button
               className={`flex flex-col items-center focus:outline-none`}
-              onClick={() => handleStatusToggle('in base')}
+              onClick={() => handleStatusToggle('In base')}
             >
               <div className={`w-12 h-12 flex items-center justify-center rounded-full transition-all duration-200`}
-                style={{ background: status === 'in base' ? colors.primaryGreen : colors.white, boxShadow: status === 'in base' ? '0 2px 8px rgba(7,99,50,0.15)' : 'none' }}>
+                style={{ background: status === 'In base' ? colors.primaryGreen : colors.white, boxShadow: status === 'In base' ? '0 2px 8px rgba(7,99,50,0.15)' : 'none' }}>
                 <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M12 2C8 2 5 5 5 9V12C5 13.1 5.9 14 7 14H17C18.1 14 19 13.1 19 12V9C19 5 16 2 12 2Z" fill={status === 'in base' ? colors.white : colors.primaryGreen}/>
-                  <path d="M8 14V16C8 17.1 8.9 18 10 18H14C15.1 18 16 17.1 16 16V14" stroke={status === 'in base' ? colors.white : colors.primaryGreen} strokeWidth="2" strokeLinecap="round"/>
-                  <path d="M10 8H14" stroke={status === 'in base' ? colors.white : colors.primaryGreen} strokeWidth="2" strokeLinecap="round"/>
+                  <path d="M12 2C8 2 5 5 5 9V12C5 13.1 5.9 14 7 14H17C18.1 14 19 13.1 19 12V9C19 5 16 2 12 2Z" fill={status === 'In base' ? colors.white : colors.primaryGreen}/>
+                  <path d="M8 14V16C8 17.1 8.9 18 10 18H14C15.1 18 16 17.1 16 16V14" stroke={status === 'In base' ? colors.white : colors.primaryGreen} strokeWidth="2" strokeLinecap="round"/>
+                  <path d="M10 8H14" stroke={status === 'In base' ? colors.white : colors.primaryGreen} strokeWidth="2" strokeLinecap="round"/>
                 </svg>
               </div>
-              <span className={`mt-2 text-sm font-semibold ${status === 'in base' ? 'text-white' : 'text-[#076332] opacity-70'}`}>{t('in_base', 'In Base')}</span>
+              <span className={`mt-2 text-sm font-semibold ${status === 'In base' ? 'text-white' : 'text-[#076332] opacity-70'}`}>{t('In base')}</span>
             </button>
             <button
               className={`flex flex-col items-center focus:outline-none`}
-              onClick={() => handleStatusToggle('abroad')}
+              onClick={() => handleStatusToggle('Abroad')}
             >
               <div className={`w-12 h-12 flex items-center justify-center rounded-full transition-all duration-200`}
-                style={{ background: status === 'abroad' ? colors.primaryGreen : colors.white, boxShadow: status === 'abroad' ? '0 2px 8px rgba(7,99,50,0.15)' : 'none' }}>
+                style={{ background: status === 'Abroad' ? colors.primaryGreen : colors.white, boxShadow: status === 'Abroad' ? '0 2px 8px rgba(7,99,50,0.15)' : 'none' }}>
                 <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M21 16V14L13 9V3.5C13 2.67 12.33 2 11.5 2S10 2.67 10 3.5V9L2 14V16L10 13.5V19L8 20.5V22L11.5 21L15 22V20.5L13 19V13.5L21 16Z" fill={status === 'abroad' ? colors.white : colors.primaryGreen}/>
+                  <path d="M21 16V14L13 9V3.5C13 2.67 12.33 2 11.5 2S10 2.67 10 3.5V9L2 14V16L10 13.5V19L8 20.5V22L11.5 21L15 22V20.5L13 19V13.5L21 16Z" fill={status === 'Abroad' ? colors.white : colors.primaryGreen}/>
                 </svg>
               </div>
-              <span className={`mt-2 text-sm font-semibold ${status === 'abroad' ? 'text-white' : 'text-[#076332] opacity-70'}`}>{t('abroad', 'Abroad')}</span>
+              <span className={`mt-2 text-sm font-semibold ${status === 'Abroad' ? 'text-white' : 'text-[#076332] opacity-70'}`}>{t('Abroad')}</span>
             </button>
           </div>
-          {/* Gold Banner */}
-          <button
-            className="w-full rounded-lg px-4 py-2 text-center font-medium flex items-center justify-center gap-2"
-            style={{ background: colors.gold, color: colors.white }}
-            onClick={() => setLeftForBaseModalOpen(true)}
-          >
-            <svg width="20" height="20" fill="none" viewBox="0 0 24 24"><path d="M3 21V7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14" stroke={colors.white} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><rect x="7" y="10" width="3" height="7" rx="1" fill={colors.white}/><rect x="14" y="10" width="3" height="7" rx="1" fill={colors.white}/></svg>
-            {t('cleanMyRoom', 'Clean My Room')}
-          </button>
+          {/* Clean My Room feature temporarily disabled */}
+          {CLEAN_ROOM_FEATURE_ENABLED && (
+            <button
+              className="w-full rounded-lg px-4 py-2 text-center font-medium flex items-center justify-center gap-2"
+              style={{ background: colors.gold, color: colors.white }}
+              onClick={() => setLeftForBaseModalOpen(true)}
+            >
+              <svg width="20" height="20" fill="none" viewBox="0 0 24 24"><path d="M3 21V7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14" stroke={colors.white} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><rect x="7" y="10" width="3" height="7" rx="1" fill={colors.white}/><rect x="14" y="10" width="3" height="7" rx="1" fill={colors.white}/></svg>
+              {t('cleanMyRoom', 'Clean My Room')}
+            </button>
+          )}
         </div>
 
         {/* Events Section */}
-        <div className="mb-8">
-          <div className="flex items-center px-4 py-3 rounded-t-lg shadow-sm select-none" style={{ background: colors.sectionBg, color: colors.white }}>
+        <div className="mb-8 rounded-xl overflow-hidden" style={thinGoldWrap}>
+          <div className="flex items-center px-4 py-3 shadow-sm select-none" style={{ background: colors.sectionBg, color: colors.white }}>
             <span className="font-semibold text-lg flex-1 text-left" style={{ color: colors.white }}>
               {t('upcomingEvents')}
             </span>
           </div>
-          <div className="rounded-b-lg p-5" style={{ background: 'rgba(0,0,0,0.18)' }}>
+          <div className="p-5" style={{ background: 'rgba(0,0,0,0.18)' }}>
             {loadingEvents ? (
               <div className="text-center text-muted py-3">{t('loading')}</div>
             ) : futureEvents.length === 0 ? (
@@ -442,13 +460,13 @@ export default function HomePage() {
         </div>
 
         {/* Surveys Section */}
-        <div className="mb-8">
-          <div className="flex items-center px-4 py-3 rounded-t-lg shadow-sm select-none" style={{ background: colors.sectionBg, color: colors.white }}>
+        <div className="mb-8 rounded-xl overflow-hidden" style={thinGoldWrap}>
+          <div className="flex items-center px-4 py-3 shadow-sm select-none" style={{ background: colors.sectionBg, color: colors.white }}>
             <span className="font-semibold text-lg flex-1 text-left" style={{ color: colors.white }}>
               {t('surveysToFill')}
             </span>
           </div>
-          <div className="rounded-b-lg p-5" style={{ background: 'rgba(0,0,0,0.18)' }}>
+          <div className="p-5" style={{ background: 'rgba(0,0,0,0.18)' }}>
             {loadingSurveys ? (
               <div className="text-center text-muted py-3">{t('loading')}</div>
             ) : futureSurveys.length === 0 ? (
@@ -498,13 +516,13 @@ export default function HomePage() {
         </div>
 
         {/* Messages Section */}
-        <div className="mb-8">
-          <div className="flex items-center px-4 py-3 rounded-t-lg shadow-sm select-none" style={{ background: colors.sectionBg, color: colors.white }}>
+        <div className="mb-8 rounded-xl overflow-hidden" style={thinGoldWrap}>
+          <div className="flex items-center px-4 py-3 shadow-sm select-none" style={{ background: colors.sectionBg, color: colors.white }}>
             <span className="font-semibold text-lg flex-1 text-left" style={{ color: colors.white }}>
               {t('importantMessages')}
             </span>
           </div>
-          <div className="rounded-b-lg p-5" style={{ background: 'rgba(0,0,0,0.18)' }}>
+          <div className="p-5" style={{ background: 'rgba(0,0,0,0.18)' }}>
             {loadingMessages ? (
               <div className="text-center text-muted py-3">{t('loading')}</div>
             ) : futureMessages.length === 0 ? (
@@ -688,7 +706,7 @@ export default function HomePage() {
         </div>
       )}
 
-      {leftForBaseModalOpen && (
+      {CLEAN_ROOM_FEATURE_ENABLED && leftForBaseModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
           <div className="rounded-3xl p-8 shadow-lg min-w-[320px] w-full max-w-md" style={{ background: '#fff' }}>
             <div className="rounded-xl mb-6 px-4 py-3" style={{ background: '#fff' }}>

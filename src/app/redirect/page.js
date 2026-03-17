@@ -4,7 +4,8 @@ import { useRouter } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase';
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
+import { createBaseUserDoc } from '@/lib/database';
 import colors from '../colors';
 
 export default function RedirectPage() {
@@ -24,16 +25,7 @@ export default function RedirectPage() {
       
       if (!userDoc.exists()) {
         try {
-          await setDoc(doc(db, 'users', user.uid), {
-            uid: user.uid,
-            email: user.email,
-            fullName: user.displayName || '',
-            userType: 'user', // Default to user, can be changed during selection
-            isAdmin: false,
-            status: 'home',
-            roomNumber: '',
-            createdAt: serverTimestamp()
-          });
+          await createBaseUserDoc(user);
           
           // After creating the document, redirect to selection
           router.replace('/register/selection');

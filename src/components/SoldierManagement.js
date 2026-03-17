@@ -1,12 +1,29 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { getActiveUsers, markUserAsLeft, resetSoldierAccount, updateUserData } from '@/lib/database';
+import { adminWipeUserData, getActiveUsers, markUserAsLeft, updateUserData } from '@/lib/database';
 import { auth, db } from '@/lib/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
 import SoldierSearch from './SoldierSearch';
 import { SOLDIER_EDIT_ENABLED } from '@/lib/sheetFieldMap';
+import { syncStatusToReceptionSheet, normalizeStatus } from '@/lib/receptionSync';
 import colors from '../app/colors';
+
+const STATUS_OPTIONS = ['Home', 'Out', 'In base', 'Abroad'];
+
+const STATUS_COLORS = {
+  Home: 'bg-green-100 text-green-700',
+  Out: 'bg-red-100 text-red-700',
+  'In base': 'bg-blue-100 text-blue-700',
+  Abroad: 'bg-purple-100 text-purple-700',
+};
+
+const STATUS_LABELS = {
+  Home: 'Home',
+  Out: 'Out',
+  'In base': 'In Base',
+  Abroad: 'Abroad',
+};
 
 export default function SoldierManagement() {
   const [soldiers, setSoldiers] = useState([]);
@@ -30,8 +47,8 @@ export default function SoldierManagement() {
   const [showGenderDropdown, setShowGenderDropdown] = useState(false);
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
   const [showFamilyDropdown, setShowFamilyDropdown] = useState(false);
-  const [showResetConfirmation, setShowResetConfirmation] = useState(false);
-  const [soldierToReset, setSoldierToReset] = useState(null);
+  const [showDeleteAccountModal, setShowDeleteAccountModal] = useState(false);
+  const [soldierToDeleteAccount, setSoldierToDeleteAccount] = useState(null);
   const [showSaveConfirmation, setShowSaveConfirmation] = useState(false);
 
   useEffect(() => {
@@ -182,7 +199,7 @@ export default function SoldierManagement() {
         
         // Check-in and status info
         checkInDate: formatDateForInput(soldier.checkInDate || soldier.createdAt),
-        status: soldier.status || 'home',
+        status: soldier.status || 'Home',
         userType: soldier.userType || 'user',
       });
       
@@ -271,9 +288,11 @@ export default function SoldierManagement() {
         contractDate: formatDateForSave(editForm.contractDate),
         
         // Status info
-        status: editForm.status || 'home',
+        status: editForm.status || 'Home',
         updatedAt: new Date().toISOString()
       });
+
+      syncStatusToReceptionSheet(editForm.roomNumber, editForm.status || 'Home').catch(() => {});
 
       setSuccess('Soldier data updated successfully!');
       await loadSoldiers();
@@ -370,12 +389,12 @@ export default function SoldierManagement() {
     }
   };
 
-  const handleResetAccount = async (soldierId) => {
+  const handleDeleteAccount = async (soldierId) => {
     if (!auth.currentUser) return;
 
     try {
       setProcessingId(soldierId);
-      await resetSoldierAccount(soldierId);
+      await adminWipeUserData(soldierId);
 
       setSoldiers(prev => prev.filter(s => s.id !== soldierId));
       setSearchResults(prev => prev.filter(s => s.id !== soldierId));
@@ -385,14 +404,14 @@ export default function SoldierManagement() {
         setSelectedSoldier(null);
       }
 
-      setShowResetConfirmation(false);
-      setSoldierToReset(null);
+      setShowDeleteAccountModal(false);
+      setSoldierToDeleteAccount(null);
 
-      alert(`✅ Account for "${soldierToReset?.fullName || 'Unknown'}" has been reset. They can now re-register with a new Google account.`);
+      alert(`✅ Account for "${soldierToDeleteAccount?.fullName || 'Unknown'}" has been permanently deleted.`);
 
     } catch (error) {
-      console.error('Error resetting soldier account:', error);
-      alert('❌ Error resetting soldier account');
+      console.error('Error deleting soldier account:', error);
+      alert('❌ Error deleting soldier account');
     } finally {
       setProcessingId(null);
     }
@@ -402,7 +421,7 @@ export default function SoldierManagement() {
   const getFilteredSoldiers = () => {
     let filteredSoldiers;
     if (showOnlyHome) {
-      filteredSoldiers = soldiers.filter(soldier => soldier.status === 'home');
+      filteredSoldiers = soldiers.filter(soldier => normalizeStatus(soldier.status) === 'Home');
     } else {
       filteredSoldiers = soldiers;
     }
@@ -417,7 +436,7 @@ export default function SoldierManagement() {
 
   // Helper function to get home soldiers count
   const getHomeSoldiersCount = () => {
-    return soldiers.filter(soldier => soldier.status === 'home').length;
+    return soldiers.filter(soldier => normalizeStatus(soldier.status) === 'Home').length;
   };
 
 
@@ -432,8 +451,21 @@ export default function SoldierManagement() {
     }
   };
 
+  const handleInlineStatusChange = async (soldier, newStatus) => {
+    try {
+      await updateUserData(soldier.id, { status: newStatus }, false);
+      syncStatusToReceptionSheet(soldier.roomNumber, newStatus).catch(() => {});
+      setSoldiers(prev => prev.map(s => s.id === soldier.id ? { ...s, status: newStatus } : s));
+      setSearchResults(prev => prev.map(s => s.id === soldier.id ? { ...s, status: newStatus } : s));
+    } catch (err) {
+      console.error('Failed to update status:', err);
+    }
+  };
+
   const renderSoldierCard = (soldier, showMarkAsLeft = false) => {
     const isProcessing = processingId === soldier.id;
+    const currentStatus = normalizeStatus(soldier.status);
+    const colorClass = STATUS_COLORS[currentStatus] || 'bg-gray-100 text-gray-700';
     
     return (
       <div key={soldier.id} className="rounded-2xl p-3 phone-sm:p-4 mb-3 phone-sm:mb-4 shadow-sm" style={{ background: colors.sectionBg, color: colors.white }}>
@@ -449,41 +481,38 @@ export default function SoldierManagement() {
                   {soldier.fullName || 'No Name'}
                 </h3>
                 
-                <div className="text-xs phone-sm:text-sm space-y-1" style={{ color: colors.white, opacity: 0.9 }}>
+                <div className="text-xs phone-sm:text-sm" style={{ color: colors.white, opacity: 0.9 }}>
                   {soldier.roomNumber && (
-                    <div className="truncate">🏠 Room: {soldier.roomNumber}</div>
+                    <div className="truncate mb-1">🏠 Room: {soldier.roomNumber}</div>
                   )}
-                  <div className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs ${
-                    soldier.status === 'home'
-                      ? 'bg-green-100 text-green-700' 
-                      : soldier.status === 'in base'
-                      ? 'bg-blue-100 text-blue-700'
-                      : soldier.status === 'abroad'
-                      ? 'bg-purple-100 text-purple-700'
-                      : 'bg-red-100 text-red-700'
-                  }`}>
-                    <span className="w-2 h-2 rounded-full bg-current"></span>
-                    {soldier.status === 'home' ? '🏠 Home' : 
-                     soldier.status === 'away' ? '🚪 Away' : 
-                     soldier.status === 'in base' ? '🪖 In Base' : 
-                     soldier.status === 'abroad' ? '✈️ Abroad' : '🚪 Away'}
-                  </div>
                 </div>
               </div>
               
-              <button
-                onClick={() => handleEditSoldier(soldier)}
-                className="px-3 py-2 rounded-xl font-semibold transition-all duration-200 hover:scale-105 text-xs phone-sm:text-sm flex-shrink-0"
-                style={{ 
-                  background: 'transparent', 
-                  color: colors.white,
-                  border: `2px solid ${colors.white}`,
-                  boxShadow: '0 4px 12px rgba(255, 255, 255, 0.1)'
-                }}
-                title={SOLDIER_EDIT_ENABLED ? "Edit Soldier" : "View Soldier"}
-              >
-                {SOLDIER_EDIT_ENABLED ? 'Edit' : 'View'}
-              </button>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <select
+                  value={currentStatus}
+                  onChange={(e) => handleInlineStatusChange(soldier, e.target.value)}
+                  className={`px-2 py-1.5 rounded-full text-xs font-semibold cursor-pointer border-0 focus:outline-none focus:ring-2 focus:ring-white/50 ${colorClass}`}
+                >
+                  {STATUS_OPTIONS.map((opt) => (
+                    <option key={opt} value={opt}>{STATUS_LABELS[opt]}</option>
+                  ))}
+                </select>
+
+                <button
+                  onClick={() => handleEditSoldier(soldier)}
+                  className="px-3 py-2 rounded-xl font-semibold transition-all duration-200 hover:scale-105 text-xs phone-sm:text-sm"
+                  style={{ 
+                    background: 'transparent', 
+                    color: colors.white,
+                    border: `2px solid ${colors.white}`,
+                    boxShadow: '0 4px 12px rgba(255, 255, 255, 0.1)'
+                  }}
+                  title={SOLDIER_EDIT_ENABLED ? "Edit Soldier" : "View Soldier"}
+                >
+                  {SOLDIER_EDIT_ENABLED ? 'Edit' : 'View'}
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -661,10 +690,7 @@ export default function SoldierManagement() {
                     <div><span className="font-medium">Email:</span> {selectedSoldier.email || 'Not specified'}</div>
                     <div><span className="font-medium">Phone:</span> {selectedSoldier.phone || 'Not specified'}</div>
                     <div><span className="font-medium">Room:</span> {selectedSoldier.roomNumber || 'Not specified'}</div>
-                    <div><span className="font-medium">Status:</span> {selectedSoldier.status === 'home' ? '🏠 Home' : 
-                                                                        selectedSoldier.status === 'away' ? '🚪 Away' : 
-                                                                        selectedSoldier.status === 'in base' ? '🪖 In Base' : 
-                                                                        selectedSoldier.status === 'abroad' ? '✈️ Abroad' : '🚪 Away'}</div>
+                    <div><span className="font-medium">Status:</span> {selectedSoldier.status || 'Home'}</div>
                   </div>
                 </div>
 
@@ -721,19 +747,19 @@ export default function SoldierManagement() {
                   </button>
                   <button
                     onClick={() => {
-                      setSoldierToReset(selectedSoldier);
-                      setShowResetConfirmation(true);
+                      setSoldierToDeleteAccount(selectedSoldier);
+                      setShowDeleteAccountModal(true);
                     }}
                     disabled={processingId === selectedSoldier.id}
                     className="px-4 phone-sm:px-6 py-3 rounded-xl font-semibold transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed text-sm phone-sm:text-base"
                     style={{ 
                       background: 'transparent', 
-                      color: '#2563eb',
-                      border: '2px solid #2563eb',
-                      boxShadow: '0 4px 12px rgba(37, 99, 235, 0.1)'
+                      color: '#dc2626',
+                      border: '2px solid #dc2626',
+                      boxShadow: '0 4px 12px rgba(220, 38, 38, 0.1)'
                     }}
                   >
-                    🔄 Reset Account
+                    🗑️ Delete Account
                   </button>
                   <button
                     onClick={() => showDeleteConfirmationDialog(selectedSoldier)}
@@ -893,105 +919,15 @@ export default function SoldierManagement() {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                      <div className="relative">
-                        <button
-                          type="button"
-                          data-dropdown-trigger
-                          onClick={() => setShowStatusDropdown(!showStatusDropdown)}
-                          className="w-full px-3 py-3 phone-sm:py-2 pr-8 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 text-base phone-sm:text-sm bg-white text-left flex items-center justify-between"
-                        >
-                          <span className="text-gray-900">
-                            {editForm.status === 'home' ? 'Home' : 
-                             editForm.status === 'away' ? 'Away' : 
-                             editForm.status === 'in base' ? 'In Base' : 
-                             editForm.status === 'abroad' ? 'Abroad' : 
-                             editForm.status === 'left' ? 'Left' : 'Home'}
-                          </span>
-                          <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                          </svg>
-                        </button>
-                        
-                        {showStatusDropdown && (
-                          <div data-dropdown-content className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                handleEditFormChange('status', 'home');
-                                setShowStatusDropdown(false);
-                              }}
-                              className="w-full px-3 py-2 text-left hover:bg-gray-100 flex items-center justify-between"
-                            >
-                              <span>Home</span>
-                              {editForm.status === 'home' && (
-                                <svg className="w-4 h-4 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
-                                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                                </svg>
-                              )}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                handleEditFormChange('status', 'away');
-                                setShowStatusDropdown(false);
-                              }}
-                              className="w-full px-3 py-2 text-left hover:bg-gray-100 flex items-center justify-between"
-                            >
-                              <span>Away</span>
-                              {editForm.status === 'away' && (
-                                <svg className="w-4 h-4 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
-                                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                                </svg>
-                              )}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                handleEditFormChange('status', 'in base');
-                                setShowStatusDropdown(false);
-                              }}
-                              className="w-full px-3 py-2 text-left hover:bg-gray-100 flex items-center justify-between"
-                            >
-                              <span>In Base</span>
-                              {editForm.status === 'in base' && (
-                                <svg className="w-4 h-4 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
-                                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                                </svg>
-                              )}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                handleEditFormChange('status', 'abroad');
-                                setShowStatusDropdown(false);
-                              }}
-                              className="w-full px-3 py-2 text-left hover:bg-gray-100 flex items-center justify-between"
-                            >
-                              <span>Abroad</span>
-                              {editForm.status === 'abroad' && (
-                                <svg className="w-4 h-4 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
-                                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                                </svg>
-                              )}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                handleEditFormChange('status', 'left');
-                                setShowStatusDropdown(false);
-                              }}
-                              className="w-full px-3 py-2 text-left hover:bg-gray-100 flex items-center justify-between"
-                            >
-                              <span>Left</span>
-                              {editForm.status === 'left' && (
-                                <svg className="w-4 h-4 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
-                                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                                </svg>
-                              )}
-                            </button>
-                          </div>
-                        )}
-                      </div>
+                      <select
+                        value={editForm.status || 'Home'}
+                        onChange={(e) => handleEditFormChange('status', e.target.value)}
+                        className="w-full px-3 py-3 phone-sm:py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 text-base phone-sm:text-sm bg-white"
+                      >
+                        {STATUS_OPTIONS.map((opt) => (
+                          <option key={opt} value={opt}>{STATUS_LABELS[opt]}</option>
+                        ))}
+                      </select>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Check-in Date</label>
@@ -1385,37 +1321,37 @@ export default function SoldierManagement() {
       )}
 
 
-      {/* Reset Account Confirmation Modal */}
-      {showResetConfirmation && soldierToReset && (
+      {/* Delete Account Confirmation Modal */}
+      {showDeleteAccountModal && soldierToDeleteAccount && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-3 phone-sm:p-4">
           <div className="bg-white rounded-2xl max-w-md w-full">
-            <div className="p-4 phone-sm:p-6" style={{ background: '#2563eb', color: 'white' }}>
+            <div className="p-4 phone-sm:p-6" style={{ background: '#dc2626', color: 'white' }}>
               <h3 className="text-lg phone-sm:text-xl font-bold text-center">
-                Reset Google Account
+                Delete Account
               </h3>
             </div>
 
             <div className="p-4 phone-sm:p-6">
               <div className="mb-6">
-                <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background: '#dbeafe' }}>
-                  <span className="text-2xl">🔄</span>
+                <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background: '#fee2e2' }}>
+                  <span className="text-2xl">🗑️</span>
                 </div>
                 <h4 className="text-lg font-semibold text-gray-800 mb-2 text-center">
-                  Reset account for {soldierToReset.fullName}?
+                  Delete account for {soldierToDeleteAccount.fullName}?
                 </h4>
                 <p className="text-gray-600 text-sm text-center mb-3">
-                  This will unlink their Google account so they can sign in with a new one and re-register.
+                  This will <strong>permanently delete</strong> all of this user's data, including their profile, uploaded files, reports, and refund requests.
                 </p>
-                <p className="text-gray-500 text-xs text-center">
-                  The soldier is <strong>not</strong> being removed from the house. Their data will be re-imported from Google Sheets when they re-register.
+                <p className="text-red-500 text-xs text-center font-medium">
+                  This action cannot be undone.
                 </p>
               </div>
 
               <div className="flex flex-col phone-sm:flex-row gap-2 phone-sm:gap-3 justify-center">
                 <button
                   onClick={() => {
-                    setShowResetConfirmation(false);
-                    setSoldierToReset(null);
+                    setShowDeleteAccountModal(false);
+                    setSoldierToDeleteAccount(null);
                   }}
                   className="px-4 phone-sm:px-6 py-3 rounded-xl font-semibold transition-all duration-200 hover:scale-105 text-sm phone-sm:text-base"
                   style={{
@@ -1428,17 +1364,17 @@ export default function SoldierManagement() {
                   Cancel
                 </button>
                 <button
-                  onClick={() => handleResetAccount(soldierToReset.id)}
-                  disabled={processingId === soldierToReset.id}
+                  onClick={() => handleDeleteAccount(soldierToDeleteAccount.id)}
+                  disabled={processingId === soldierToDeleteAccount.id}
                   className="px-4 phone-sm:px-6 py-3 rounded-xl font-semibold transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed text-sm phone-sm:text-base"
                   style={{
                     background: 'transparent',
-                    color: '#2563eb',
-                    border: '2px solid #2563eb',
-                    boxShadow: '0 4px 12px rgba(37, 99, 235, 0.1)'
+                    color: '#dc2626',
+                    border: '2px solid #dc2626',
+                    boxShadow: '0 4px 12px rgba(220, 38, 38, 0.1)'
                   }}
                 >
-                  {processingId === soldierToReset.id ? 'Processing...' : 'Reset Account'}
+                  {processingId === soldierToDeleteAccount.id ? 'Deleting...' : 'Delete Account'}
                 </button>
               </div>
             </div>

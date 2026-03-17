@@ -63,7 +63,7 @@ service firebase.storage {
       allow write: if isSignedIn() && request.auth.uid == userId
                   && request.resource.size < 10 * 1024 * 1024
                   && request.resource.contentType.matches('image/.*');
-      allow delete: if isSignedIn() && request.auth.uid == userId;
+      allow delete: if isSignedIn() && (request.auth.uid == userId || isAdmin(request.auth.uid));
     }
   }
 }

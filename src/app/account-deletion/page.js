@@ -2,10 +2,9 @@
 import '@/i18n';
 import { useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { auth, googleProvider } from '@/lib/firebase';
-import { deleteUser, reauthenticateWithPopup } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
 import { useRouter } from 'next/navigation';
-import { deleteAllUserData } from '@/lib/database';
+import { fullyDeleteCurrentUser } from '@/lib/accountDeletionClient';
 
 export default function AccountDeletionPage() {
   const { t } = useTranslation('settings');
@@ -20,23 +19,20 @@ export default function AccountDeletionPage() {
     deletingRef.current = true;
 
     try {
-      const user = auth.currentUser;
-      if (!user) {
+      if (!auth.currentUser) {
         throw new Error('No authenticated user found');
       }
 
       setStatus('loading');
-
-      setCurrentStep(t('reauth_step', 'Verifying your identity...'));
-      await reauthenticateWithPopup(user, googleProvider);
-
-      setCurrentStep(t('deleting_data_step', 'Deleting your data...'));
-      await deleteAllUserData(user.uid);
-
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      setCurrentStep(t('deleting_auth_step', 'Deleting your account...'));
-      await deleteUser(user);
+      await fullyDeleteCurrentUser({
+        onStep: (step) => {
+          if (step === 'reauth') setCurrentStep(t('reauth_step', 'Verifying your identity...'));
+          if (step === 'deleting_data') setCurrentStep(t('deleting_data_step', 'Deleting your data...'));
+          if (step === 'deleting_files') setCurrentStep(t('deleting_files_step', 'Deleting your files...'));
+          if (step === 'deleting_auth') setCurrentStep(t('deleting_auth_step', 'Deleting your account...'));
+          if (step === 'done') setCurrentStep(t('deletion_complete_step', 'Account deleted successfully!'));
+        }
+      });
 
       setCurrentStep(t('deletion_complete_step', 'Account deleted successfully!'));
       await new Promise(resolve => setTimeout(resolve, 1000));

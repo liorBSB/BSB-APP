@@ -10,9 +10,11 @@ import {
   orderBy, 
   limit,
   writeBatch,
-  Timestamp
+  Timestamp,
+  setDoc
 } from 'firebase/firestore';
 import { db } from './firebase';
+import { deleteUserStorageEverywhere } from './storageCleanup';
 import { exportSoldierToSheets } from './googleSheets';
 import { syncToSheets } from './simpleSyncService';
 
@@ -30,7 +32,8 @@ export const COLLECTIONS = {
  * Shared by both "delete account" and "mark as left" flows.
  * Does NOT delete the users/{uid} doc — callers handle that separately.
  */
-export const deleteRelatedUserData = async (uid) => {
+export const deleteRelatedUserData = async (uid, options = {}) => {
+  const { includeAdminOnly = true } = options;
   const batch = writeBatch(db);
 
   const uidKeyedCollections = [
@@ -41,19 +44,27 @@ export const deleteRelatedUserData = async (uid) => {
     batch.delete(doc(db, col, uid));
   }
 
-  const ownerQueryCollections = [
-    COLLECTIONS.REFUND_REQUESTS,
-    COLLECTIONS.PROBLEM_REPORTS,
-  ];
-  for (const col of ownerQueryCollections) {
-    const q = query(collection(db, col), where('ownerUid', '==', uid));
-    const snap = await getDocs(q);
-    snap.docs.forEach(d => batch.delete(d.ref));
+  const ownerQueryCounts = {};
+  if (includeAdminOnly) {
+    const ownerQueryCollections = [
+      COLLECTIONS.REFUND_REQUESTS,
+      COLLECTIONS.PROBLEM_REPORTS,
+    ];
+    for (const col of ownerQueryCollections) {
+      const q = query(collection(db, col), where('ownerUid', '==', uid));
+      const snap = await getDocs(q);
+      ownerQueryCounts[col] = snap.size;
+      snap.docs.forEach(d => batch.delete(d.ref));
+    }
+
+    batch.delete(doc(db, COLLECTIONS.APPROVAL_REQUESTS, uid));
   }
 
-  batch.delete(doc(db, COLLECTIONS.APPROVAL_REQUESTS, uid));
-
-  await batch.commit();
+  try {
+    await batch.commit();
+  } catch (error) {
+    throw error;
+  }
 };
 
 /**
@@ -61,8 +72,92 @@ export const deleteRelatedUserData = async (uid) => {
  * Used by the self-service "delete account" flow.
  */
 export const deleteAllUserData = async (uid) => {
-  await deleteRelatedUserData(uid);
+  await deleteRelatedUserData(uid, { includeAdminOnly: false });
   await deleteDoc(doc(db, COLLECTIONS.USERS, uid));
+};
+
+/**
+ * Delete ALL Firestore data owned by a user.
+ *
+ * This is used by both:
+ * - self-service account deletion
+ * - admin-driven deletion flows
+ *
+ * NOTE: This relies on Firestore rules permitting owners to delete their own
+ * approvalRequests/refundRequests/problemReports.
+ */
+export const deleteUserEverywhere = async (uid) => {
+  const refsToDelete = [];
+
+  // uid-keyed docs
+  refsToDelete.push(doc(db, COLLECTIONS.USERS, uid));
+  refsToDelete.push(doc(db, COLLECTIONS.SOLDIERS, uid));
+  refsToDelete.push(doc(db, COLLECTIONS.SOLDIER_PROFILES, uid));
+  refsToDelete.push(doc(db, COLLECTIONS.APPROVAL_REQUESTS, uid));
+
+  // owner-keyed docs
+  const ownerCollections = [
+    COLLECTIONS.REFUND_REQUESTS,
+    COLLECTIONS.PROBLEM_REPORTS,
+  ];
+  for (const col of ownerCollections) {
+    const q = query(collection(db, col), where('ownerUid', '==', uid));
+    const snap = await getDocs(q);
+    snap.docs.forEach(d => refsToDelete.push(d.ref));
+  }
+
+  // Firestore batch limit is 500 ops
+  const CHUNK_SIZE = 450;
+  for (let i = 0; i < refsToDelete.length; i += CHUNK_SIZE) {
+    const chunk = refsToDelete.slice(i, i + CHUNK_SIZE);
+    const batch = writeBatch(db);
+    chunk.forEach(ref => batch.delete(ref));
+    await batch.commit();
+  }
+};
+
+/**
+ * Admin-only: wipe a user's app data (Firestore + Storage files).
+ * Note: This cannot delete the user's Firebase Auth account from the client.
+ */
+export const adminWipeUserData = async (uid) => {
+  await deleteUserEverywhere(uid);
+  await deleteUserStorageEverywhere(uid);
+};
+
+/**
+ * Reset the current signed-in user back to the pre-selection state.
+ * Keeps Auth session, deletes the user doc + profile docs, then recreates base users/{uid}.
+ * Intended for “I chose the wrong option” recovery.
+ */
+export const resetUserToPreSelection = async (user) => {
+  if (!user?.uid) throw new Error('No authenticated user found');
+
+  const uid = user.uid;
+  const batch = writeBatch(db);
+  batch.delete(doc(db, COLLECTIONS.USERS, uid));
+  batch.delete(doc(db, COLLECTIONS.SOLDIERS, uid));
+  batch.delete(doc(db, COLLECTIONS.SOLDIER_PROFILES, uid));
+  batch.delete(doc(db, COLLECTIONS.APPROVAL_REQUESTS, uid));
+  await batch.commit();
+
+  await createBaseUserDoc(user);
+};
+
+/**
+ * Create or update a base user document with shared, role-agnostic fields.
+ * Used on first login before the user chooses their role.
+ */
+export const createBaseUserDoc = async (user) => {
+  if (!user?.uid) return;
+
+  const userRef = doc(db, COLLECTIONS.USERS, user.uid);
+  await setDoc(userRef, {
+    uid: user.uid,
+    email: user.email || '',
+    fullName: user.displayName || '',
+    createdAt: Timestamp.now()
+  }, { merge: true });
 };
 
 /**
@@ -246,10 +341,24 @@ export const updateUserData = async (uid, updateData, syncToSheet = true) => {
   }
 };
 
+/**
+ * Promote a user to admin with standard audit fields.
+ */
+export const promoteUserToAdmin = async (uid, approverUid) => {
+  const userRef = doc(db, COLLECTIONS.USERS, uid);
+  await updateDoc(userRef, {
+    userType: 'admin',
+    approvedAt: Timestamp.now(),
+    approvedBy: approverUid
+  });
+};
+
 const databaseService = {
   COLLECTIONS,
   deleteRelatedUserData,
   deleteAllUserData,
+  deleteUserEverywhere,
+  createBaseUserDoc,
   updateUserStatus,
   markUserAsLeft,
   resetSoldierAccount,
@@ -257,7 +366,8 @@ const databaseService = {
   getActiveUsers,
   searchUsers,
   updateProfileAnswer,
-  updateUserData
+  updateUserData,
+  promoteUserToAdmin
 };
 
 export default databaseService;

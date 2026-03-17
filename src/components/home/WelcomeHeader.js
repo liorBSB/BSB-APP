@@ -2,13 +2,17 @@
 
 import { useTranslation } from 'react-i18next';
 import { auth } from '@/lib/firebase';
+import colors from '@/app/colors';
 
 export default function WelcomeHeader({ status, userData }) {
   const { t } = useTranslation('home'); // ✅ this was missing
   const user = auth.currentUser;
 
   return (
-    <div className="w-full max-w-md rounded-2xl px-5 pt-6 pb-4 mb-6 bg-white/10 backdrop-blur-md shadow-sm">
+    <div
+      className="w-full max-w-md rounded-2xl px-5 pt-6 pb-4 mb-6 bg-white/10 backdrop-blur-md shadow-sm"
+      style={{ border: `1px solid ${colors.gold}` }}
+    >
       <div className="flex justify-between items-start">
         <div>
           <h1 className="text-xl font-bold text-text">

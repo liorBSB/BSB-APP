@@ -239,7 +239,7 @@ export default function SettingsPage() {
             
             // Check-in and status info
             checkInDate: formatDateForInput(data.checkInDate || data.createdAt),
-            status: data.status || 'home',
+            status: data.status || 'Home',
             userType: data.userType || 'user',
           });
         }
@@ -322,7 +322,7 @@ export default function SettingsPage() {
           
           // Check-in and status info
           checkInDate: formatDateForSave(editAllForm.checkInDate),
-          status: editAllForm.status || 'home',
+          status: editAllForm.status || 'Home',
           userType: editAllForm.userType || 'user',
         });
         
@@ -730,11 +730,7 @@ export default function SettingsPage() {
                       <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
                       <input
                         type="text"
-                        value={editAllForm.status === 'home' ? 'Home' : 
-                               editAllForm.status === 'away' ? 'Away' : 
-                               editAllForm.status === 'in base' ? 'In Base' : 
-                               editAllForm.status === 'abroad' ? 'Abroad' : 
-                               editAllForm.status === 'left' ? 'Left' : 'Home'}
+                        value={editAllForm.status || 'Home'}
                         disabled
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed"
                       />

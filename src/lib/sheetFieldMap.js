@@ -136,6 +136,9 @@ export function sheetRowToApp(sheetRow) {
     let value = sheetRow[field.sheet];
     if (value === undefined || value === null) value = '';
     if (field.isDate && value) value = normalizeDate(value);
+    if (field.app === 'idNumber' && value !== '') {
+      value = String(value).trim();
+    }
     if (field.app === 'familyInIsrael') {
       value = value === 'כן' || value === true || value === 'TRUE';
     }

@@ -3,8 +3,7 @@ import '@/i18n';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { auth, db } from '../../lib/firebase';
-import { doc, setDoc, getDoc, collection, query, where, getDocs, serverTimestamp } from 'firebase/firestore';
-import { signOut } from 'firebase/auth';
+import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { useTranslation } from 'react-i18next';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
 import SoldierNameSearch from '@/components/SoldierNameSearch';
@@ -12,6 +11,8 @@ import HouseLoader from '@/components/HouseLoader';
 import { mapSoldierData } from '@/lib/soldierDataService';
 import { FIELD_MAP, PRIMARY_KEY_APP } from '@/lib/sheetFieldMap';
 import { resetSoldierAccount } from '@/lib/database';
+import { resetUserToPreSelection } from '@/lib/database';
+import { fetchStatusFromSheet } from '@/lib/receptionSync';
 import useAuthRedirect from '@/hooks/useAuthRedirect';
 import colors from '../colors';
 
@@ -32,6 +33,7 @@ export default function ProfileSetup() {
   const [reclaimError, setReclaimError] = useState('');
   const [isReclaiming, setIsReclaiming] = useState(false);
   const [sheetLoading, setSheetLoading] = useState(true);
+  const [isStartingOver, setIsStartingOver] = useState(false);
 
   const changeLanguage = (lng) => {
     i18n.changeLanguage(lng);
@@ -47,6 +49,10 @@ export default function ProfileSetup() {
       setLastName(mappedData.lastName || '');
       setRoomNumber(mappedData.roomNumber || '');
       setError('');
+      setClaimedDocId(null);
+      setShowReclaimModal(false);
+      setVerifyPersonalNumber('');
+      setReclaimError('');
       
       // Simulate a small delay to show loading state
       setTimeout(() => {
@@ -58,6 +64,11 @@ export default function ProfileSetup() {
       setLastName('');
       setRoomNumber('');
       setIsLoadingSoldierData(false);
+      setError('');
+      setClaimedDocId(null);
+      setShowReclaimModal(false);
+      setVerifyPersonalNumber('');
+      setReclaimError('');
     }
   };
 
@@ -108,6 +119,7 @@ export default function ProfileSetup() {
     e.preventDefault();
     setIsLoading(true);
     setError('');
+    setClaimedDocId(null);
 
     const uid = auth.currentUser?.uid;
     if (!uid) {
@@ -124,38 +136,54 @@ export default function ProfileSetup() {
     }
 
     try {
-      if (selectedSoldier.idNumber) {
+      const normalizedIdNumber = String(selectedSoldier.idNumber ?? '').trim();
+      const selectedSoldierNormalized = {
+        ...selectedSoldier,
+        ...(normalizedIdNumber ? { idNumber: normalizedIdNumber } : {}),
+      };
+
+      if (normalizedIdNumber) {
         try {
-          const dupeQuery = query(
-            collection(db, 'users'),
-            where('idNumber', '==', selectedSoldier.idNumber)
-          );
-          const dupeSnap = await getDocs(dupeQuery);
-          const claimedDoc = dupeSnap.docs.find(d => d.id !== uid);
-          if (claimedDoc) {
-            setClaimedDocId(claimedDoc.id);
+          const res = await fetch('/api/check-id', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ idNumber: normalizedIdNumber, uid }),
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || 'Server error');
+          if (data.taken) {
             setError(t('already_claimed'));
             setIsLoading(false);
             return;
           }
-        } catch (permErr) {
-          console.warn('Duplicate check skipped (permissions):', permErr.message);
+        } catch (err) {
+          console.warn('Duplicate check failed:', err);
+          setError(
+            t(
+              'cannot_verify_uniqueness',
+              'We could not verify if this profile is already claimed. Please contact staff.'
+            )
+          );
+          setIsLoading(false);
+          return;
         }
       }
+
+      const roomNumber = selectedSoldierNormalized.roomNumber || '';
+      const currentStatus = await fetchStatusFromSheet(roomNumber);
 
       const userData = {
         uid,
         userType: 'user',
-        isAdmin: false,
-        status: 'home',
-        email: selectedSoldier.email || auth.currentUser.email,
+        status: currentStatus,
+        email: selectedSoldierNormalized.email || auth.currentUser.email,
         lastUpdated: serverTimestamp(),
         dataSource: 'google_sheets',
         profileComplete: true,
       };
 
       for (const field of FIELD_MAP) {
-        const val = selectedSoldier[field.app];
+        const val = selectedSoldierNormalized[field.app];
         if (val !== undefined && val !== null && val !== '') {
           userData[field.app] = val;
         }
@@ -168,6 +196,19 @@ export default function ProfileSetup() {
       console.error('Profile setup error:', err);
       setError(t('save_failed'));
       setIsLoading(false);
+    }
+  };
+
+  const handleStartOver = async () => {
+    setIsStartingOver(true);
+    try {
+      await resetUserToPreSelection(auth.currentUser);
+      router.push('/register/selection');
+    } catch (err) {
+      console.error('Start over error:', err);
+      setError(t('start_over_failed', 'Failed to go back. Please try again.'));
+    } finally {
+      setIsStartingOver(false);
     }
   };
 
@@ -245,8 +286,6 @@ export default function ProfileSetup() {
                   </div>
                   <div style={{ color: colors.muted, fontSize: '0.95rem', lineHeight: '1.4' }}>
                     <div>חדר: {selectedSoldier.roomNumber}</div>
-                    {selectedSoldier.building && <div>בניין: {selectedSoldier.building}</div>}
-                    {selectedSoldier.floor && <div>קומה: {selectedSoldier.floor}</div>}
                   </div>
                 </div>
               </div>
@@ -337,7 +376,8 @@ export default function ProfileSetup() {
             
             <button
               type="button"
-              onClick={() => signOut(auth).then(() => router.push('/'))}
+              onClick={handleStartOver}
+              disabled={isStartingOver || isLoading}
               style={{ 
                 width: '100%', 
                 background: 'transparent', 
@@ -347,19 +387,22 @@ export default function ProfileSetup() {
                 borderRadius: 999, 
                 padding: '0.8rem 0', 
                 fontSize: '1rem',
-                cursor: 'pointer',
-                transition: 'all 0.2s ease'
+                cursor: isStartingOver || isLoading ? 'not-allowed' : 'pointer',
+                transition: 'all 0.2s ease',
+                opacity: isStartingOver || isLoading ? 0.7 : 1
               }}
               onMouseEnter={(e) => {
+                if (isStartingOver || isLoading) return;
                 e.target.style.backgroundColor = colors.primaryGreen;
                 e.target.style.color = colors.white;
               }}
               onMouseLeave={(e) => {
+                if (isStartingOver || isLoading) return;
                 e.target.style.backgroundColor = 'transparent';
                 e.target.style.color = colors.primaryGreen;
               }}
             >
-              {t('cancel_sign_out')}
+              {isStartingOver ? t('loading', 'Loading...') : t('go_back', 'Go back')}
             </button>
           </div>
         </form>

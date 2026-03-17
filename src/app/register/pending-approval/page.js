@@ -7,12 +7,16 @@ import { auth, db } from '../../../lib/firebase';
 import { doc, onSnapshot } from 'firebase/firestore';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
 import colors from '../../colors';
+import { fullyDeleteCurrentUser } from '@/lib/accountDeletionClient';
 
 export default function PendingApprovalPage() {
   const router = useRouter();
   const { t } = useTranslation('register');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [showStartOverModal, setShowStartOverModal] = useState(false);
+  const [startOverError, setStartOverError] = useState('');
+  const [isStartingOver, setIsStartingOver] = useState(false);
 
   useEffect(() => {
     let unsubSnapshot = null;
@@ -70,6 +74,21 @@ export default function PendingApprovalPage() {
       router.push('/');
     } catch (error) {
       console.error('Error signing out:', error);
+    }
+  };
+
+  const handleStartOver = async () => {
+    setIsStartingOver(true);
+    setStartOverError('');
+    try {
+      await fullyDeleteCurrentUser();
+      router.push('/');
+    } catch (err) {
+      console.error('Start over error:', err);
+      setStartOverError(t('start_over_failed', 'Failed to start over. Please try again.'));
+    } finally {
+      setIsStartingOver(false);
+      setShowStartOverModal(false);
     }
   };
 
@@ -170,8 +189,109 @@ export default function PendingApprovalPage() {
           >
             {t('pending_approval.sign_out')}
           </button>
+
+          <button
+            onClick={() => {
+              setStartOverError('');
+              setShowStartOverModal(true);
+            }}
+            style={{
+              background: 'transparent',
+              color: colors.red,
+              padding: '12px 24px',
+              borderRadius: '999px',
+              border: `2px solid ${colors.red}`,
+              fontSize: '16px',
+              fontWeight: 600,
+              cursor: 'pointer',
+              width: '100%'
+            }}
+          >
+            {t('start_over', 'Start over / Delete account')}
+          </button>
         </div>
       </div>
+
+      {showStartOverModal && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          backgroundColor: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 60,
+          padding: '1rem'
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '1.5rem',
+            maxWidth: '26rem',
+            width: '100%',
+            overflow: 'hidden'
+          }}>
+            <div style={{ padding: '1.25rem 1.5rem', background: colors.red, color: 'white' }}>
+              <h3 style={{ fontSize: '1.15rem', fontWeight: 700, textAlign: 'center', margin: 0 }}>
+                {t('start_over_title', 'Start over?')}
+              </h3>
+            </div>
+            <div style={{ padding: '1.5rem' }}>
+              <p style={{ color: '#4b5563', fontSize: '0.95rem', textAlign: 'center', marginBottom: '1.25rem' }}>
+                {t('start_over_description', 'This will delete your account and all app data. You will need to sign up again.')}
+              </p>
+
+              {startOverError && (
+                <p style={{ color: colors.red, fontSize: '0.9rem', textAlign: 'center', marginBottom: '0.75rem' }}>
+                  {startOverError}
+                </p>
+              )}
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                <button
+                  type="button"
+                  onClick={handleStartOver}
+                  disabled={isStartingOver}
+                  style={{
+                    width: '100%',
+                    padding: '0.75rem',
+                    borderRadius: '0.75rem',
+                    fontWeight: 700,
+                    fontSize: '1rem',
+                    border: 'none',
+                    background: isStartingOver ? '#9ca3af' : colors.red,
+                    color: 'white',
+                    cursor: isStartingOver ? 'not-allowed' : 'pointer',
+                    opacity: isStartingOver ? 0.7 : 1,
+                    transition: 'all 0.2s ease'
+                  }}
+                >
+                  {isStartingOver ? t('loading', 'Loading...') : t('start_over_confirm', 'Delete account')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowStartOverModal(false)}
+                  disabled={isStartingOver}
+                  style={{
+                    width: '100%',
+                    padding: '0.75rem',
+                    borderRadius: '0.75rem',
+                    fontWeight: 600,
+                    fontSize: '0.95rem',
+                    border: `2px solid ${colors.primaryGreen}`,
+                    background: 'transparent',
+                    color: colors.primaryGreen,
+                    cursor: isStartingOver ? 'not-allowed' : 'pointer',
+                    opacity: isStartingOver ? 0.7 : 1,
+                    transition: 'all 0.2s ease'
+                  }}
+                >
+                  {t('cancel', 'Cancel')}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 } 

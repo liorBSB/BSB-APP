@@ -6,6 +6,7 @@ import { auth, db } from '@/lib/firebase';
 import { doc, setDoc, getDoc, writeBatch, serverTimestamp } from 'firebase/firestore';
 import useAuthRedirect from '@/hooks/useAuthRedirect';
 import colors from '../../colors';
+import { resetUserToPreSelection } from '@/lib/database';
 
 export default function AdminProfileSetupPage() {
   const router = useRouter();
@@ -18,6 +19,8 @@ export default function AdminProfileSetupPage() {
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
+  const [resetError, setResetError] = useState('');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -47,7 +50,6 @@ export default function AdminProfileSetupPage() {
         jobTitle: formData.jobTitle,
         email: user.email,
         userType: 'pending_approval',
-        isAdmin: false,
       }, { merge: true });
 
       batch.set(doc(db, 'approvalRequests', user.uid), {
@@ -69,6 +71,20 @@ export default function AdminProfileSetupPage() {
       setError(error.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleStartOver = async () => {
+    setIsResetting(true);
+    setResetError('');
+    try {
+      await resetUserToPreSelection(auth.currentUser);
+      router.push('/register/selection');
+    } catch (err) {
+      console.error('Reset choice error:', err);
+      setResetError(t('start_over_failed', 'Failed to start over. Please try again.'));
+    } finally {
+      setIsResetting(false);
     }
   };
 
@@ -117,6 +133,7 @@ export default function AdminProfileSetupPage() {
             />
           </div>
           {error && <div style={{ color: 'red', marginBottom: 16 }}>{error}</div>}
+          {resetError && <div style={{ color: 'red', marginBottom: 16 }}>{resetError}</div>}
           <button
             type="submit"
             disabled={loading}
@@ -136,6 +153,26 @@ export default function AdminProfileSetupPage() {
             }}
           >
             {loading ? t('admin_saving') : t('admin_complete_setup')}
+          </button>
+
+          <button
+            type="button"
+            onClick={handleStartOver}
+            disabled={isResetting || loading}
+            style={{ 
+              width: '100%', 
+              background: 'transparent', 
+              color: colors.red, 
+              fontWeight: 700, 
+              fontSize: '1.1rem', 
+              border: `2px solid ${colors.red}`, 
+              borderRadius: 999, 
+              padding: '0.8rem 0', 
+              cursor: isResetting || loading ? 'not-allowed' : 'pointer',
+              opacity: isResetting || loading ? 0.7 : 1
+            }}
+          >
+            {isResetting ? t('loading', 'Loading...') : t('go_back', 'Go back')}
           </button>
         </form>
       </div>
