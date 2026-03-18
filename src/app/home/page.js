@@ -44,6 +44,10 @@ export default function HomePage() {
   const [changeSheets, setChangeSheets] = useState(null);
   const [surveyModalOpen, setSurveyModalOpen] = useState(false);
   const [selectedSurvey, setSelectedSurvey] = useState(null);
+  const [surveyLinkCopied, setSurveyLinkCopied] = useState(false);
+  const [showAllEvents, setShowAllEvents] = useState(false);
+  const [showAllSurveys, setShowAllSurveys] = useState(false);
+  const [showAllMessages, setShowAllMessages] = useState(false);
   const isRTL = i18n.language === 'he';
 
   // Check if user profile is complete
@@ -409,8 +413,8 @@ export default function HomePage() {
               <div className="text-center text-muted py-3">{t('loading')}</div>
             ) : futureEvents.length === 0 ? (
               <div className="text-center text-muted py-3">{t('noUpcomingEvents')}</div>
-            ) : (
-              futureEvents.map(event => (
+            ) : (<>
+              {(showAllEvents ? futureEvents : futureEvents.slice(0, 1)).map(event => (
                 <div key={event.id} className="relative mb-5 bg-blue-50 rounded-xl shadow-md p-6">
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1 min-w-0">
@@ -474,8 +478,17 @@ export default function HomePage() {
                     </div>
                   </div>
                 </div>
-              ))
-            )}
+              ))}
+              {futureEvents.length > 1 && (
+                <button
+                  className="w-full text-center py-2 text-sm font-semibold rounded-lg transition-colors"
+                  style={{ color: colors.gold }}
+                  onClick={() => setShowAllEvents(prev => !prev)}
+                >
+                  {showAllEvents ? t('showLess') : t('seeMore', { count: futureEvents.length - 1 })}
+                </button>
+              )}
+            </>)}
           </div>
         </div>
 
@@ -491,8 +504,8 @@ export default function HomePage() {
               <div className="text-center text-muted py-3">{t('loading')}</div>
             ) : futureSurveys.length === 0 ? (
               <div className="text-center text-muted py-3">{t('noSurveys')}</div>
-            ) : (
-              futureSurveys.map(survey => (
+            ) : (<>
+              {(showAllSurveys ? futureSurveys : futureSurveys.slice(0, 1)).map(survey => (
                 <div key={survey.id} className="relative mb-5 bg-blue-50 rounded-xl shadow-md p-6">
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1 min-w-0">
@@ -508,30 +521,59 @@ export default function HomePage() {
                         </div>
                       )}
                     </div>
-                    <div className="flex-shrink-0 flex items-center">
+                    <div className="flex-shrink-0 flex items-center gap-2">
                       <button
                         className="px-4 py-2 rounded-lg bg-[#EDC381] text-white font-semibold text-sm shadow-md hover:bg-[#D4A574] transition-colors"
                         onClick={() => {
-                          if (survey.link && survey.link.trim() !== '') {
-                            // Ensure the link has a protocol
-                            let linkUrl = survey.link.trim();
-                            if (!linkUrl.startsWith('http://') && !linkUrl.startsWith('https://')) {
-                              linkUrl = 'https://' + linkUrl;
-                            }
-                            window.open(linkUrl, '_blank', 'noopener,noreferrer');
-                          } else {
+                          if (!survey.link || survey.link.trim() === '') {
                             setSelectedSurvey(survey);
                             setSurveyModalOpen(true);
+                            setSurveyLinkCopied(false);
+                            return;
                           }
+                          let linkUrl = survey.link.trim();
+                          if (!linkUrl.startsWith('http://') && !linkUrl.startsWith('https://')) {
+                            linkUrl = 'https://' + linkUrl;
+                          }
+                          window.open(linkUrl, '_blank', 'noopener,noreferrer');
                         }}
                       >
                         {t('fillNow')}
                       </button>
+                      {survey.link && survey.link.trim() !== '' && (
+                        <button
+                          className="p-2 rounded-lg hover:bg-gray-200 transition-colors"
+                          title={t('copyLink')}
+                          onClick={() => {
+                            let linkUrl = survey.link.trim();
+                            if (!linkUrl.startsWith('http://') && !linkUrl.startsWith('https://')) {
+                              linkUrl = 'https://' + linkUrl;
+                            }
+                            setSelectedSurvey({ ...survey, resolvedLink: linkUrl });
+                            setSurveyModalOpen(true);
+                            setSurveyLinkCopied(false);
+                          }}
+                        >
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" stroke="#6B7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" stroke="#6B7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
-              ))
-            )}
+              ))}
+              {futureSurveys.length > 1 && (
+                <button
+                  className="w-full text-center py-2 text-sm font-semibold rounded-lg transition-colors"
+                  style={{ color: colors.gold }}
+                  onClick={() => setShowAllSurveys(prev => !prev)}
+                >
+                  {showAllSurveys ? t('showLess') : t('seeMore', { count: futureSurveys.length - 1 })}
+                </button>
+              )}
+            </>)}
           </div>
         </div>
 
@@ -547,8 +589,8 @@ export default function HomePage() {
               <div className="text-center text-muted py-3">{t('loading')}</div>
             ) : futureMessages.length === 0 ? (
               <div className="text-center text-muted py-3">{t('no_important_messages')}</div>
-            ) : (
-              futureMessages.map(message => (
+            ) : (<>
+              {(showAllMessages ? futureMessages : futureMessages.slice(0, 1)).map(message => (
                 <div key={message.id} className="relative mb-5 bg-blue-50 rounded-xl shadow-md p-6">
                   <div className="flex items-start justify-between">
                     <div className="flex-1 pr-4">
@@ -579,8 +621,17 @@ export default function HomePage() {
                     </div>
                   </div>
                 </div>
-              ))
-            )}
+              ))}
+              {futureMessages.length > 1 && (
+                <button
+                  className="w-full text-center py-2 text-sm font-semibold rounded-lg transition-colors"
+                  style={{ color: colors.gold }}
+                  onClick={() => setShowAllMessages(prev => !prev)}
+                >
+                  {showAllMessages ? t('showLess') : t('seeMore', { count: futureMessages.length - 1 })}
+                </button>
+              )}
+            </>)}
           </div>
         </div>
       </div>
@@ -690,38 +741,41 @@ export default function HomePage() {
       <BottomNavBar active="home" />
 
       {surveyModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 shadow-lg min-w-[280px]">
-            <h2 className="text-lg font-bold mb-4 text-center">{selectedSurvey?.title}</h2>
-            <div className="flex flex-col gap-3">
-              <button
-                className="font-semibold rounded px-4 py-2"
-                style={{ background: colors.primaryGreen, color: colors.white }}
-                onClick={() => setSurveyModalOpen(false)}
-              >
-                {t('coming')}
-              </button>
-              <button
-                className="font-semibold rounded px-4 py-2"
-                style={{ background: 'transparent', color: colors.black, border: `2px solid ${colors.yellow}` }}
-                onClick={() => setSurveyModalOpen(false)}
-              >
-                {t('maybe')}
-              </button>
-              <button
-                className="font-semibold rounded px-4 py-2"
-                style={{ background: 'transparent', color: colors.black, border: `2px solid ${colors.red}` }}
-                onClick={() => setSurveyModalOpen(false)}
-              >
-                {t('notComing')}
-              </button>
-              <button
-                className="mt-2 text-gray-500 underline"
-                onClick={() => setSurveyModalOpen(false)}
-              >
-                {t('close')}
-              </button>
-            </div>
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl p-6 shadow-xl w-full max-w-sm">
+            <h2 className="text-lg font-bold mb-4 text-center" style={{ color: colors.primaryGreen }}>{selectedSurvey?.title}</h2>
+            {(!selectedSurvey?.link || selectedSurvey.link.trim() === '') && !selectedSurvey?.resolvedLink ? (
+              <p className="text-center text-gray-600 mb-4">{t('noSurveyLink')}</p>
+            ) : (
+              <div className="mb-4">
+                <p className="text-sm text-gray-600 mb-2 text-center">{t('surveyLinkBlocked')}</p>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    readOnly
+                    value={selectedSurvey?.resolvedLink || selectedSurvey?.link || ''}
+                    className="flex-1 px-3 py-2 border rounded-lg bg-gray-50 text-sm text-gray-700 truncate"
+                  />
+                  <button
+                    className="px-3 py-2 rounded-lg text-white font-semibold text-sm shrink-0"
+                    style={{ background: surveyLinkCopied ? colors.primaryGreen : colors.gold }}
+                    onClick={() => {
+                      navigator.clipboard.writeText(selectedSurvey?.resolvedLink || selectedSurvey?.link || '');
+                      setSurveyLinkCopied(true);
+                      setTimeout(() => setSurveyLinkCopied(false), 2000);
+                    }}
+                  >
+                    {surveyLinkCopied ? t('copied') : t('copyLink')}
+                  </button>
+                </div>
+              </div>
+            )}
+            <button
+              className="w-full mt-2 py-2 text-gray-500 hover:text-gray-700 transition-colors text-sm font-medium"
+              onClick={() => setSurveyModalOpen(false)}
+            >
+              {t('close')}
+            </button>
           </div>
         </div>
       )}

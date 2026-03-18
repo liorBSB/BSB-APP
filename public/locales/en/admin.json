@@ -69,5 +69,13 @@
   "in_base": "In Base",
   "abroad": "Abroad",
   "complete": "Complete",
-  "incomplete": "Incomplete"
+  "incomplete": "Incomplete",
+  "soldiers_may_have_left": "{{count}} soldier(s) may have left",
+  "departure_detected_title": "Not found in sheet",
+  "departure_detected_description": "This soldier is in the app but no longer appears in the Google Sheet. They may have left the house.",
+  "mark_as_left": "Mark as Left",
+  "dismiss_30_days": "Dismiss (30 days)",
+  "detected_on": "Detected on {{date}}",
+  "see_more": "See More ({{count}})",
+  "show_less": "Show Less"
 }

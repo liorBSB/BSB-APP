@@ -32,6 +32,13 @@ export async function POST(request) {
       );
     }
 
+    if (!match.id) {
+      return NextResponse.json(
+        { success: false, message: `Row for room ${roomNumber} has no id` },
+        { status: 422 }
+      );
+    }
+
     const postRes = await fetch(RECEPTION_SCRIPT_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

@@ -16,7 +16,7 @@ import {
   Timestamp,
 } from 'firebase/firestore';
 import { db } from './firebase';
-import { COLLECTIONS, markUserAsLeft } from './database';
+import { COLLECTIONS, createDepartureRequest } from './database';
 import {
   FIELD_MAP,
   PRIMARY_KEY_SHEET,
@@ -154,30 +154,34 @@ export const syncFromSheets = async () => {
       }
     }
 
-    // Archive Firebase soldiers whose idNumber no longer appears in the Soldiers tab
+    // Flag soldiers in Firestore but missing from the sheet as potential departures.
+    // No auto-removal — admins review and approve each one.
     const sheetIdSet = new Set(
       sheetSoldiers
-        .map(r => String(r[PRIMARY_KEY_SHEET] || '').trim())
-        .filter(Boolean)
+        .map(row => String(row[PRIMARY_KEY_SHEET] || '').trim())
+        .filter(Boolean),
     );
 
-    let archivedCount = 0;
+    let flaggedCount = 0;
     for (const soldier of appSoldiers) {
-      if (soldier.dataSource !== 'google_sheets') continue;
-      const soldierId = String(soldier[PRIMARY_KEY_APP] || '').trim();
-      if (!soldierId) continue;
-      if (!sheetIdSet.has(soldierId)) {
-        try {
-          await markUserAsLeft(soldier.id, 'system');
-          archivedCount++;
-          console.log('[syncFromSheets] Auto-archived missing soldier:', soldier.fullName);
-        } catch (err) {
-          console.error('[syncFromSheets] Failed to auto-archive:', soldier.id, err);
-        }
+      const appId = String(soldier[PRIMARY_KEY_APP] || '').trim();
+      if (!appId) continue;
+      if (sheetIdSet.has(appId)) continue;
+
+      try {
+        await createDepartureRequest({
+          userId: soldier.id,
+          soldierName: soldier.fullName || '',
+          idNumber: appId,
+          roomNumber: soldier.roomNumber || '',
+        });
+        flaggedCount++;
+      } catch (err) {
+        console.error('[syncFromSheets] Error creating departure request:', err);
       }
     }
 
-    return { success: true, updated: updatedCount, archived: archivedCount };
+    return { success: true, updated: updatedCount, flagged: flaggedCount };
   } catch (error) {
     return { success: false, message: error.message };
   }

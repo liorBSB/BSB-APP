@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { searchUsers } from '@/lib/database';
 import { debounce } from 'lodash';
 import colors from '../app/colors';
+import { StyledDateInput } from '@/components/StyledDateInput';
 
 export default function SoldierSearch({ onSelectSoldier, onSearchResults }) {
   const [searchTerm, setSearchTerm] = useState('');
@@ -158,20 +159,16 @@ export default function SoldierSearch({ onSelectSoldier, onSearchResults }) {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
-              <input
-                type="date"
+              <StyledDateInput
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
               />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
-              <input
-                type="date"
+              <StyledDateInput
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
               />
             </div>
           </div>

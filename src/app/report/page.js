@@ -6,6 +6,7 @@ import LanguageSwitcher from '@/components/LanguageSwitcher';
 import PhotoUpload from '@/components/PhotoUpload';
 import { useState, useEffect, useRef } from 'react';
 import colors from '../colors';
+import { StyledDateInput } from '@/components/StyledDateInput';
 import { auth, db, storage } from '@/lib/firebase';
 import { addDoc, collection, doc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { ref as storageRef, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
@@ -429,7 +430,7 @@ function ReportPageContent() {
                 <option value="bit">{t('methods.bit')}</option>
                 <option value="cash">{t('methods.cash')}</option>
               </select>
-              <input type="date" className="w-full px-4 py-3 rounded-xl border" value={refundForm.expenseDate} onChange={(e)=>setRefundForm(f=>({...f,expenseDate:e.target.value}))} />
+              <StyledDateInput value={refundForm.expenseDate} onChange={(e)=>setRefundForm(f=>({...f,expenseDate:e.target.value}))} />
               
               {/* Photo Upload for Receipt */}
               <div className="w-full">

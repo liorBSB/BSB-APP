@@ -13,6 +13,7 @@ import DeleteAccountModal from '@/components/DeleteAccountModal';
 import Image from 'next/image';
 import { SOLDIER_EDIT_ENABLED } from '@/lib/sheetFieldMap';
 import colors from '../colors';
+import { StyledDateInput } from '@/components/StyledDateInput';
 
 export default function SettingsPage() {
   const { t, i18n } = useTranslation('settings');
@@ -710,11 +711,9 @@ export default function SettingsPage() {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Date of Birth</label>
-                      <input
-                        type="date"
+                      <StyledDateInput
                         value={editAllForm.dateOfBirth || ''}
                         onChange={(e) => handleEditAllFormChange('dateOfBirth', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
                       />
                     </div>
                     <div>
@@ -738,11 +737,9 @@ export default function SettingsPage() {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Check-in Date</label>
-                      <input
-                        type="date"
+                      <StyledDateInput
                         value={editAllForm.checkInDate || ''}
                         disabled
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed"
                       />
                     </div>
                   </div>
@@ -780,20 +777,16 @@ export default function SettingsPage() {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Enlistment Date</label>
-                      <input
-                        type="date"
+                      <StyledDateInput
                         value={editAllForm.enlistmentDate || ''}
                         disabled
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed"
                       />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Release Date</label>
-                      <input
-                        type="date"
+                      <StyledDateInput
                         value={editAllForm.releaseDate || ''}
                         disabled
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed"
                       />
                     </div>
                     <div>

@@ -8,6 +8,7 @@ import { ref as storageRef, uploadBytesResumable, getDownloadURL } from 'firebas
 import { db, storage, auth } from '@/lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import colors from '../../colors';
+import { StyledDateInput } from '@/components/StyledDateInput';
 import AdminBottomNavBar from '@/components/AdminBottomNavBar';
 import ComingSoon from '@/components/ComingSoon';
 import PhotoUpload from '@/components/PhotoUpload';
@@ -979,9 +980,7 @@ function AdminReportPageContent() {
                 <option value="bit">Bit</option>
                 <option value="cash">Cash</option>
               </select>
-              <input 
-                type="date" 
-                className="w-full px-4 py-3 rounded-xl border" 
+              <StyledDateInput
                 value={refundForm.expenseDate} 
                 onChange={(e) => setRefundForm(f => ({...f, expenseDate: e.target.value}))} 
               />

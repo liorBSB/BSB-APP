@@ -17,6 +17,7 @@ import { onAuthStateChanged } from 'firebase/auth';
 import EditFieldModal from '@/components/EditFieldModal';
 import PencilIcon from '@/components/PencilIcon';
 import AddItemModal from '@/components/AddItemModal';
+import { StyledDateTimeInput } from '@/components/StyledDateInput';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
 
 export default function AdminHomePage() {
@@ -109,10 +110,7 @@ export default function AdminHomePage() {
       const refundSnapshot = await getDocs(refundQuery);
       setRefundRequestsCount(refundSnapshot.docs.length);
 
-      // Fetch pending problem reports
-      const problemsQuery = query(collection(db, 'problemReports'), where('status', '==', 'pending'));
-      const problemsSnapshot = await getDocs(problemsQuery);
-      setPendingProblemsCount(problemsSnapshot.docs.length);
+      setPendingProblemsCount(0);
 
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
@@ -274,14 +272,14 @@ export default function AdminHomePage() {
       <LanguageSwitcher />
       <div className="w-full max-w-md">
         {/* Header */}
-        <div className="w-full max-w-md px-5 pt-6 pb-4 mb-2">
-          <h1 className="text-2xl font-bold text-black mb-1">
-Welcome,
+        <div
+          className="w-full max-w-md rounded-2xl px-5 pt-6 pb-4 mb-6 bg-white/10 backdrop-blur-md shadow-sm"
+          style={{ border: `1px solid ${colors.gold}` }}
+        >
+          <h1 className="text-xl font-bold text-text">
+            {t('welcome', 'Welcome')}, {adminData?.firstName && adminData?.lastName ? `${adminData.firstName} ${adminData.lastName}` : ''}
           </h1>
-          <p className="text-2xl font-bold text-black">
-            {adminData?.firstName && adminData?.lastName ? `${adminData.firstName} ${adminData.lastName}` : ''}
-          </p>
-          <p className="text-lg text-black font-medium">
+          <p className="text-sm text-muted">
             {adminData?.jobTitle || ''}
           </p>
         </div>
@@ -359,13 +357,9 @@ Welcome,
         {/* Events Section */}
         <div className="mb-8 rounded-xl overflow-hidden" style={thinGoldWrap}>
           <div className="flex items-center px-4 py-3 shadow-sm select-none" style={{ background: colors.sectionBg, color: colors.white }}>
-            <button
-              className="font-semibold text-lg flex-1 focus:outline-none bg-transparent border-none"
-              onClick={() => setOpenEvents((prev) => !prev)}
-              style={{ color: colors.white, textAlign: 'start' }}
-            >
-{t('events', 'Events')}
-            </button>
+            <span className="font-semibold text-lg flex-1" style={{ color: colors.white, textAlign: 'start' }}>
+              {t('events', 'Events')}
+            </span>
             <button
               onClick={() => openAddModal('event')}
               className="px-3 py-1 rounded-lg font-semibold transition focus:outline-none"
@@ -379,8 +373,8 @@ Welcome,
               <div className="text-center text-muted py-3">{t('loading', 'Loading...')}</div>
             ) : events.length === 0 ? (
               <div className="text-center text-muted py-3">{t('no_events', 'No upcoming events')}</div>
-            ) : openEvents ? (
-              events.map(event => (
+            ) : (<>
+              {(openEvents ? events : events.slice(0, 1)).map(event => (
                 <div key={event.id} className="relative mb-5 bg-blue-50 rounded-xl shadow-md p-6">
                   <div className="flex items-start justify-between">
                     <div className="flex-1 pr-4">
@@ -422,65 +416,26 @@ Welcome,
                     </div>
                   </div>
                 </div>
-              ))
-            ) : (
-              events.length > 0 && (
-                <div className="relative mb-5 bg-blue-50 rounded-xl shadow-md p-6">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1 pr-4">
-                      <div className="font-bold text-xl text-[#076332] mb-3 leading-tight line-clamp-2">{events[0].title}</div>
-                      {events[0].body && <div className="text-base font-medium text-gray-700 mb-4 leading-relaxed line-clamp-2">{events[0].body}</div>}
-                      {events[0].startTime && (
-                        <div className="text-sm font-semibold text-gray-600 mb-1">
-                          Start: {new Date(events[0].startTime.seconds ? events[0].startTime.seconds * 1000 : events[0].startTime).toLocaleDateString('en-US', { 
-                            weekday: 'short', 
-                            month: 'short', 
-                            day: 'numeric',
-                            hour: '2-digit', 
-                            minute: '2-digit' 
-                          })}
-                        </div>
-                      )}
-                      {events[0].endTime && (
-                        <div className="text-sm font-semibold text-gray-600">
-                          End: {new Date(events[0].endTime.seconds ? events[0].endTime.seconds * 1000 : events[0].endTime).toLocaleDateString('en-US', { 
-                            weekday: 'short', 
-                            month: 'short', 
-                            day: 'numeric',
-                            hour: '2-digit', 
-                            minute: '2-digit' 
-                          })}
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex-shrink-0 flex items-center gap-2">
-                      <button 
-                        onClick={() => setResponseListModal({ open: true, event: events[0] })}
-                        className="px-3 py-1 rounded-lg bg-blue-500 text-white font-semibold text-xs shadow-md hover:bg-blue-600 transition-colors"
-                      >
-                        Responses
-                      </button>
-                      <button onClick={() => handleEditClick('event', events[0])} className="p-2 rounded-full hover:bg-gray-100">
-                        <PencilIcon />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )
-            )}
+              ))}
+              {events.length > 1 && (
+                <button
+                  className="w-full text-center py-2 text-sm font-semibold rounded-lg transition-colors"
+                  style={{ color: colors.gold }}
+                  onClick={() => setOpenEvents(prev => !prev)}
+                >
+                  {openEvents ? t('show_less', 'Show Less') : t('see_more', { defaultValue: 'See More ({{count}})', count: events.length - 1 })}
+                </button>
+              )}
+            </>)}
           </div>
         </div>
 
         {/* Surveys Section */}
         <div className="mb-8 rounded-xl overflow-hidden" style={thinGoldWrap}>
           <div className="flex items-center px-4 py-3 shadow-sm select-none" style={{ background: colors.sectionBg, color: colors.white }}>
-            <button
-              className="font-semibold text-lg flex-1 focus:outline-none bg-transparent border-none"
-              onClick={() => setOpenSurveys((prev) => !prev)}
-              style={{ color: colors.white, textAlign: 'start' }}
-            >
-{t('surveys', 'Surveys')}
-            </button>
+            <span className="font-semibold text-lg flex-1" style={{ color: colors.white, textAlign: 'start' }}>
+              {t('surveys', 'Surveys')}
+            </span>
             <button
               onClick={() => openAddModal('survey')}
               className="px-3 py-1 rounded-lg font-semibold transition focus:outline-none"
@@ -494,8 +449,8 @@ Welcome,
               <div className="text-center text-muted py-3">{t('loading', 'Loading...')}</div>
             ) : surveys.length === 0 ? (
               <div className="text-center text-muted py-3">{t('no_surveys', 'No surveys to fill')}</div>
-            ) : openSurveys ? (
-              surveys.map(survey => (
+            ) : (<>
+              {(openSurveys ? surveys : surveys.slice(0, 1)).map(survey => (
                 <div key={survey.id} className="relative mb-5 bg-blue-50 rounded-xl shadow-md p-6">
                   <div className="flex items-start justify-between">
                     <div className="flex-1 pr-4">
@@ -510,60 +465,32 @@ Welcome,
                           })}
                         </div>
                       )}
-                      {survey.link && (
-                        <div className="text-sm font-semibold text-blue-600">
-                          Link: <a href={survey.link} target="_blank" rel="noopener noreferrer" className="underline hover:text-blue-800">{survey.link}</a>
-                        </div>
-                      )}
                     </div>
                     <button onClick={() => handleEditClick('survey', survey)} className="flex-shrink-0 p-2 rounded-full hover:bg-gray-100">
                       <PencilIcon />
                     </button>
                   </div>
                 </div>
-              ))
-            ) : (
-              surveys.length > 0 && (
-                <div className="relative mb-5 bg-blue-50 rounded-xl shadow-md p-6">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1 pr-4">
-                      <div className="font-bold text-xl text-[#076332] mb-3 leading-tight line-clamp-2">{surveys[0].title}</div>
-                      {surveys[0].body && <div className="text-base font-medium text-gray-700 mb-4 leading-relaxed line-clamp-2">{surveys[0].body}</div>}
-                      {surveys[0].endTime && (
-                        <div className="text-sm font-semibold text-gray-600 mb-1">
-                          Due Date: {new Date(surveys[0].endTime.seconds ? surveys[0].endTime.seconds * 1000 : surveys[0].endTime).toLocaleDateString('en-US', { 
-                            weekday: 'short', 
-                            month: 'short', 
-                            day: 'numeric'
-                          })}
-                        </div>
-                      )}
-                      {surveys[0].link && (
-                        <div className="text-sm font-semibold text-blue-600">
-                          Link: <a href={surveys[0].link} target="_blank" rel="noopener noreferrer" className="underline hover:text-blue-800">{surveys[0].link}</a>
-                        </div>
-                      )}
-                    </div>
-                    <button onClick={() => handleEditClick('survey', surveys[0])} className="flex-shrink-0 p-2 rounded-full hover:bg-gray-100">
-                      <PencilIcon />
-                    </button>
-                  </div>
-                </div>
-              )
-            )}
+              ))}
+              {surveys.length > 1 && (
+                <button
+                  className="w-full text-center py-2 text-sm font-semibold rounded-lg transition-colors"
+                  style={{ color: colors.gold }}
+                  onClick={() => setOpenSurveys(prev => !prev)}
+                >
+                  {openSurveys ? t('show_less', 'Show Less') : t('see_more', { defaultValue: 'See More ({{count}})', count: surveys.length - 1 })}
+                </button>
+              )}
+            </>)}
           </div>
         </div>
 
         {/* Messages Section */}
         <div className="mb-8 rounded-xl overflow-hidden" style={thinGoldWrap}>
           <div className="flex items-center px-4 py-3 shadow-sm select-none" style={{ background: colors.sectionBg, color: colors.white }}>
-            <button
-              className="font-semibold text-lg flex-1 focus:outline-none bg-transparent border-none"
-              onClick={() => setOpenMessages((prev) => !prev)}
-              style={{ color: colors.white, textAlign: 'start' }}
-            >
-{t('messages', 'Messages')}
-            </button>
+            <span className="font-semibold text-lg flex-1" style={{ color: colors.white, textAlign: 'start' }}>
+              {t('messages', 'Messages')}
+            </span>
             <button
               onClick={() => openAddModal('message')}
               className="px-3 py-1 rounded-lg font-semibold transition focus:outline-none"
@@ -577,8 +504,8 @@ Welcome,
               <div className="text-center text-muted py-3">{t('loading', 'Loading...')}</div>
             ) : messages.length === 0 ? (
               <div className="text-center text-muted py-3">{t('no_messages', 'No important messages')}</div>
-            ) : openMessages ? (
-              messages.map(message => (
+            ) : (<>
+              {(openMessages ? messages : messages.slice(0, 1)).map(message => (
                 <div key={message.id} className="relative mb-5 bg-blue-50 rounded-xl shadow-md p-6">
                   <div className="flex items-start justify-between">
                     <div className="flex-1 pr-4">
@@ -612,44 +539,17 @@ Welcome,
                     </button>
                   </div>
                 </div>
-              ))
-            ) : (
-              messages.length > 0 && (
-                <div className="relative mb-5 bg-blue-50 rounded-xl shadow-md p-6">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1 pr-4">
-                      <div className="font-bold text-xl text-[#076332] mb-3 leading-tight line-clamp-2">{messages[0].title}</div>
-                      {messages[0].body && <div className="text-base font-medium text-gray-700 mb-4 leading-relaxed line-clamp-2">{messages[0].body}</div>}
-                      {messages[0].startTime && (
-                        <div className="text-sm font-semibold text-gray-600 mb-1">
-                          Start: {new Date(messages[0].startTime.seconds ? messages[0].startTime.seconds * 1000 : messages[0].startTime).toLocaleDateString('en-US', { 
-                            weekday: 'short', 
-                            month: 'short', 
-                            day: 'numeric',
-                            hour: '2-digit', 
-                            minute: '2-digit' 
-                          })}
-                        </div>
-                      )}
-                      {messages[0].endTime && (
-                        <div className="text-sm font-semibold text-gray-600">
-                          End: {new Date(messages[0].endTime.seconds ? messages[0].endTime.seconds * 1000 : messages[0].endTime).toLocaleDateString('en-US', { 
-                            weekday: 'short', 
-                            month: 'short', 
-                            day: 'numeric',
-                            hour: '2-digit', 
-                            minute: '2-digit' 
-                          })}
-                        </div>
-                      )}
-                    </div>
-                    <button onClick={() => handleEditClick('message', messages[0])} className="flex-shrink-0 p-2 rounded-full hover:bg-gray-100">
-                      <PencilIcon />
-                    </button>
-                  </div>
-                </div>
-              )
-            )}
+              ))}
+              {messages.length > 1 && (
+                <button
+                  className="w-full text-center py-2 text-sm font-semibold rounded-lg transition-colors"
+                  style={{ color: colors.gold }}
+                  onClick={() => setOpenMessages(prev => !prev)}
+                >
+                  {openMessages ? t('show_less', 'Show Less') : t('see_more', { defaultValue: 'See More ({{count}})', count: messages.length - 1 })}
+                </button>
+              )}
+            </>)}
           </div>
         </div>
 
@@ -885,6 +785,7 @@ Welcome,
         <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg p-6 shadow-lg w-full max-w-xs">
             <h2 className="text-xl font-bold mb-4">Edit {editModal.type.charAt(0).toUpperCase() + editModal.type.slice(1)}</h2>
+            <form onSubmit={(e) => { e.preventDefault(); handleEditSave(); }}>
             
             {/* Title field for all types */}
             <div className="mb-4">
@@ -915,22 +816,18 @@ Welcome,
               <>
                 <div className="mb-4">
                   <label className="block text-gray-700 font-semibold mb-2">Start Date</label>
-                  <input
-                    type="datetime-local"
+                  <StyledDateTimeInput
                     name="startTime"
                     value={editModal.form.startTime?.seconds ? new Date(editModal.form.startTime.seconds * 1000).toISOString().slice(0, 16) : (editModal.form.startTime ? new Date(editModal.form.startTime).toISOString().slice(0, 16) : '')}
                     onChange={handleEditChange}
-                    className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-primaryGreen"
                   />
                 </div>
                 <div className="mb-4">
                   <label className="block text-gray-700 font-semibold mb-2">End Date</label>
-                  <input
-                    type="datetime-local"
+                  <StyledDateTimeInput
                     name="endTime"
                     value={editModal.form.endTime?.seconds ? new Date(editModal.form.endTime.seconds * 1000).toISOString().slice(0, 16) : (editModal.form.endTime ? new Date(editModal.form.endTime).toISOString().slice(0, 16) : '')}
                     onChange={handleEditChange}
-                    className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-primaryGreen"
                   />
                 </div>
               </>
@@ -940,23 +837,22 @@ Welcome,
               <>
                 <div className="mb-4">
                   <label className="block text-gray-700 font-semibold mb-2">Due Date</label>
-                  <input
-                    type="datetime-local"
+                  <StyledDateTimeInput
                     name="endTime"
                     value={editModal.form.endTime?.seconds ? new Date(editModal.form.endTime.seconds * 1000).toISOString().slice(0, 16) : (editModal.form.endTime ? new Date(editModal.form.endTime).toISOString().slice(0, 16) : '')}
                     onChange={handleEditChange}
-                    className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-primaryGreen"
                   />
                 </div>
                 <div className="mb-4">
-                  <label className="block text-gray-700 font-semibold mb-2">Link (Optional)</label>
+                  <label className="block text-gray-700 font-semibold mb-2">Link <span className="text-red-500">*</span></label>
                   <input
-                    type="url"
+                    type="text"
                     name="link"
                     value={editModal.form.link || ''}
                     onChange={handleEditChange}
                     placeholder="https://example.com"
                     className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-primaryGreen"
+                    required
                   />
                 </div>
               </>
@@ -966,22 +862,18 @@ Welcome,
               <>
                 <div className="mb-4">
                   <label className="block text-gray-700 font-semibold mb-2">Start Date</label>
-                  <input
-                    type="datetime-local"
+                  <StyledDateTimeInput
                     name="startTime"
                     value={editModal.form.startTime?.seconds ? new Date(editModal.form.startTime.seconds * 1000).toISOString().slice(0, 16) : (editModal.form.startTime ? new Date(editModal.form.startTime).toISOString().slice(0, 16) : '')}
                     onChange={handleEditChange}
-                    className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-primaryGreen"
                   />
                 </div>
                 <div className="mb-4">
                   <label className="block text-gray-700 font-semibold mb-2">End Date</label>
-                  <input
-                    type="datetime-local"
+                  <StyledDateTimeInput
                     name="endTime"
                     value={editModal.form.endTime?.seconds ? new Date(editModal.form.endTime.seconds * 1000).toISOString().slice(0, 16) : (editModal.form.endTime ? new Date(editModal.form.endTime).toISOString().slice(0, 16) : '')}
                     onChange={handleEditChange}
-                    className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-primaryGreen"
                   />
                 </div>
               </>
@@ -989,13 +881,14 @@ Welcome,
 
             <div className="flex gap-4">
               <button
-                onClick={handleEditSave}
+                type="submit"
                 className="flex-1 px-4 py-2 rounded-lg text-white font-semibold"
                 style={{ background: colors.gold }}
               >
                 Save
               </button>
               <button
+                type="button"
                 onClick={handleEditCancel}
                 className="flex-1 px-4 py-2 rounded-lg border-2 font-semibold"
                 style={{ borderColor: colors.primaryGreen, color: colors.primaryGreen }}
@@ -1003,6 +896,7 @@ Welcome,
                 Cancel
               </button>
             </div>
+            </form>
           </div>
         </div>
       )}

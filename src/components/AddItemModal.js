@@ -1,14 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import colors from '../app/colors';
+import { StyledDateTimeInput } from '@/components/StyledDateInput';
+
+const emptyForm = { title: '', body: '', startTime: '', endTime: '', link: '' };
 
 export default function AddItemModal({ open, onClose, onSave, type = 'event', loading = false }) {
-  const [form, setForm] = useState({
-    title: '',
-    body: '',
-    startTime: '',
-    endTime: '',
-    link: '',
-  });
+  const [form, setForm] = useState(emptyForm);
+
+  useEffect(() => {
+    if (open) setForm(emptyForm);
+  }, [open]);
 
   const handleChange = (e) => {
     setForm(f => ({ ...f, [e.target.name]: e.target.value }));
@@ -50,36 +51,33 @@ export default function AddItemModal({ open, onClose, onSave, type = 'event', lo
           </div>
           {type === 'survey' && (
             <div className="mb-4">
-              <label className="block text-gray-700 font-semibold mb-2">Link (Optional)</label>
+              <label className="block text-gray-700 font-semibold mb-2">Link <span className="text-red-500">*</span></label>
               <input
-                type="url"
+                type="text"
                 name="link"
                 value={form.link}
                 onChange={handleChange}
                 placeholder="https://example.com"
                 className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-primaryGreen"
+                required
               />
             </div>
           )}
           <div className="mb-4">
             <label className="block text-gray-700 font-semibold mb-2">Start Time</label>
-            <input
-              type="datetime-local"
+            <StyledDateTimeInput
               name="startTime"
               value={form.startTime}
               onChange={handleChange}
-              className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-primaryGreen"
               required
             />
           </div>
           <div className="mb-6">
             <label className="block text-gray-700 font-semibold mb-2">End Time</label>
-            <input
-              type="datetime-local"
+            <StyledDateTimeInput
               name="endTime"
               value={form.endTime}
               onChange={handleChange}
-              className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-primaryGreen"
               required
             />
           </div>

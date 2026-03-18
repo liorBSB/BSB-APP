@@ -2,7 +2,7 @@
 import { useRouter } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import { auth, db } from '@/lib/firebase';
-import { doc, deleteDoc, updateDoc } from 'firebase/firestore';
+import { doc, deleteDoc, updateDoc, getDoc } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
 import useAuthRedirect from '@/hooks/useAuthRedirect';
@@ -17,8 +17,13 @@ export default function SelectionPage() {
     try {
       const user = auth.currentUser;
       if (user) {
-        // Update user type to indicate they chose to work here
-        await updateDoc(doc(db, 'users', user.uid), {
+        const userRef = doc(db, 'users', user.uid);
+        const snap = await getDoc(userRef);
+        if (snap.exists() && snap.data().userType === 'admin') {
+          router.push('/admin/home');
+          return;
+        }
+        await updateDoc(userRef, {
           userType: 'pending_approval',
           roleChoice: 'work_here'
         });
@@ -26,7 +31,6 @@ export default function SelectionPage() {
       router.push('/admin/profile-setup');
     } catch (error) {
       console.error('Error updating user choice:', error);
-      // Still redirect even if update fails
       router.push('/admin/profile-setup');
     }
   };
@@ -35,8 +39,13 @@ export default function SelectionPage() {
     try {
       const user = auth.currentUser;
       if (user) {
-        // Update user type to indicate they chose to live here
-        await updateDoc(doc(db, 'users', user.uid), {
+        const userRef = doc(db, 'users', user.uid);
+        const snap = await getDoc(userRef);
+        if (snap.exists() && ['admin', 'pending_approval'].includes(snap.data().userType)) {
+          router.push('/redirect');
+          return;
+        }
+        await updateDoc(userRef, {
           userType: 'user',
           roleChoice: 'live_here'
         });
@@ -44,7 +53,6 @@ export default function SelectionPage() {
       router.push('/profile-setup');
     } catch (error) {
       console.error('Error updating user choice:', error);
-      // Still redirect even if update fails
       router.push('/profile-setup');
     }
   };
@@ -53,19 +61,19 @@ export default function SelectionPage() {
     try {
       const user = auth.currentUser;
       if (user) {
-        // Delete the user document from Firestore
         const userRef = doc(db, 'users', user.uid);
+        const snap = await getDoc(userRef);
+        if (snap.exists() && ['admin', 'pending_approval', 'user'].includes(snap.data().userType)) {
+          await signOut(auth);
+          router.push('/');
+          return;
+        }
         await deleteDoc(userRef);
-        
-        // Sign out the user
         await signOut(auth);
       }
-      
-      // Redirect to home page
       router.push('/');
     } catch (error) {
       console.error('Error during cancel:', error);
-      // Even if there's an error, try to sign out and redirect
       try {
         await signOut(auth);
         router.push('/');

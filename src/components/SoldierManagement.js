@@ -1,13 +1,16 @@
 'use client';
 
+import '@/i18n';
 import { useState, useEffect, useRef } from 'react';
-import { adminWipeUserData, getActiveUsers, markUserAsLeft, updateUserData } from '@/lib/database';
+import { adminWipeUserData, getActiveUsers, markUserAsLeft, updateUserData, getPendingDepartureRequests, dismissDepartureRequest, deleteDepartureRequest } from '@/lib/database';
 import { auth, db } from '@/lib/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
 import SoldierSearch from './SoldierSearch';
 import { SOLDIER_EDIT_ENABLED } from '@/lib/sheetFieldMap';
 import { syncStatusToReceptionSheet, normalizeStatus, fetchStatusFromSheet } from '@/lib/receptionSync';
 import colors from '../app/colors';
+import { useTranslation } from 'react-i18next';
+import { StyledDateInput } from '@/components/StyledDateInput';
 
 const STATUS_OPTIONS = ['Home', 'Out', 'In base', 'Abroad'];
 
@@ -26,6 +29,7 @@ const STATUS_LABELS = {
 };
 
 export default function SoldierManagement() {
+  const { t } = useTranslation('admin');
   const [soldiers, setSoldiers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedSoldier, setSelectedSoldier] = useState(null);
@@ -50,15 +54,27 @@ export default function SoldierManagement() {
   const [showDeleteAccountModal, setShowDeleteAccountModal] = useState(false);
   const [soldierToDeleteAccount, setSoldierToDeleteAccount] = useState(null);
   const [showSaveConfirmation, setShowSaveConfirmation] = useState(false);
+  const [departureRequests, setDepartureRequests] = useState([]);
+  const [departureProcessingId, setDepartureProcessingId] = useState(null);
 
   useEffect(() => {
     loadSoldiers();
+    loadDepartureRequests();
 
     const pollInterval = setInterval(() => {
       reconcileStatusesWithSheet(soldiersRef.current);
     }, 20000);
 
-    return () => clearInterval(pollInterval);
+    // Re-fetch departure requests after sync has had time to run (15s)
+    // and then every 60s to pick up new ones
+    const departureInitial = setTimeout(() => loadDepartureRequests(), 15000);
+    const departurePoll = setInterval(() => loadDepartureRequests(), 60000);
+
+    return () => {
+      clearInterval(pollInterval);
+      clearTimeout(departureInitial);
+      clearInterval(departurePoll);
+    };
   }, []);
 
   const soldiersRef = useRef([]);
@@ -157,6 +173,46 @@ export default function SoldierManagement() {
       }
     } catch {
       // Best-effort reconciliation
+    }
+  };
+
+  const loadDepartureRequests = async () => {
+    try {
+      const requests = await getPendingDepartureRequests();
+      setDepartureRequests(requests);
+    } catch {
+      // Best-effort load
+    }
+  };
+
+  const handleDepartureMarkAsLeft = async (request) => {
+    if (!auth.currentUser) return;
+    setDepartureProcessingId(request.id);
+    try {
+      await markUserAsLeft(request.userId, auth.currentUser.uid);
+      await deleteDepartureRequest(request.id);
+      setDepartureRequests(prev => prev.filter(r => r.id !== request.id));
+      setSoldiers(prev => prev.filter(s => s.id !== request.userId));
+      setSearchResults(prev => prev.filter(s => s.id !== request.userId));
+      alert(`Soldier "${request.soldierName}" has been marked as left and archived.`);
+    } catch (err) {
+      console.error('Error marking departed soldier as left:', err);
+      alert('Error marking soldier as left.');
+    } finally {
+      setDepartureProcessingId(null);
+    }
+  };
+
+  const handleDepartureDismiss = async (request) => {
+    setDepartureProcessingId(request.id);
+    try {
+      await dismissDepartureRequest(request.id);
+      setDepartureRequests(prev => prev.filter(r => r.id !== request.id));
+    } catch (err) {
+      console.error('Error dismissing departure request:', err);
+      alert('Error dismissing request.');
+    } finally {
+      setDepartureProcessingId(null);
     }
   };
 
@@ -588,6 +644,51 @@ export default function SoldierManagement() {
         </div>
       </div>
 
+      {/* Departure Requests */}
+      {departureRequests.map(req => {
+        const isProcessing = departureProcessingId === req.id;
+        const detected = req.detectedAt?.toDate?.()
+          ? req.detectedAt.toDate().toLocaleDateString()
+          : '';
+        return (
+          <div key={req.id} className="rounded-2xl p-3 phone-sm:p-4 shadow-sm" style={{ background: colors.sectionBg, border: `1px solid ${colors.red}` }}>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 phone-sm:w-12 phone-sm:h-12 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: colors.red }}>
+                <span className="text-lg phone-sm:text-xl font-bold" style={{ color: colors.white }}>!</span>
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="font-semibold text-base phone-sm:text-lg truncate" style={{ color: colors.white }}>
+                  {req.soldierName || 'Unknown'}
+                </h3>
+                <div className="text-xs phone-sm:text-sm" style={{ color: colors.white, opacity: 0.7 }}>
+                  {req.roomNumber && <span>Room {req.roomNumber}</span>}
+                  {req.roomNumber && detected && <span> · </span>}
+                  {detected && <span>{t('detected_on', { date: detected })}</span>}
+                </div>
+              </div>
+              <div className="flex gap-2 flex-shrink-0">
+                <button
+                  onClick={() => handleDepartureMarkAsLeft(req)}
+                  disabled={isProcessing}
+                  className="px-3 py-1.5 rounded-lg text-xs phone-sm:text-sm font-semibold transition-all disabled:opacity-50"
+                  style={{ background: colors.red, color: 'white' }}
+                >
+                  {isProcessing ? '...' : t('mark_as_left')}
+                </button>
+                <button
+                  onClick={() => handleDepartureDismiss(req)}
+                  disabled={isProcessing}
+                  className="px-3 py-1.5 rounded-lg text-xs phone-sm:text-sm font-semibold transition-all disabled:opacity-50"
+                  style={{ border: `1px solid ${colors.white}`, color: colors.white, background: 'transparent' }}
+                >
+                  {isProcessing ? '...' : t('dismiss_30_days')}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })}
+
       {/* All Buttons Above Search */}
       <div className="flex flex-wrap gap-2 phone-sm:gap-3 items-center">
         {/* Home Filter Toggle */}
@@ -950,11 +1051,9 @@ export default function SoldierManagement() {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Date of Birth</label>
-                      <input
-                        type="date"
+                      <StyledDateInput
                         value={editForm.dateOfBirth || ''}
                         onChange={(e) => handleEditFormChange('dateOfBirth', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
                       />
                     </div>
                     <div>
@@ -980,11 +1079,9 @@ export default function SoldierManagement() {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Check-in Date</label>
-                      <input
-                        type="date"
+                      <StyledDateInput
                         value={editForm.checkInDate || ''}
                         onChange={(e) => handleEditFormChange('checkInDate', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
                       />
                     </div>
                   </div>
@@ -1137,20 +1234,16 @@ export default function SoldierManagement() {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Enlistment Date</label>
-                      <input
-                        type="date"
+                      <StyledDateInput
                         value={editForm.enlistmentDate || ''}
                         onChange={(e) => handleEditFormChange('enlistmentDate', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
                       />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Release Date</label>
-                      <input
-                        type="date"
+                      <StyledDateInput
                         value={editForm.releaseDate || ''}
                         onChange={(e) => handleEditFormChange('releaseDate', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
                       />
                     </div>
                     <div>

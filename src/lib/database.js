@@ -5,6 +5,7 @@ import {
   getDocs, 
   updateDoc, 
   deleteDoc, 
+  addDoc,
   query, 
   where, 
   orderBy, 
@@ -25,6 +26,7 @@ export const COLLECTIONS = {
   REFUND_REQUESTS: 'refundRequests',
   PROBLEM_REPORTS: 'problemReports',
   APPROVAL_REQUESTS: 'approvalRequests',
+  DEPARTURE_REQUESTS: 'departureRequests',
 };
 
 /**
@@ -353,6 +355,76 @@ export const promoteUserToAdmin = async (uid, approverUid) => {
   });
 };
 
+// ── Departure Requests ───────────────────────────────────────────────
+
+const SNOOZE_DAYS = 30;
+
+/**
+ * Create a departure request for a soldier missing from the Google Sheet.
+ * Skips creation if a pending request already exists, or a dismissed request
+ * whose snooze window has not yet expired.
+ */
+export const createDepartureRequest = async (soldierData) => {
+  const { userId, soldierName, idNumber, roomNumber } = soldierData;
+  if (!userId) return null;
+
+  const col = collection(db, COLLECTIONS.DEPARTURE_REQUESTS);
+  const existingQuery = query(col, where('userId', '==', userId));
+  const snap = await getDocs(existingQuery);
+
+  for (const d of snap.docs) {
+    const data = d.data();
+    if (data.status === 'pending') return null;
+    if (data.status === 'dismissed') {
+      const until = data.dismissedUntil?.toDate?.() ?? new Date(0);
+      if (until > new Date()) return null;
+      await deleteDoc(d.ref);
+    }
+  }
+
+  return addDoc(col, {
+    userId,
+    soldierName: soldierName || '',
+    idNumber: idNumber || '',
+    roomNumber: roomNumber || '',
+    detectedAt: Timestamp.now(),
+    status: 'pending',
+    dismissedUntil: null,
+  });
+};
+
+/**
+ * Return all departure requests with status === 'pending'.
+ */
+export const getPendingDepartureRequests = async () => {
+  const q = query(
+    collection(db, COLLECTIONS.DEPARTURE_REQUESTS),
+    where('status', '==', 'pending'),
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+};
+
+/**
+ * Snooze a departure request for 30 days.
+ */
+export const dismissDepartureRequest = async (requestId) => {
+  const ref = doc(db, COLLECTIONS.DEPARTURE_REQUESTS, requestId);
+  const dismissedUntil = new Date();
+  dismissedUntil.setDate(dismissedUntil.getDate() + SNOOZE_DAYS);
+  await updateDoc(ref, {
+    status: 'dismissed',
+    dismissedUntil: Timestamp.fromDate(dismissedUntil),
+  });
+};
+
+/**
+ * Hard-delete a departure request (used after marking a soldier as left).
+ */
+export const deleteDepartureRequest = async (requestId) => {
+  await deleteDoc(doc(db, COLLECTIONS.DEPARTURE_REQUESTS, requestId));
+};
+
 const databaseService = {
   COLLECTIONS,
   deleteRelatedUserData,
@@ -367,7 +439,11 @@ const databaseService = {
   searchUsers,
   updateProfileAnswer,
   updateUserData,
-  promoteUserToAdmin
+  promoteUserToAdmin,
+  createDepartureRequest,
+  getPendingDepartureRequests,
+  dismissDepartureRequest,
+  deleteDepartureRequest,
 };
 
 export default databaseService;

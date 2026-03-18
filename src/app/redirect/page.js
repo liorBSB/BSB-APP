@@ -8,6 +8,14 @@ import { doc, getDoc } from 'firebase/firestore';
 import { createBaseUserDoc } from '@/lib/database';
 import colors from '../colors';
 
+async function getDocWithRetry(docRef, retries = 2) {
+  for (let i = 0; i <= retries; i++) {
+    const snap = await getDoc(docRef);
+    if (snap.exists() || i === retries) return snap;
+    await new Promise(r => setTimeout(r, 500));
+  }
+}
+
 export default function RedirectPage() {
   const router = useRouter();
   const { t } = useTranslation('login');
@@ -21,13 +29,11 @@ export default function RedirectPage() {
       }
       
       const userRef = doc(db, 'users', user.uid);
-      const userDoc = await getDoc(userRef);
+      const userDoc = await getDocWithRetry(userRef);
       
       if (!userDoc.exists()) {
         try {
           await createBaseUserDoc(user);
-          
-          // After creating the document, redirect to selection
           router.replace('/register/selection');
           return;
         } catch (error) {

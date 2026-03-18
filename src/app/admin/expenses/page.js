@@ -20,7 +20,10 @@ import { deleteDoc } from "firebase/firestore";
 import AdminBottomNavBar from "@/components/AdminBottomNavBar";
 import DatePickerModal from "@/components/DatePickerModal";
 import PhotoUpload from "@/components/PhotoUpload";
+import { StyledDateInput, StyledDateTimeInput } from "@/components/StyledDateInput";
 import colors from "@/app/colors";
+import '@/i18n';
+import i18n from '@/i18n';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -525,6 +528,7 @@ const REIMBURSEMENT_METHODS = ["Credit Card","Bank Transfer","Cash","Other"];
 
 export default function AdminExpensesPage() {
   const router = useRouter();
+  const isRTL = i18n.language === 'he';
   const [userDoc, setUserDoc] = useState(null);
 
   const [form, setForm] = useState({
@@ -535,7 +539,7 @@ export default function AdminExpensesPage() {
     reimbursementMethod: "Credit Card",
     notes: "",
     linkedSoldierUid: "",
-    expenseDate: new Date().toISOString().slice(0,16),
+    expenseDate: new Date().toISOString().slice(0,10),
     photoUrl: "",
     photoPath: "",
   });
@@ -589,6 +593,7 @@ export default function AdminExpensesPage() {
 
   // Edit/Delete state
   const [editingExpense, setEditingExpense] = useState(null);
+  const [editFromReport, setEditFromReport] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [expenseToDelete, setExpenseToDelete] = useState(null);
 
@@ -596,9 +601,12 @@ export default function AdminExpensesPage() {
   const [photoViewerOpen, setPhotoViewerOpen] = useState(false);
   const [selectedPhoto, setSelectedPhoto] = useState(null);
 
+  // Save confirmation popup state
+  const [savedExpenseSummary, setSavedExpenseSummary] = useState(null);
+
   // Prevent background scrolling when modals are open
   useEffect(() => {
-    if (reportOpen || editingExpense || deleteConfirmOpen || photoViewerOpen || exportModalOpen) {
+    if (reportOpen || editingExpense || deleteConfirmOpen || photoViewerOpen || exportModalOpen || savedExpenseSummary) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = 'unset';
@@ -608,7 +616,7 @@ export default function AdminExpensesPage() {
     return () => {
       document.body.style.overflow = 'unset';
     };
-  }, [reportOpen, editingExpense, deleteConfirmOpen, photoViewerOpen, exportModalOpen]);
+  }, [reportOpen, editingExpense, deleteConfirmOpen, photoViewerOpen, exportModalOpen, savedExpenseSummary]);
 
   // Test Hebrew translation on component mount (remove in production)
   useEffect(() => {
@@ -662,6 +670,27 @@ export default function AdminExpensesPage() {
   const showSuccess = (msg) => { setSuccess(msg); try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch {} };
   const showError = (msg) => { setError(msg); try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch {} };
 
+  const resetForm = () => setForm({
+    title: "", amount: "", category: "Food", categoryOther: "",
+    reimbursementMethod: "Credit Card", notes: "", linkedSoldierUid: "",
+    expenseDate: new Date().toISOString().slice(0, 10),
+    photoUrl: "", photoPath: "",
+  });
+
+  const handleCloseEditModal = () => {
+    const wasFromReport = editFromReport;
+    const viewState = editingExpense?.viewState;
+    setEditingExpense(null);
+    resetForm();
+    if (wasFromReport) {
+      setEditFromReport(false);
+      setReportOpen(true);
+      if (viewState) {
+        setShowSearchResults(true);
+      }
+    }
+  };
+
   const handlePhotoUploaded = (photoUrl, photoPath) => {
     setForm(prev => ({
       ...prev,
@@ -692,9 +721,9 @@ export default function AdminExpensesPage() {
   };
 
   const handleEditExpense = (expense) => {
-    // Remember the current view state before editing
     const wasInSearchResults = showSearchResults;
     
+    setEditFromReport(reportOpen);
     setEditingExpense(expense);
     setForm({
       title: expense.title || "",
@@ -704,13 +733,12 @@ export default function AdminExpensesPage() {
       reimbursementMethod: expense.reimbursementMethod || "Credit Card",
       notes: expense.notes || "",
       linkedSoldierUid: expense.linkedSoldierUid || "",
-      expenseDate: expense.expenseDate?.toDate?.()?.toISOString().slice(0,16) || new Date().toISOString().slice(0,16),
+      expenseDate: expense.expenseDate?.toDate?.()?.toISOString().slice(0,10) || new Date().toISOString().slice(0,10),
       photoUrl: expense.photoUrl || "",
       photoPath: expense.photoPath || "",
     });
     setReportOpen(false);
     
-    // Store the view state to restore later
     expense.viewState = wasInSearchResults;
   };
 
@@ -783,18 +811,7 @@ export default function AdminExpensesPage() {
       
       showSuccess("Expense updated successfully");
       setEditingExpense(null);
-      setForm({
-        title: "",
-        amount: "",
-        category: "Food",
-        categoryOther: "",
-        reimbursementMethod: "Credit Card",
-        notes: "",
-        linkedSoldierUid: "",
-        expenseDate: new Date().toISOString().slice(0,16),
-        photoUrl: "",
-        photoPath: "",
-      });
+      resetForm();
       
       // Refresh the data and return to modal
       await fetchList();
@@ -856,22 +873,21 @@ export default function AdminExpensesPage() {
         softDeleted: false,
       };
       
-      await addDoc(collection(db, "expenses"), payload);
-      showSuccess("Expense saved successfully!");
+      const docRef = await addDoc(collection(db, "expenses"), payload);
       
-      // Reset form completely including photo
-      setForm({ 
-        title: "", 
-        amount: "", 
-        category: "Food", 
-        categoryOther: "", 
-        reimbursementMethod: "Credit Card", 
-        notes: "", 
-        linkedSoldierUid: "", 
-        expenseDate: new Date().toISOString().slice(0,16),
-        photoUrl: "",
-        photoPath: "",
+      setSavedExpenseSummary({
+        id: docRef.id,
+        title: payload.title,
+        amount: payload.amount,
+        category: payload.category,
+        categoryOther: payload.categoryOther,
+        reimbursementMethod: payload.reimbursementMethod,
+        notes: payload.notes,
+        expenseDate: payload.expenseDate,
+        photoUrl: payload.photoUrl,
       });
+      
+      resetForm();
       
       // Refresh the expenses list
       await fetchList();
@@ -1192,8 +1208,78 @@ export default function AdminExpensesPage() {
     document.body.removeChild(link);
   };
 
+  const CATEGORY_ICONS = {
+    Food: '🍽️', Equipment: '🔧', Maintenance: '🏠',
+    Transport: '🚗', Utilities: '💡', Other: '📦',
+  };
+
+  const renderExpenseCard = (expense) => (
+    <div key={expense.id} className="bg-white rounded-xl shadow-sm border overflow-hidden transition-colors duration-200" style={{ borderColor: colors.gray400 }}>
+      <div className="flex" style={{ flexDirection: isRTL ? 'row-reverse' : 'row' }}>
+        {/* Photo / Category icon side */}
+        <div
+          className="flex-shrink-0 flex items-center justify-center cursor-pointer"
+          style={{ width: 90, minHeight: 90, background: expense.photoUrl ? 'transparent' : colors.background }}
+          onClick={() => {
+            if (expense.photoUrl) {
+              setSelectedPhoto({ url: expense.photoUrl, title: expense.title });
+              setPhotoViewerOpen(true);
+            }
+          }}
+        >
+          {expense.photoUrl ? (
+            <img src={expense.photoUrl} alt="Receipt" className="w-full h-full object-cover" style={{ minHeight: 90 }} />
+          ) : (
+            <span className="text-3xl">{CATEGORY_ICONS[expense.category] || '📦'}</span>
+          )}
+        </div>
+
+        {/* Info side */}
+        <div className="flex-1 p-3 flex flex-col gap-1 min-w-0" style={{ textAlign: isRTL ? 'right' : 'left' }}>
+          <div className="flex items-start justify-between gap-2" style={{ flexDirection: isRTL ? 'row-reverse' : 'row' }}>
+            <h5 className="text-base font-bold truncate" style={{ color: colors.text }}>{expense.title}</h5>
+            <span className="text-lg font-extrabold flex-shrink-0" style={{ color: colors.primaryGreen }}>{amountFormatted(expense.amount)}</span>
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap" style={{ flexDirection: isRTL ? 'row-reverse' : 'row' }}>
+            <span className="text-xs font-semibold px-2 py-0.5 rounded-full text-white" style={{ background: colors.primaryGreen }}>{expense.category}</span>
+            <span className="text-xs font-medium" style={{ color: colors.muted }}>💳 {expense.reimbursementMethod || 'N/A'}</span>
+          </div>
+
+          <p className="text-xs font-medium" style={{ color: colors.muted }}>
+            📅 {expense.expenseDate?.toDate?.()?.toLocaleDateString?.() || 'No date'}
+          </p>
+
+          {/* Actions row */}
+          <div className="flex items-center gap-2 mt-1" style={{ flexDirection: isRTL ? 'row-reverse' : 'row' }}>
+            <button
+              onClick={() => handleEditExpense(expense)}
+              className="px-3 py-1.5 border-2 font-bold text-xs rounded-lg transition-colors duration-200 active:scale-95 touch-manipulation"
+              style={{ borderColor: colors.primaryGreen, color: colors.primaryGreen }}
+            >
+              Edit
+            </button>
+            <button
+              onClick={() => handleDeleteExpense(expense)}
+              className="px-3 py-1.5 border-2 font-bold text-xs rounded-lg transition-colors duration-200 active:scale-95 touch-manipulation"
+              style={{ borderColor: colors.red, color: colors.red }}
+            >
+              Delete
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {expense.notes && (
+        <div className="px-3 pb-3">
+          <p className="text-xs p-2 rounded" style={{ color: colors.muted, background: colors.surface, textAlign: isRTL ? 'right' : 'left' }}>{expense.notes}</p>
+        </div>
+      )}
+    </div>
+  );
+
   return (
-    <main className="min-h-screen bg-gradient-to-br from-blue-200/60 to-green-100/60 font-body flex flex-col items-center pt-6 pb-32 px-4">
+    <main dir={isRTL ? 'rtl' : 'ltr'} className="min-h-screen bg-gradient-to-br from-blue-200/60 to-green-100/60 font-body flex flex-col items-center pt-6 pb-32 px-4">
       <div className="w-full max-w-md">
         <div className="mb-6 rounded-2xl p-6 shadow-xl" style={{ background: "rgba(0,0,0,0.22)" }}>
           <h2 className="text-white font-extrabold text-2xl mb-4">Add Expense</h2>
@@ -1211,11 +1297,16 @@ export default function AdminExpensesPage() {
             <input 
               className="w-full px-4 py-3 rounded-xl border text-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200" 
               placeholder="Amount (₪)" 
+              type="text"
               inputMode="decimal" 
               value={form.amount} 
-              onChange={(e)=>setForm(f=>({...f,amount:e.target.value}))}
+              onChange={(e) => {
+                const val = e.target.value;
+                if (val === '' || /^\d*\.?\d*$/.test(val)) {
+                  setForm(f => ({ ...f, amount: val }));
+                }
+              }}
               autoComplete="off"
-              pattern="[0-9]*[.,]?[0-9]*"
             />
             <div className="grid grid-cols-2 gap-3">
               <select 
@@ -1245,7 +1336,7 @@ export default function AdminExpensesPage() {
             <div>
               <div className="flex gap-2 items-center">
                 <button 
-                  onClick={()=>setForm(f=>({...f,expenseDate:new Date().toISOString().slice(0,16)}))} 
+                  onClick={()=>setForm(f=>({...f,expenseDate:new Date().toISOString().slice(0,10)}))} 
                   className="px-4 py-2 rounded-full text-sm font-semibold text-white transition-all duration-200 active:scale-95 touch-manipulation" 
                   style={{ background: colors.gold }}
                 >
@@ -1260,7 +1351,7 @@ export default function AdminExpensesPage() {
                 </button>
               </div>
               {form.expenseDate && (
-                <div className="mt-2 text-white text-sm">Selected: {new Date(form.expenseDate).toLocaleString()}</div>
+                <div className="mt-2 text-white text-sm">Selected: {new Date(form.expenseDate).toLocaleDateString()}</div>
               )}
             </div>
             <textarea 
@@ -1512,20 +1603,14 @@ export default function AdminExpensesPage() {
                           <div className="grid grid-cols-2 gap-3 pt-3 border-t" style={{ borderColor: colors.gray400 }}>
                             <div>
                               <label className="block text-sm font-medium mb-1" style={{ color: colors.text }}>From</label>
-                              <input 
-                                type="date" 
-                                className="w-full px-3 py-2 border rounded-lg text-base"
-                                style={{ borderColor: colors.gray400 }}
+                              <StyledDateInput
                                 value={reportFilters.customFrom}
                                 onChange={(e) => setReportFilters(prev => ({ ...prev, customFrom: e.target.value }))}
                               />
                             </div>
                             <div>
                               <label className="block text-sm font-medium mb-1" style={{ color: colors.text }}>To</label>
-                              <input 
-                                type="date" 
-                                className="w-full px-3 py-2 border rounded-lg text-base"
-                                style={{ borderColor: colors.gray400 }}
+                              <StyledDateInput
                                 value={reportFilters.customTo}
                                 onChange={(e) => setReportFilters(prev => ({ ...prev, customTo: e.target.value }))}
                               />
@@ -1735,75 +1820,7 @@ export default function AdminExpensesPage() {
                     <div className="text-center py-4" style={{ color: colors.muted }}>No expenses found</div>
                   ) : (
                     <>
-                      {items.slice(0, expandedId === 'recent' ? items.length : 3).map(expense => (
-                        <div key={expense.id} className="border rounded-lg p-3 sm:p-4 hover:bg-white transition-colors duration-200" style={{ borderColor: colors.gray400 }}>
-                          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
-                            <div className="flex-1">
-                              <h5 className="text-lg sm:text-xl font-bold mb-2" style={{ color: colors.text }}>{expense.title}</h5>
-                              <p className="text-sm sm:text-base font-semibold mb-1" style={{ color: colors.primaryGreen }}>{expense.category}</p>
-                              <p className="text-sm sm:text-base font-medium mb-1" style={{ color: colors.muted }}>
-                                💳 {expense.reimbursementMethod || 'N/A'}
-                              </p>
-                              <p className="text-base sm:text-lg font-bold mb-2" style={{ color: colors.text }}>{amountFormatted(expense.amount)}</p>
-                              <p className="text-xs sm:text-sm font-medium" style={{ color: colors.muted }}>
-                                📅 {expense.expenseDate?.toDate?.()?.toLocaleDateString?.() || 'No date'}
-                              </p>
-                            </div>
-                            <div className="flex items-center gap-2 sm:ml-3">
-                              {expense.photoUrl && (
-                                <img
-                                  src={expense.photoUrl}
-                                  alt="Receipt"
-                                  className="w-10 h-10 sm:w-12 sm:h-12 object-cover rounded border cursor-pointer"
-                                  onClick={() => {
-                                    setSelectedPhoto({ url: expense.photoUrl, title: expense.title });
-                                    setPhotoViewerOpen(true);
-                                    // Don't close the report modal - user should return to where they were
-                                  }}
-                                  title="Click to view receipt"
-                                />
-                              )}
-                              <div className="flex flex-col sm:flex-row gap-2">
-                                <button
-                                  onClick={() => handleEditExpense(expense)}
-                                  className="px-3 sm:px-4 py-2 border-2 font-bold text-xs sm:text-sm rounded-lg transition-colors duration-200"
-                                  style={{ borderColor: colors.primaryGreen, color: colors.primaryGreen }}
-                                  onMouseEnter={(e) => {
-                                    e.target.style.background = colors.primaryGreen;
-                                    e.target.style.color = 'white';
-                                  }}
-                                  onMouseLeave={(e) => {
-                                    e.target.style.background = 'transparent';
-                                    e.target.style.color = colors.primaryGreen;
-                                  }}
-                                  title="Edit expense"
-                                >
-                                  Edit
-                                </button>
-                                <button
-                                  onClick={() => handleDeleteExpense(expense)}
-                                  className="px-3 sm:px-4 py-2 border-2 font-bold text-xs sm:text-sm rounded-lg transition-colors duration-200"
-                                  style={{ borderColor: colors.red, color: colors.red }}
-                                  onMouseEnter={(e) => {
-                                    e.target.style.background = colors.red;
-                                    e.target.style.color = 'white';
-                                  }}
-                                  onMouseLeave={(e) => {
-                                    e.target.style.background = 'transparent';
-                                    e.target.style.color = colors.red;
-                                  }}
-                                  title="Delete expense"
-                                >
-                                  Delete
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                          {expense.notes && (
-                            <p className="text-xs sm:text-sm mt-3 p-2 rounded" style={{ color: colors.muted, background: colors.surface }}>{expense.notes}</p>
-                          )}
-                        </div>
-                      ))}
+                      {items.slice(0, expandedId === 'recent' ? items.length : 3).map(expense => renderExpenseCard(expense))}
                       
                       {/* Show More/Less Button */}
                       {items.length > 3 && (
@@ -1837,6 +1854,25 @@ export default function AdminExpensesPage() {
             {/* Search Results Dashboard */}
             {showSearchResults && reportItems.length > 0 && (
               <div className="flex-1 overflow-y-auto min-h-0">
+                {/* Back to search button */}
+                <button
+                  onClick={() => {
+                    setShowSearchResults(false);
+                    setReportFilters({
+                      dateRange: 'all',
+                      category: '',
+                      paymentMethod: '',
+                      customFrom: '',
+                      customTo: ''
+                    });
+                  }}
+                  className="mb-3 w-10 h-10 flex items-center justify-center rounded-full border-2 transition-colors duration-200 active:scale-95 touch-manipulation"
+                  style={{ borderColor: colors.primaryGreen, color: colors.primaryGreen }}
+                  title="Back to search"
+                >
+                  <span className="text-xl font-bold" style={{ transform: isRTL ? 'scaleX(-1)' : 'none', display: 'inline-block' }}>←</span>
+                </button>
+
                 {/* Summary Stats - Fixed */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 flex-shrink-0">
                   <div className="p-4 rounded-lg text-center" style={{ background: colors.background }}>
@@ -1925,77 +1961,7 @@ export default function AdminExpensesPage() {
                 <div>
                   <h4 className="text-lg font-semibold mb-3" style={{ color: colors.text }}>Expense Details</h4>
                   <div className="space-y-3">
-                    {reportItems.map(expense => (
-                      <div key={expense.id} className="border rounded-lg p-4 hover:bg-white transition-colors duration-200" style={{ borderColor: colors.gray400 }}>
-                        <div className="flex justify-between items-start">
-                          <div className="flex-1">
-                            <h5 className="text-xl font-bold mb-2" style={{ color: colors.text }}>{expense.title}</h5>
-                            <p className="text-base font-semibold mb-1" style={{ color: colors.primaryGreen }}>{expense.category}</p>
-                            <p className="text-sm font-medium mb-1" style={{ color: colors.muted }}>
-                              💳 {expense.reimbursementMethod || 'N/A'}
-                            </p>
-                            <p className="text-sm font-medium mb-2" style={{ color: colors.muted }}>
-                              📅 {expense.expenseDate?.toDate?.()?.toLocaleDateString?.() || 'No date'}
-                            </p>
-                            {expense.notes && (
-                              <p className="text-sm mt-2 p-2 rounded" style={{ color: colors.muted, background: colors.surface }}>{expense.notes}</p>
-                            )}
-                          </div>
-                          <div className="text-right ml-4">
-                            <div className="text-xl font-bold mb-2" style={{ color: colors.text }}>{amountFormatted(expense.amount)}</div>
-                            <div className="flex items-center gap-2 mt-2">
-                              {expense.photoUrl && (
-                                <img
-                                  src={expense.photoUrl}
-                                  alt="Receipt"
-                                  className="w-12 h-12 object-cover rounded border cursor-pointer"
-                                  onClick={() => {
-                                    setSelectedPhoto({ url: expense.photoUrl, title: expense.title });
-                                    setPhotoViewerOpen(true);
-                                    // Don't close the report modal - user should return to where they were
-                                  }}
-                                  title="Click to view receipt"
-                                />
-                              )}
-                              <div className="flex flex-col gap-1">
-                                <button
-                                  onClick={() => handleEditExpense(expense)}
-                                  className="px-4 py-2 border-2 font-bold text-sm rounded-lg transition-colors duration-200"
-                                  style={{ borderColor: colors.primaryGreen, color: colors.primaryGreen }}
-                                  onMouseEnter={(e) => {
-                                    e.target.style.background = colors.primaryGreen;
-                                    e.target.style.color = 'white';
-                                  }}
-                                  onMouseLeave={(e) => {
-                                    e.target.style.background = 'transparent';
-                                    e.target.style.color = colors.primaryGreen;
-                                  }}
-                                  title="Edit expense"
-                                >
-                                  Edit
-                                </button>
-                                <button
-                                  onClick={() => handleDeleteExpense(expense)}
-                                  className="px-4 py-2 border-2 font-bold text-sm rounded-lg transition-colors duration-200"
-                                  style={{ borderColor: colors.red, color: colors.red }}
-                                  onMouseEnter={(e) => {
-                                    e.target.style.background = colors.red;
-                                    e.target.style.color = 'white';
-                                  }}
-                                  onMouseLeave={(e) => {
-                                    e.target.style.background = 'transparent';
-                                    e.target.style.color = colors.red;
-                                  }}
-                                  title="Delete expense"
-                                >
-                                  Delete
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
+                    {reportItems.map(expense => renderExpenseCard(expense))}
                   </div>
                 </div>
               </div>
@@ -2011,35 +1977,7 @@ export default function AdminExpensesPage() {
               </div>
             )}
             
-            {/* Back to Recent Button - Only show when displaying search results */}
-            {showSearchResults && (
-              <div className="flex justify-center mb-4 sm:mb-6">
-                <button 
-                  onClick={() => {
-                    setShowSearchResults(false);
-                    setReportFilters({
-                      dateRange: 'all',
-                      category: '',
-                      paymentMethod: '',
-                      customFrom: '',
-                      customTo: ''
-                    });
-                  }}
-                  className="px-4 sm:px-6 py-3 border-2 font-bold text-base sm:text-lg rounded-lg transition-colors duration-200"
-                  style={{ borderColor: colors.primaryGreen, color: colors.primaryGreen }}
-                  onMouseEnter={(e) => {
-                    e.target.style.background = colors.primaryGreen;
-                    e.target.style.color = 'white';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.target.style.background = 'transparent';
-                    e.target.style.color = colors.primaryGreen;
-                  }}
-                >
-                  ← Back to Recent Expenses
-                </button>
-              </div>
-            )}
+            
             </div>
           </div>
         </div>
@@ -2069,7 +2007,79 @@ export default function AdminExpensesPage() {
         </div>
       )}
 
-      <DatePickerModal open={datePickerOpen} mode="single" title="Choose expense date" onClose={()=>setDatePickerOpen(false)} onSelect={({date})=>{ const dt=new Date(date+"T12:00"); setForm(f=>({...f,expenseDate:dt.toISOString().slice(0,16)})); setDatePickerOpen(false); }} />
+      {/* Save Confirmation Popup */}
+      {savedExpenseSummary && (
+        <div className="fixed inset-0 z-[59] bg-black/50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-sm mx-2 overflow-hidden shadow-2xl">
+            {/* Header */}
+            <div className="p-4 text-center" style={{ background: colors.primaryGreen }}>
+              <div className="text-3xl mb-1">✅</div>
+              <h3 className="text-xl font-bold text-white">Expense Saved</h3>
+            </div>
+
+            {/* Summary content */}
+            <div className="p-5 space-y-3">
+              {savedExpenseSummary.photoUrl && (
+                <div className="flex justify-center">
+                  <img src={savedExpenseSummary.photoUrl} alt="Receipt" className="w-20 h-20 object-cover rounded-lg border" style={{ borderColor: colors.gray400 }} />
+                </div>
+              )}
+
+              <div className="text-center">
+                <h4 className="text-lg font-bold" style={{ color: colors.text }}>{savedExpenseSummary.title}</h4>
+                <p className="text-2xl font-extrabold mt-1" style={{ color: colors.primaryGreen }}>{amountFormatted(savedExpenseSummary.amount)}</p>
+              </div>
+
+              <div className="space-y-2 text-sm" style={{ color: colors.muted }}>
+                <div className="flex justify-between items-center">
+                  <span>Category</span>
+                  <span className="font-semibold px-2 py-0.5 rounded-full text-white text-xs" style={{ background: colors.primaryGreen }}>
+                    {savedExpenseSummary.category === 'Other' ? savedExpenseSummary.categoryOther : savedExpenseSummary.category}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Payment</span>
+                  <span className="font-medium" style={{ color: colors.text }}>💳 {savedExpenseSummary.reimbursementMethod}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Date</span>
+                  <span className="font-medium" style={{ color: colors.text }}>📅 {savedExpenseSummary.expenseDate?.toLocaleDateString?.() || new Date(savedExpenseSummary.expenseDate).toLocaleDateString()}</span>
+                </div>
+                {savedExpenseSummary.notes && (
+                  <div className="p-2 rounded text-xs" style={{ background: colors.surface, color: colors.muted }}>{savedExpenseSummary.notes}</div>
+                )}
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="p-4 pt-0 flex flex-col gap-2">
+              <button
+                onClick={() => setSavedExpenseSummary(null)}
+                className="w-full py-3 rounded-xl text-white font-bold text-base active:scale-95 touch-manipulation transition-transform"
+                style={{ background: colors.primaryGreen }}
+              >
+                Approve
+              </button>
+              <button
+                onClick={() => {
+                  const expenseId = savedExpenseSummary.id;
+                  setSavedExpenseSummary(null);
+                  const expenseToEdit = items.find(e => e.id === expenseId);
+                  if (expenseToEdit) {
+                    handleEditExpense(expenseToEdit);
+                  }
+                }}
+                className="w-full py-3 rounded-xl font-bold text-base border-2 active:scale-95 touch-manipulation transition-transform"
+                style={{ borderColor: colors.gold, color: colors.gold }}
+              >
+                Edit
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <DatePickerModal open={datePickerOpen} mode="single" title="Choose expense date" onClose={()=>setDatePickerOpen(false)} onSelect={({date})=>{ setForm(f=>({...f,expenseDate:date})); setDatePickerOpen(false); }} />
 
       {/* Edit Expense Modal */}
       {editingExpense && (
@@ -2078,14 +2088,14 @@ export default function AdminExpensesPage() {
             {/* Header - Fixed */}
             <div className="flex items-center justify-between p-3 sm:p-5 pb-4 border-b" style={{ borderColor: colors.gray400 }}>
               <h3 className="text-xl sm:text-2xl font-bold" style={{ color: colors.text }}>Edit Expense</h3>
-              <button onClick={() => setEditingExpense(null)} className="text-xl sm:text-2xl font-bold transition-colors duration-200" style={{ color: colors.muted }} onMouseEnter={(e) => e.target.style.color = colors.text} onMouseLeave={(e) => e.target.style.color = colors.muted }>✕</button>
+              <button onClick={handleCloseEditModal} className="text-xl sm:text-2xl font-bold transition-colors duration-200" style={{ color: colors.muted }} onMouseEnter={(e) => e.target.style.color = colors.text} onMouseLeave={(e) => e.target.style.color = colors.muted }>✕</button>
             </div>
             
             {/* Scrollable Content */}
             <div className="flex-1 overflow-y-auto p-3 sm:p-5 pt-0">
               <div className="grid grid-cols-1 gap-3 sm:gap-4">
                 <input className="w-full px-3 sm:px-4 py-3 rounded-xl border text-base sm:text-lg" placeholder="Title" value={form.title} onChange={(e)=>setForm(f=>({...f,title:e.target.value}))} />
-                <input className="w-full px-3 sm:px-4 py-3 rounded-xl border text-base sm:text-lg" placeholder="Amount (₪)" inputMode="decimal" value={form.amount} onChange={(e)=>setForm(f=>({...f,amount:e.target.value}))} />
+                <input className="w-full px-3 sm:px-4 py-3 rounded-xl border text-base sm:text-lg" placeholder="Amount (₪)" type="text" inputMode="decimal" value={form.amount} onChange={(e) => { const val = e.target.value; if (val === '' || /^\d*\.?\d*$/.test(val)) { setForm(f => ({ ...f, amount: val })); } }} />
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <select className="w-full px-3 sm:px-4 py-3 rounded-xl border text-base sm:text-lg" value={form.category} onChange={(e)=>setForm(f=>({...f,category:e.target.value}))}>
                     {CATEGORIES.map(c=> <option key={c} value={c}>{c}</option>)}
@@ -2099,7 +2109,7 @@ export default function AdminExpensesPage() {
                 </select>
                 <div>
                   <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center">
-                    <button onClick={()=>setForm(f=>({...f,expenseDate:new Date().toISOString().slice(0,16)}))} className="w-full sm:w-auto px-4 py-2 rounded-full text-sm font-semibold text-white" style={{ background: colors.gold }}>Today</button>
+                    <button onClick={()=>setForm(f=>({...f,expenseDate:new Date().toISOString().slice(0,10)}))} className="w-full sm:w-auto px-4 py-2 rounded-full text-sm font-semibold text-white" style={{ background: colors.gold }}>Today</button>
                     <button onClick={()=>setDatePickerOpen(true)} className="w-full sm:w-auto px-4 py-2 rounded-full text-sm font-semibold border" style={{ borderColor: colors.primaryGreen, color: colors.primaryGreen }}>Other date</button>
                   </div>
                   {form.expenseDate && (
@@ -2127,7 +2137,7 @@ export default function AdminExpensesPage() {
               <button onClick={handleUpdateExpense} disabled={saving} className="w-full sm:w-auto px-4 sm:px-6 py-3 rounded-lg font-semibold text-white" style={{ background: colors.primaryGreen }}>
                 {saving ? 'Updating...' : 'Update Expense'}
               </button>
-              <button onClick={() => setEditingExpense(null)} className="w-full sm:w-auto px-4 sm:px-6 py-3 rounded-lg font-semibold text-white" style={{ background: colors.red }}>
+              <button onClick={handleCloseEditModal} className="w-full sm:w-auto px-4 sm:px-6 py-3 rounded-lg font-semibold text-white" style={{ background: colors.red }}>
                 Cancel
               </button>
             </div>
@@ -2288,8 +2298,8 @@ export default function AdminExpensesPage() {
                     // Set default custom dates when opening modal
                     const now = new Date();
                     const pastMonth = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
-                    setExportCustomFrom(pastMonth.toISOString().slice(0, 16));
-                    setExportCustomTo(now.toISOString().slice(0, 16));
+                    setExportCustomFrom(pastMonth.toISOString().slice(0, 10));
+                    setExportCustomTo(now.toISOString().slice(0, 10));
                     setExportModalOpen(true);
                   }}
                   className="w-full px-4 py-2 rounded-lg font-semibold text-white disabled:opacity-50 disabled:cursor-not-allowed"
@@ -2567,20 +2577,16 @@ export default function AdminExpensesPage() {
               <div className="mb-6 p-4 bg-gray-50 rounded-lg space-y-3">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">From Date</label>
-                  <input
-                    type="datetime-local"
+                  <StyledDateTimeInput
                     value={exportCustomFrom || ''}
                     onChange={(e) => setExportCustomFrom(e.target.value)}
-                    className="w-full px-3 py-2 border rounded-lg"
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">To Date</label>
-                  <input
-                    type="datetime-local"
+                  <StyledDateTimeInput
                     value={exportCustomTo || ''}
                     onChange={(e) => setExportCustomTo(e.target.value)}
-                    className="w-full px-3 py-2 border rounded-lg"
                   />
                 </div>
               </div>

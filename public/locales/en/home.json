@@ -42,6 +42,12 @@
     "saving": "Saving...",
     "notComing": "Not Coming",
     "cleanRoom": "Clean your room?",
-    "changeSheets": "Change your sheets?"
+    "changeSheets": "Change your sheets?",
+    "seeMore": "See More ({{count}})",
+    "showLess": "Show Less",
+    "noSurveyLink": "No survey link available yet.",
+    "surveyLinkBlocked": "Could not open the link automatically. Copy it below:",
+    "copyLink": "Copy",
+    "copied": "Copied!"
 }
   
