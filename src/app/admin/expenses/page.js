@@ -24,22 +24,8 @@ import { StyledDateInput, StyledDateTimeInput } from "@/components/StyledDateInp
 import colors from "@/app/colors";
 import '@/i18n';
 import i18n from '@/i18n';
-import { jsPDF } from 'jspdf';
-import autoTable from 'jspdf-autotable';
-
-// Test function to demonstrate Hebrew translation (remove in production)
-const testHebrewTranslation = () => {
-  const testCases = [
-    'קניית מזון',
-    'תיקון מחשב',
-    'נסיעה לעבודה',
-    'חשמל ומים',
-    'כרטיס אשראי',
-    'מאושר',
-    'ממתין לאישור'
-  ];
-  
-};
+import { generateExpensesPDF, generateRefundsPDF } from '@/lib/pdfGenerator';
+import HouseLoader from '@/components/HouseLoader';
 
 // Function to get user name by UID
 const getUserName = async (uid) => {
@@ -57,471 +43,6 @@ const getUserName = async (uid) => {
   }
 };
 
-// Hebrew text converter function - converts Hebrew to English lowercase
-const convertHebrewToReadable = (text) => {
-  if (!text || typeof text !== 'string') return text;
-  
-  // Check if text contains Hebrew characters
-  const hebrewRegex = /[\u0590-\u05FF]/;
-  if (!hebrewRegex.test(text)) return text.toLowerCase();
-  
-  // Comprehensive Hebrew to English transliteration mapping (lowercase)
-  const hebrewMap = {
-    // Basic letters
-    'א': 'a', 'ב': 'b', 'ג': 'g', 'ד': 'd', 'ה': 'h', 'ו': 'v', 'ז': 'z',
-    'ח': 'ch', 'ט': 't', 'י': 'y', 'כ': 'k', 'ל': 'l', 'מ': 'm', 'נ': 'n',
-    'ס': 's', 'ע': 'a', 'פ': 'p', 'צ': 'tz', 'ק': 'k', 'ר': 'r', 'ש': 'sh',
-    'ת': 't',
-    
-    // Final letters
-    'ם': 'm', 'ן': 'n', 'ץ': 'tz', 'ף': 'f', 'ך': 'ch',
-    
-    // Common words and phrases for expenses
-    'הוצאה': 'expense', 'הוצאות': 'expenses', 'קנייה': 'purchase', 'קניית': 'purchase of',
-    'מזון': 'food', 'אוכל': 'food', 'שתייה': 'drink', 'משקאות': 'drinks',
-    'נסיעה': 'transportation', 'תחבורה': 'transportation', 'דלק': 'fuel', 'חניה': 'parking',
-    'ציוד': 'equipment', 'כלי': 'tools', 'חומרים': 'materials',
-    'תיקון': 'repair', 'תחזוקה': 'maintenance', 'שירות': 'service',
-    'חשמל': 'electricity', 'מים': 'water', 'גז': 'gas', 'אינטרנט': 'internet',
-    'בית': 'home', 'דירה': 'apartment', 'חדר': 'room', 'מטבח': 'kitchen',
-    'מחשב': 'computer', 'טלפון': 'phone', 'נייד': 'mobile',
-    'ספר': 'book', 'ספרים': 'books', 'חינוך': 'education',
-    'בריאות': 'health', 'רפואה': 'medicine', 'תרופות': 'medicines',
-    'ביגוד': 'clothing', 'בגדים': 'clothes', 'נעליים': 'shoes',
-    'אחר': 'other', 'שונות': 'miscellaneous', 'כללי': 'general',
-    
-    // Common expense categories
-    'מזון ושתייה': 'food and drinks',
-    'תחבורה': 'transportation',
-    'ציוד ותיקונים': 'equipment and repairs',
-    'שירותים': 'utilities',
-    'בית ודיור': 'home and housing',
-    'טכנולוגיה': 'technology',
-    'חינוך ולימודים': 'education and studies',
-    'בריאות ורפואה': 'health and medicine',
-    'ביגוד וטיפוח': 'clothing and grooming',
-    'אחר': 'other',
-    
-    // Payment methods
-    'כרטיס אשראי': 'credit card',
-    'העברה בנקאית': 'bank transfer',
-    'מזומן': 'cash',
-    'צ\'ק': 'check',
-    'דיגיטלי': 'digital',
-    
-    // Status
-    'מאושר': 'approved',
-    'נדחה': 'denied',
-    'ממתין': 'pending',
-    'בבדיקה': 'under review'
-  };
-  
-  // Convert Hebrew to transliterated text
-  let result = text;
-  
-  // First, try to match whole words (more accurate)
-  Object.entries(hebrewMap).forEach(([hebrew, english]) => {
-    const regex = new RegExp(hebrew, 'gi');
-    result = result.replace(regex, english);
-  });
-  
-  // Clean up any remaining Hebrew characters with basic transliteration
-  const basicHebrewMap = {
-    'א': 'a', 'ב': 'b', 'ג': 'g', 'ד': 'd', 'ה': 'h', 'ו': 'v', 'ז': 'z',
-    'ח': 'ch', 'ט': 't', 'י': 'y', 'כ': 'k', 'ל': 'l', 'מ': 'm', 'נ': 'n',
-    'ס': 's', 'ע': 'a', 'פ': 'p', 'צ': 'tz', 'ק': 'k', 'ר': 'r', 'ש': 'sh',
-    'ת': 't', 'ם': 'm', 'ן': 'n', 'ץ': 'tz', 'ף': 'f', 'ך': 'ch'
-  };
-  
-  Object.entries(basicHebrewMap).forEach(([hebrew, english]) => {
-    result = result.replace(new RegExp(hebrew, 'g'), english);
-  });
-  
-  // Clean up the result - remove extra spaces, convert to lowercase
-  result = result
-    .replace(/\s+/g, ' ')  // Replace multiple spaces with single space
-    .trim()                // Remove leading/trailing spaces
-    .toLowerCase();        // Convert to lowercase
-  
-  return result;
-};
-
-// Unified PDF generation function for both expenses and refund requests
-const generateUnifiedPDF = async (items, type = 'expenses', dateRange = null, customFrom = null, customTo = null) => {
-  // Create a new PDF document
-  const doc = new jsPDF();
-  
-  // Try to use a font that supports Hebrew characters
-  try {
-    doc.setFont('times', 'normal');
-  } catch (e) {
-    // Fallback to default if times font not available
-    doc.setFont('helvetica', 'normal');
-  }
-  
-  // Add title based on type
-    doc.setFontSize(24);
-    doc.setFont('helvetica', 'bold');
-  const title = type === 'expenses' ? 'Expenses Report' : 'Refund Report';
-  doc.text(title, 105, 25, { align: 'center' });
-    
-    // Add generation date and date range
-    doc.setFontSize(12);
-    doc.setFont('helvetica', 'normal');
-    doc.text(`Generated on: ${new Date().toLocaleDateString('he-IL')}`, 105, 35, { align: 'center' });
-  
-  if (type === 'refunds' && dateRange) {
-    // Show actual date range instead of just "30 Days"
-    let dateRangeText;
-    if (dateRange === 'custom' && customFrom && customTo) {
-      const fromDate = new Date(customFrom).toLocaleDateString('he-IL');
-      const toDate = new Date(customTo).toLocaleDateString('he-IL');
-      dateRangeText = `From: ${fromDate} To: ${toDate}`;
-    } else {
-      const now = new Date();
-      let fromDate;
-      switch (dateRange) {
-        case 'pastDay':
-          fromDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-          break;
-        case 'pastWeek':
-          fromDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-          break;
-        case 'pastMonth':
-          fromDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-          break;
-        default:
-          fromDate = new Date(0); // All time
-      }
-      const fromStr = fromDate.toLocaleDateString('he-IL');
-      const toStr = now.toLocaleDateString('he-IL');
-      dateRangeText = `From: ${fromStr} To: ${toStr}`;
-    }
-    doc.text(`Date Range: ${dateRangeText}`, 105, 45, { align: 'center' });
-  }
-    
-    // Add summary information
-    doc.setFontSize(16);
-    doc.setFont('helvetica', 'bold');
-    doc.text('Summary', 20, 60);
-    
-    doc.setFontSize(12);
-    doc.setFont('helvetica', 'normal');
-  
-  if (type === 'expenses') {
-    doc.text(`Total Expenses: ${items.length}`, 20, 70);
-    doc.text(`Total Amount: ILS ${items.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0).toFixed(2)}`, 20, 80);
-  } else {
-    doc.text(`Approved: ${items.filter(r => r.status === 'approved').length}`, 20, 70);
-    doc.text(`Denied: ${items.filter(r => r.status === 'denied').length}`, 20, 80);
-    doc.text(`Pending: ${items.filter(r => r.status === 'waiting').length}`, 20, 90);
-    doc.text(`Total Amount: ILS ${items.reduce((sum, r) => sum + (parseFloat(r.amount) || 0), 0).toFixed(2)}`, 20, 100);
-  }
-  
-  // Prepare table data based on type
-  let tableData;
-  let tableHeaders;
-  
-  if (type === 'expenses') {
-    tableHeaders = ['#', 'title', 'category', 'amount', 'date', 'notes', 'payment', 'created by', 'photo'];
-    tableData = items.map((expense, index) => [
-      (index + 1).toString(),
-      convertHebrewToReadable(expense.title) || 'n/a',
-      convertHebrewToReadable(expense.category) || 'n/a',
-      `ILS ${(expense.amount || 0).toFixed(2)}`,
-      expense.expenseDate?.toDate?.()?.toLocaleDateString?.() || 'no date',
-      convertHebrewToReadable(expense.notes) || 'n/a',
-      convertHebrewToReadable(expense.reimbursementMethod) || 'n/a',
-      convertHebrewToReadable(expense.createdByName || 'loading...') || 'loading...',
-      expense.photoUrl ? 'yes' : 'no'
-    ]);
-  } else {
-    tableHeaders = ['#', 'title', 'amount', 'method', 'name', 'room', 'date', 'status', 'receipt photo'];
-    tableData = items.map((request, index) => {
-    const status = request.status;
-    let statusText = status;
-    
-    // Add color coding for status
-    if (status === 'approved') {
-      statusText = 'Approved';
-    } else if (status === 'denied') {
-      statusText = 'Denied';
-    } else if (status === 'waiting') {
-      statusText = 'Pending';
-    }
-    
-    // Check for photo URL in multiple possible fields
-    const hasPhoto = request.photoUrl || request.receiptPhotoUrl || request.photoPath;
-    
-    // Extract only numeric part from room number (remove Hebrew letters)
-    const roomNumber = request.ownerRoomNumber ? request.ownerRoomNumber.replace(/[^0-9]/g, '') : 'N/A';
-    
-              return [
-        (index + 1).toString(),
-        convertHebrewToReadable(request.title) || 'n/a',
-      `ILS ${request.amount || '0'}`,
-        convertHebrewToReadable(request.repaymentMethod || request.reimbursementMethod) || 'n/a',
-        convertHebrewToReadable(request.ownerName) || 'n/a',
-      roomNumber,
-        request.expenseDate?.toDate?.()?.toLocaleDateString?.() || request.createdAt?.toDate?.()?.toLocaleDateString?.() || 'no date',
-        statusText.toLowerCase(),
-        hasPhoto ? 'receipt' : 'no photo'
-    ];
-  });
-  }
-
-  // Add table with proper column widths
-  autoTable(doc, {
-    startY: 115,
-    head: [tableHeaders],
-    body: tableData,
-    theme: 'grid',
-    headStyles: {
-      fillColor: [37, 99, 235],
-      textColor: 255,
-      fontSize: 10,
-      fontStyle: 'bold',
-      halign: 'center'
-    },
-    bodyStyles: {
-      fontSize: 9,
-      halign: 'left'
-    },
-    columnStyles: type === 'expenses' ? {
-      0: { cellWidth: 8 },  // Row Number
-      1: { cellWidth: 30 }, // Title
-      2: { cellWidth: 25 }, // Category (bigger)
-      3: { cellWidth: 30 }, // Amount (bigger)
-      4: { cellWidth: 18 }, // Date
-      5: { cellWidth: 20 }, // Notes
-      6: { cellWidth: 25 }, // Payment Method (bigger)
-      7: { cellWidth: 22 }, // Created By
-      8: { cellWidth: 15 }  // Photo (bigger)
-    } : {
-      0: { cellWidth: 8 },  // Row Number
-      1: { cellWidth: 30 }, // Title
-      2: { cellWidth: 25 }, // Amount (bigger)
-      3: { cellWidth: 20 }, // Method
-      4: { cellWidth: 25 }, // Name
-      5: { cellWidth: 12 }, // Room
-      6: { cellWidth: 20 }, // Date
-      7: { cellWidth: 18 }, // Status
-      8: { cellWidth: 15 }  // Receipt Photo (bigger)
-    },
-    margin: { top: 115, right: 15, bottom: 20, left: 15 },
-    styles: {
-      lineWidth: 0.5,
-      lineColor: [200, 200, 200]
-    },
-    didDrawCell: function(data) {
-      // Handle photo columns for both types (adjusted for row number column)
-      const photoColumnIndex = type === 'expenses' ? 8 : 8;
-      const photoText = type === 'expenses' ? 'yes' : 'receipt';
-      
-      if (data.column.index === photoColumnIndex && data.section === 'body') {
-        const itemIndex = data.row.index;
-        const item = items[itemIndex];
-        const photoUrl = type === 'expenses' ? item.photoUrl : (item.photoUrl || item.receiptPhotoUrl || item.photoPath);
-        
-        if (photoUrl && data.cell.text[0] === photoText) {
-          // Calculate the center position for the text
-          const cellCenterX = data.cell.x + (data.cell.width / 2);
-          const cellCenterY = data.cell.y + (data.cell.height / 2);
-          
-          // Clear the original text by drawing a white rectangle over it
-          doc.setFillColor(255, 255, 255);
-          doc.rect(data.cell.x, data.cell.y, data.cell.width, data.cell.height, 'F');
-          
-          // Redraw the cell border to match the table's border style
-          doc.setDrawColor(200, 200, 200); // Light gray to match table borders
-          doc.setLineWidth(0.1); // Thin line to match table borders
-          doc.rect(data.cell.x, data.cell.y, data.cell.width, data.cell.height, 'S');
-          
-          // Add the clickable link perfectly centered in the cell
-          doc.setTextColor(0, 0, 255); // Blue
-          doc.setFontSize(8);
-          const linkText = type === 'expenses' ? 'photo' : 'receipt';
-          // Better positioning - center the text more precisely
-          const textWidth = linkText.length * 2.5; // Approximate character width
-          const textX = cellCenterX - (textWidth / 2);
-          const textY = cellCenterY + 2;
-          doc.textWithLink(linkText, textX, textY, { 
-            url: photoUrl
-          });
-          
-          // Reset text properties
-          doc.setTextColor(0, 0, 0);
-          doc.setLineWidth(0.1); // Reset line width
-        }
-      }
-    }
-  });
-  
-      // Add photos section at the end
-    const itemsWithPhotos = items.filter(item => {
-      if (type === 'expenses') {
-        return item.photoUrl;
-      } else {
-        return item.photoUrl || item.receiptPhotoUrl || item.photoPath;
-      }
-    });
-    
-    if (itemsWithPhotos.length > 0) {
-      // Add a new page for photos
-      doc.addPage();
-      
-      doc.setFontSize(16);
-      doc.setFont('helvetica', 'bold');
-      const galleryTitle = type === 'expenses' ? 'Photos Gallery' : 'Receipt Photos Gallery';
-      doc.text(galleryTitle, 105, 25, { align: 'center' });
-      
-      doc.setFontSize(12);
-      doc.setFont('helvetica', 'normal');
-      const totalText = type === 'expenses' ? `Total Photos: ${itemsWithPhotos.length}` : `Total Receipts: ${itemsWithPhotos.length}`;
-      doc.text(totalText, 105, 35, { align: 'center' });
-    
-    let photoY = 50;
-    let photoX = 20;
-    const photoWidth = 80;
-    const photoHeight = 60;
-    const maxPhotosPerRow = 2; // Fewer per row since photos are bigger
-    let photosInCurrentRow = 0;
-    let photoNumber = 1;
-    
-    // Helper function to add placeholder
-    const addPlaceholder = () => {
-      // Draw a placeholder rectangle
-      doc.setFillColor(245, 245, 245);
-      doc.rect(photoX, photoY, photoWidth, photoHeight, 'F');
-      doc.setDrawColor(200, 200, 200);
-      doc.rect(photoX, photoY, photoWidth, photoHeight, 'S');
-      
-      // Add photo icon symbol
-      doc.setFontSize(16);
-      doc.setTextColor(150, 150, 150);
-      doc.text('📷', photoX + photoWidth/2 - 8, photoY + photoHeight/2 - 5);
-    };
-
-    // Process photos one by one to ensure proper loading
-    const processPhotos = async () => {
-      for (const item of itemsWithPhotos) {
-      try {
-        const photoUrl = type === 'expenses' ? item.photoUrl : (item.photoUrl || item.receiptPhotoUrl || item.photoPath);
-        
-        // Find the original table row number for this item
-        const originalRowNumber = items.findIndex(originalItem => 
-          originalItem.id === item.id || 
-          (originalItem.title === item.title && originalItem.amount === item.amount)
-        ) + 1; // +1 because table rows start at 1, not 0
-        
-        // Add photo number label above photo (matching original table row number)
-        doc.setFontSize(10);
-        doc.setFont('helvetica', 'bold');
-        doc.text(`${originalRowNumber}`, photoX, photoY - 5);
-        
-        // Try to load and add the actual image
-        // Load image through proxy to avoid CORS issues
-        const imageLoaded = await new Promise((resolve) => {
-          const img = new Image();
-          
-          // Use proxy route to avoid CORS issues
-          const proxyUrl = `/api/proxy-image?url=${encodeURIComponent(photoUrl)}`;
-          img.crossOrigin = 'anonymous';
-          
-          // Add timeout to prevent hanging
-          const timeout = setTimeout(() => {
-            addPlaceholder();
-            resolve(false);
-          }, 20000); // 20 second timeout
-          
-          img.onload = () => {
-            clearTimeout(timeout);
-            try {
-              // Try different image formats
-              let format = 'JPEG';
-              if (photoUrl.toLowerCase().includes('.png')) {
-                format = 'PNG';
-              } else if (photoUrl.toLowerCase().includes('.gif')) {
-                format = 'GIF';
-              }
-              
-              // Add the actual image to PDF
-              doc.addImage(img, format, photoX, photoY, photoWidth, photoHeight);
-              resolve(true);
-            } catch {
-              addPlaceholder();
-              resolve(false);
-            }
-          };
-          
-          img.onerror = () => {
-            clearTimeout(timeout);
-            addPlaceholder();
-            resolve(false);
-          };
-          
-          img.src = proxyUrl;
-        });
-        
-        // No text below photos - clean gallery
-        
-        // Move to next position
-        photosInCurrentRow++;
-        photoNumber++;
-        
-        if (photosInCurrentRow >= maxPhotosPerRow) {
-          photosInCurrentRow = 0;
-          photoY += photoHeight + 20; // Height + spacing only
-          photoX = 20;
-        } else {
-          photoX += photoWidth + 15; // Width + spacing
-        }
-        
-        // Check if we need a new page
-        if (photoY > 250) {
-          doc.addPage();
-          photoY = 20;
-          photoX = 20;
-          photosInCurrentRow = 0;
-        }
-        
-      } catch {
-        // Continue with next photo
-      }
-    }
-    };
-    
-    // Call the async photo processing function
-    await processPhotos();
-    
-          // No reference table - clean photo gallery only
-  }
-  
-  // Save the PDF
-  const fileName = type === 'expenses' 
-    ? `expenses_report_${new Date().toISOString().slice(0, 10)}.pdf`
-    : `RefundReport-${getDateRangeText(dateRange, customFrom, customTo)}.pdf`;
-  doc.save(fileName);
-  
-  // Show success message
-  alert('PDF report downloaded successfully!');
-};
-
-// Helper function to get date range text
-const getDateRangeText = (dateRange, customFrom, customTo) => {
-  switch (dateRange) {
-    case 'pastDay':
-      return '1 Day';
-    case 'pastWeek':
-      return '7 Days';
-    case 'pastMonth':
-      return '30 Days';
-    case 'custom':
-      return 'Custom Range';
-    default:
-      return 'All Time';
-  }
-};
 
 const CATEGORIES = ["Food","Equipment","Maintenance","Transport","Utilities","Other"];
 const REIMBURSEMENT_METHODS = ["Credit Card","Bank Transfer","Cash","Other"];
@@ -548,6 +69,7 @@ export default function AdminExpensesPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+  const [pdfProgressText, setPdfProgressText] = useState('');
 
   // List state
   const [items, setItems] = useState([]);
@@ -618,10 +140,6 @@ export default function AdminExpensesPage() {
     };
   }, [reportOpen, editingExpense, deleteConfirmOpen, photoViewerOpen, exportModalOpen, savedExpenseSummary]);
 
-  // Test Hebrew translation on component mount (remove in production)
-  useEffect(() => {
-    testHebrewTranslation();
-  }, []);
 
   // Access control: only admins
   useEffect(() => {
@@ -1161,19 +679,27 @@ export default function AdminExpensesPage() {
 
   const exportToPDF = async () => {
     if (reportItems.length === 0) return;
-    if (isGeneratingPDF) return; // Prevent double clicks
-    
+    if (isGeneratingPDF) return;
+
     setIsGeneratingPDF(true);
-    setSuccess('Generating PDF with images... This may take a moment.');
-    
+    setPdfProgressText(i18n.t('pdf_generating', { ns: 'admin' }));
+
     try {
-      await generateUnifiedPDF(reportItems, 'expenses');
-      setSuccess('PDF report downloaded successfully!');
-    } catch (error) {
-      setError('Failed to generate PDF. Please try again.');
-      console.error('PDF generation error:', error);
+      await generateExpensesPDF(reportItems, {
+        dateRange: reportFilters.dateRange === 'custom' ? 'custom' : reportFilters.dateRange,
+        customFrom: reportFilters.customFrom,
+        customTo: reportFilters.customTo,
+        onProgress: (current, total) => {
+          setPdfProgressText(`Loading image ${current}/${total}...`);
+        },
+      });
+      setSuccess(i18n.t('pdf_success', { ns: 'admin' }));
+    } catch (err) {
+      setError(i18n.t('pdf_error', { ns: 'admin' }));
+      console.error('PDF generation error:', err);
     } finally {
       setIsGeneratingPDF(false);
+      setPdfProgressText('');
     }
   };
 
@@ -1185,14 +711,14 @@ export default function AdminExpensesPage() {
     const csvContent = [
       headers.join(','),
       ...reportItems.map(expense => [
-        `"${(convertHebrewToReadable(expense.title) || '').replace(/"/g, '""')}"`,
-        `"${(convertHebrewToReadable(expense.category) || '').replace(/"/g, '""')}"`,
+        `"${(expense.title || '').replace(/"/g, '""')}"`,
+        `"${(expense.category || '').replace(/"/g, '""')}"`,
         expense.amount || 0,
-        `"${expense.expenseDate?.toDate?.()?.toLocaleDateString?.() || 'no date'}"`,
-        `"${(convertHebrewToReadable(expense.notes) || '').replace(/"/g, '""')}"`,
-        `"${(convertHebrewToReadable(expense.reimbursementMethod) || '').replace(/"/g, '""')}"`,
-        `"${(convertHebrewToReadable(expense.createdByName) || '').replace(/"/g, '""')}"`,
-        `"${expense.photoUrl || 'no photo'}"`
+        `"${expense.expenseDate?.toDate?.()?.toLocaleDateString?.() || ''}"`,
+        `"${(expense.notes || '').replace(/"/g, '""')}"`,
+        `"${(expense.reimbursementMethod || '').replace(/"/g, '""')}"`,
+        `"${(expense.createdByName || '').replace(/"/g, '""')}"`,
+        `"${expense.photoUrl || ''}"`
       ].join(','))
     ].join('\n');
 
@@ -1356,11 +882,12 @@ export default function AdminExpensesPage() {
             </div>
             <textarea 
               className="w-full px-4 py-3 rounded-xl border text-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200 resize-none" 
-              placeholder="Notes (optional)" 
+              placeholder={i18n.t('notes_hebrew_only', { ns: 'admin' })}
               value={form.notes} 
-              onChange={(e)=>setForm(f=>({...f,notes:e.target.value}))}
+              onChange={(e)=>setForm(f=>({...f,notes:e.target.value.replace(/[a-zA-Z]/g,'')}))}
               rows={3}
               autoComplete="off"
+              dir="rtl"
             />
             
             {/* Photo Upload Section */}
@@ -2116,7 +1643,7 @@ export default function AdminExpensesPage() {
                     <div className="mt-2 text-sm" style={{ color: colors.text }}>Selected: {new Date(form.expenseDate).toLocaleDateString()}</div>
                   )}
                 </div>
-                <textarea className="w-full px-3 sm:px-4 py-3 rounded-xl border text-base sm:text-lg" placeholder="Notes (optional)" value={form.notes} onChange={(e)=>setForm(f=>({...f,notes:e.target.value}))} />
+                <textarea className="w-full px-3 sm:px-4 py-3 rounded-xl border text-base sm:text-lg" placeholder={i18n.t('notes_hebrew_only', { ns: 'admin' })} value={form.notes} onChange={(e)=>setForm(f=>({...f,notes:e.target.value.replace(/[a-zA-Z]/g,'')}))} dir="rtl" />
                 
                 {/* Photo Upload Section */}
                 <div className="rounded-xl p-3 sm:p-4" style={{ background: colors.background }}>
@@ -2602,57 +2129,51 @@ export default function AdminExpensesPage() {
               </button>
               <button
                 onClick={async () => {
-                  if (isGeneratingPDF) return; // Prevent double clicks
-                  
+                  if (isGeneratingPDF) return;
+
                   setIsGeneratingPDF(true);
-                  setSuccess('Generating PDF with images... This may take a moment.');
-                  
+                  setPdfProgressText(i18n.t('pdf_generating', { ns: 'admin' }));
+
                   try {
-                    // Filter refund requests based on selected date range
                     let filteredRequests = [...refundRequests];
-                  
-                  if (exportDateRange !== 'custom') {
                     const now = new Date();
-                    let startDate = new Date();
-                    
-                    switch (exportDateRange) {
-                      case 'pastDay':
-                        startDate.setDate(now.getDate() - 1);
-                        break;
-                      case 'pastWeek':
-                        startDate.setDate(now.getDate() - 7);
-                        break;
-                      case 'pastMonth':
-                        startDate.setMonth(now.getMonth() - 1);
-                        break;
-                    }
-                    
-                    filteredRequests = refundRequests.filter(request => {
-                      const requestDate = request.expenseDate?.toDate?.() || request.createdAt?.toDate?.() || new Date();
-                      return requestDate >= startDate && requestDate <= now;
-                    });
-                  } else {
-                    // Custom date range
-                    if (exportCustomFrom && exportCustomTo) {
-                      const fromDate = new Date(exportCustomFrom);
-                      const toDate = new Date(exportCustomTo);
-                      
-                      filteredRequests = refundRequests.filter(request => {
-                        const requestDate = request.expenseDate?.toDate?.() || request.createdAt?.toDate?.() || new Date();
-                        return requestDate >= fromDate && requestDate <= toDate;
+
+                    if (exportDateRange !== 'custom') {
+                      let startDate = new Date();
+                      switch (exportDateRange) {
+                        case 'pastDay':   startDate.setDate(now.getDate() - 1); break;
+                        case 'pastWeek':  startDate.setDate(now.getDate() - 7); break;
+                        case 'pastMonth': startDate.setMonth(now.getMonth() - 1); break;
+                      }
+                      filteredRequests = refundRequests.filter(r => {
+                        const d = r.expenseDate?.toDate?.() || r.createdAt?.toDate?.() || new Date();
+                        return d >= startDate && d <= now;
+                      });
+                    } else if (exportCustomFrom && exportCustomTo) {
+                      const from = new Date(exportCustomFrom);
+                      const to = new Date(exportCustomTo);
+                      filteredRequests = refundRequests.filter(r => {
+                        const d = r.expenseDate?.toDate?.() || r.createdAt?.toDate?.() || new Date();
+                        return d >= from && d <= to;
                       });
                     }
-                  }
-                  
-                    // Generate and export PDF
-                    await generateUnifiedPDF(filteredRequests, 'refunds', exportDateRange, exportCustomFrom, exportCustomTo);
-                    setSuccess('PDF report downloaded successfully!');
+
+                    await generateRefundsPDF(filteredRequests, {
+                      dateRange: exportDateRange,
+                      customFrom: exportCustomFrom,
+                      customTo: exportCustomTo,
+                      onProgress: (current, total) => {
+                        setPdfProgressText(`Loading image ${current}/${total}...`);
+                      },
+                    });
+                    setSuccess(i18n.t('pdf_success', { ns: 'admin' }));
                     setExportModalOpen(false);
-                  } catch (error) {
-                    setError('Failed to generate PDF. Please try again.');
-                    console.error('PDF generation error:', error);
+                  } catch (err) {
+                    setError(i18n.t('pdf_error', { ns: 'admin' }));
+                    console.error('PDF generation error:', err);
                   } finally {
                     setIsGeneratingPDF(false);
+                    setPdfProgressText('');
                   }
                 }}
                 className="flex-1 px-4 py-3 rounded-lg font-semibold text-white disabled:opacity-50 disabled:cursor-not-allowed"
@@ -2662,6 +2183,14 @@ export default function AdminExpensesPage() {
                 {isGeneratingPDF ? 'Generating PDF...' : 'Export PDF'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {isGeneratingPDF && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl p-8 shadow-xl flex flex-col items-center gap-2 min-w-[220px]">
+            <HouseLoader size={70} text={pdfProgressText || i18n.t('pdf_generating', { ns: 'admin' })} />
           </div>
         </div>
       )}
