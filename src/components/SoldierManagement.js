@@ -832,6 +832,39 @@ export default function SoldierManagement() {
             {/* Content */}
             <div className="p-4 phone-sm:p-6 overflow-y-auto max-h-[calc(85vh-120px)] phone-sm:max-h-[calc(90vh-140px)]">
               <div className="space-y-6">
+                {/* Photo */}
+                <div className="flex justify-center">
+                  {(() => {
+                    const soldierPhotoUrl = selectedSoldier.profilePhotoUrl || selectedSoldier.photoURL || '';
+                    if (!soldierPhotoUrl) {
+                      return (
+                        <div
+                          className="w-32 h-32 phone-sm:w-36 phone-sm:h-36 rounded-2xl flex items-center justify-center shadow-sm"
+                          style={{ border: `2px solid ${colors.gold}`, background: '#f3f4f6' }}
+                        >
+                          <span className="text-4xl">📷</span>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div
+                        className="w-32 h-32 phone-sm:w-36 phone-sm:h-36 rounded-2xl overflow-hidden shadow-sm"
+                        style={{ border: `2px solid ${colors.gold}` }}
+                      >
+                        <img
+                          src={soldierPhotoUrl}
+                          alt="Soldier photo"
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                          }}
+                        />
+                      </div>
+                    );
+                  })()}
+                </div>
+
                 {/* Basic Info */}
                 <div className="space-y-4">
                   <h4 className="text-base phone-sm:text-lg font-semibold text-gray-800 border-b pb-2">Basic Information</h4>

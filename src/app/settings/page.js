@@ -124,13 +124,18 @@ export default function SettingsPage() {
 
   const updateUserPhoto = async (photoUrl) => {
     try {
-      // Don't save the photo URL to the database
-      // Just update the local state for display purposes
-      setSuccess('Profile photo updated successfully!');
+      const user = auth.currentUser;
+      if (user) {
+        const userRef = doc(db, 'users', user.uid);
+        await updateDoc(userRef, { profilePhotoUrl: photoUrl });
+      }
+
+      setPersonalIdData(prev => ({ ...prev, profilePhotoUrl: photoUrl }));
+      setSuccess(t('profile_photo_updated'));
       setTimeout(() => setSuccess(''), 3000);
     } catch (error) {
       console.error('Error updating profile photo:', error);
-      setError('Failed to update profile photo');
+      setError(t('failed_to_update_photo'));
       setTimeout(() => setError(''), 3000);
     }
   };
@@ -573,13 +578,12 @@ export default function SettingsPage() {
             <PhotoUpload
               onPhotoUploaded={(photoUrl, photoPath) => {
                 updateUserPhoto(photoUrl);
-                setFields(prev => ({ ...prev, profilePhotoUrl: photoUrl }));
                 setShowPhotoUpload(false);
                 setShowPersonalId(false);
                 setHasDeclinedPhoto(false);
               }}
               onPhotoRemoved={() => setShowPhotoUpload(false)}
-              currentPhotoUrl={fields.profilePhotoUrl || null}
+              currentPhotoUrl={personalIdData.profilePhotoUrl || null}
               uploadPath={`user-profiles/${auth.currentUser?.uid}`}
             />
             

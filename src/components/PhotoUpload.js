@@ -229,8 +229,9 @@ export default function PhotoUpload({
         onPhotoUploaded(downloadURL, path);
       }
 
-    } catch {
-      setUploadError('Failed to upload photo. Please try again.');
+    } catch (error) {
+      console.error('Photo upload failed:', error);
+      setUploadError(error?.message ? `Failed to upload photo: ${error.message}` : 'Failed to upload photo. Please try again.');
     } finally {
       setUploading(false);
     }
@@ -296,8 +297,9 @@ export default function PhotoUpload({
         onPhotoUploaded(downloadURL, path);
       }
 
-    } catch {
-      setUploadError('Failed to upload photo. Please try again.');
+    } catch (error) {
+      console.error('Photo upload failed:', error);
+      setUploadError(error?.message ? `Failed to upload photo: ${error.message}` : 'Failed to upload photo. Please try again.');
     } finally {
       setUploading(false);
     }
