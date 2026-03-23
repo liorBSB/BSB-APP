@@ -5,6 +5,14 @@ service cloud.firestore {
     function isSignedIn() { return request.auth != null; }
     function isAdmin(uid) { return get(/databases/$(database)/documents/users/$(uid)).data.userType == 'admin'; }
     function isOwner(uid) { return request.auth != null && request.auth.uid == uid; }
+    function ownerKeepsSafeUserType() {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(['userType']) ||
+        request.resource.data.userType in ['user', 'pending_approval'];
+    }
+    function ownerKeepsSafeRoleChoice() {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(['roleChoice']) ||
+        request.resource.data.roleChoice in ['live_here', 'work_here'];
+    }
 
     // Users read their own profile; admins can read all
     match /users/{userId} {
@@ -15,12 +23,13 @@ service cloud.firestore {
         isAdmin(request.auth.uid) ||
         (
           isOwner(userId) &&
+          ownerKeepsSafeUserType() &&
+          ownerKeepsSafeRoleChoice() &&
           !request.resource.data.diff(resource.data).affectedKeys().hasAny([
-            'userType',
             'approvedAt',
             'approvedBy',
             'createdAt',
-            'roleChoice'
+            'approved'
           ])
         )
       );

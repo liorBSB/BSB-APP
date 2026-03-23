@@ -27,13 +27,11 @@ export default function ProfileSetup() {
   const [error, setError] = useState('');
   const [selectedSoldier, setSelectedSoldier] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [isLoadingSoldierData, setIsLoadingSoldierData] = useState(false);
   const [showReclaimModal, setShowReclaimModal] = useState(false);
   const [verifyPersonalNumber, setVerifyPersonalNumber] = useState('');
   const [claimedDocId, setClaimedDocId] = useState(null);
   const [reclaimError, setReclaimError] = useState('');
   const [isReclaiming, setIsReclaiming] = useState(false);
-  const [sheetLoading, setSheetLoading] = useState(true);
   const [isStartingOver, setIsStartingOver] = useState(false);
 
   const changeLanguage = (lng) => {
@@ -43,7 +41,6 @@ export default function ProfileSetup() {
   // Handle soldier selection from Google Sheets
   const handleSoldierSelect = (soldierData) => {
     if (soldierData) {
-      setIsLoadingSoldierData(true);
       const mappedData = mapSoldierData(soldierData);
       setSelectedSoldier(mappedData);
       setFirstName(mappedData.firstName || '');
@@ -54,17 +51,11 @@ export default function ProfileSetup() {
       setShowReclaimModal(false);
       setVerifyPersonalNumber('');
       setReclaimError('');
-      
-      // Simulate a small delay to show loading state
-      setTimeout(() => {
-        setIsLoadingSoldierData(false);
-      }, 500);
     } else {
       setSelectedSoldier(null);
       setFirstName('');
       setLastName('');
       setRoomNumber('');
-      setIsLoadingSoldierData(false);
       setError('');
       setClaimedDocId(null);
       setShowReclaimModal(false);
@@ -233,20 +224,12 @@ export default function ProfileSetup() {
         <h2 style={{ fontWeight: 700, fontSize: '2.5rem', textAlign: 'center', marginBottom: '2.8rem', color: colors.text }}>{t('completeProfile')}</h2>
         <form onSubmit={handleSave}>
           <div style={{ marginBottom: '2.2rem' }}>
-            {sheetLoading && (
-              <div style={{ display: 'flex', justifyContent: 'center', padding: '2rem 0' }}>
-                <HouseLoader size={90} />
-              </div>
-            )}
-            <div style={{ display: sheetLoading ? 'none' : undefined }}>
-              <label style={{ display: 'block', color: colors.muted, fontWeight: 600, marginBottom: 12, fontSize: 18 }}>{t('search_name')}</label>
-              <SoldierNameSearch
-                onSoldierSelect={handleSoldierSelect}
-                onLoadingChange={setSheetLoading}
-                placeholder={t('search_placeholder')}
-                error={error}
-              />
-            </div>
+            <label style={{ display: 'block', color: colors.muted, fontWeight: 600, marginBottom: 12, fontSize: 18 }}>{t('search_name')}</label>
+            <SoldierNameSearch
+              onSoldierSelect={handleSoldierSelect}
+              placeholder={t('search_placeholder')}
+              error={error}
+            />
             
             {/* Display selected soldier info */}
             {selectedSoldier && (
@@ -259,24 +242,7 @@ export default function ProfileSetup() {
                 position: 'relative',
                 boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
               }}>
-                {isLoadingSoldierData && (
-                  <div style={{
-                    position: 'absolute',
-                    top: '50%',
-                    left: '50%',
-                    transform: 'translate(-50%, -50%)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.5rem',
-                    color: colors.primaryGreen,
-                    fontWeight: 600,
-                    fontSize: '1rem'
-                  }}>
-                    <div className="animate-spin rounded-full h-5 w-5 border-2 border-green-500 border-t-transparent"></div>
-                    טוען פרטים...
-                  </div>
-                )}
-                <div style={{ textAlign: 'right', fontSize: '1rem', opacity: isLoadingSoldierData ? 0.5 : 1 }}>
+                <div style={{ textAlign: 'right', fontSize: '1rem' }}>
                   <div style={{ fontWeight: 700, marginBottom: '0.75rem', color: colors.text, fontSize: '1.1rem', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.5rem' }}>
                     <span>{selectedSoldier.fullName}</span>
                     {selectedSoldier.idNumber != null && (

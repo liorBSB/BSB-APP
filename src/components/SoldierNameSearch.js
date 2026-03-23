@@ -14,7 +14,6 @@ const ROOM_COL = 'חדר';
  */
 export default function SoldierNameSearch({
   onSoldierSelect,
-  onLoadingChange,
   placeholder = 'חיפוש לפי שם או ת.ז...',
   disabled = false,
   error = null
@@ -26,10 +25,6 @@ export default function SoldierNameSearch({
   const [queryError, setQueryError] = useState('');
 
   const inputRef = useRef(null);
-
-  useEffect(() => {
-    onLoadingChange?.(isLoading);
-  }, [isLoading, onLoadingChange]);
 
   useEffect(() => {
     let cancelled = false;
@@ -131,7 +126,7 @@ export default function SoldierNameSearch({
           onBlur={handleInputBlur}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
-          disabled={disabled || isLoading}
+          disabled={disabled}
           className={`
             w-full px-4 py-3 border-2 rounded-lg text-right
             focus:outline-none focus:ring-2 focus:ring-opacity-50
@@ -149,7 +144,7 @@ export default function SoldierNameSearch({
           }}
         />
         
-        {/* Loading indicator (initial soldier list) */}
+        {/* Small loading indicator while searching */}
         {isLoading && (
           <div className="absolute left-3 top-1/2 transform -translate-y-1/2">
             <div className="animate-spin rounded-full h-5 w-5 border-2 border-green-500 border-t-transparent"></div>
