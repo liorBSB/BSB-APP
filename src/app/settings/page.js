@@ -515,6 +515,9 @@ export default function SettingsPage() {
                     >
 {t('add_photo')}
                     </button>
+                    <p className="mt-2 text-xs text-gray-500">
+                      {t('no_profile_photo_helper_text')}
+                    </p>
                   </div>
                 )}
               </div>

@@ -9,6 +9,7 @@ import SoldierSearch from './SoldierSearch';
 import { SOLDIER_EDIT_ENABLED } from '@/lib/sheetFieldMap';
 import { syncStatusToReceptionSheet, normalizeStatus } from '@/lib/receptionSync';
 import { authedFetch } from '@/lib/authFetch';
+import { mapSoldierData } from '@/lib/soldierDataService';
 import colors from '../app/colors';
 import { useTranslation } from 'react-i18next';
 import { StyledDateInput } from '@/components/StyledDateInput';
@@ -57,6 +58,7 @@ export default function SoldierManagement() {
   const [showSaveConfirmation, setShowSaveConfirmation] = useState(false);
   const [departureRequests, setDepartureRequests] = useState([]);
   const [departureProcessingId, setDepartureProcessingId] = useState(null);
+  const [selectedSoldierSheetEmail, setSelectedSoldierSheetEmail] = useState('');
   const isAnyModalOpen =
     showSoldierDetails ||
     showEditModal ||
@@ -235,12 +237,54 @@ export default function SoldierManagement() {
 
   const handleSoldierSelect = async (soldier) => {
     setSelectedSoldier(soldier);
+    await loadSoldierSheetEmail(soldier);
     setShowSoldierDetails(true);
   };
 
   const handleEditSoldier = (soldier) => {
     setSelectedSoldier(soldier);
+    loadSoldierSheetEmail(soldier);
     setShowSoldierDetails(true);
+  };
+
+  const loadSoldierSheetEmail = async (soldier) => {
+    setSelectedSoldierSheetEmail('');
+    const searchTerm = (soldier?.fullName || '').trim();
+    if (!searchTerm) return;
+
+    try {
+      const response = await authedFetch('/api/soldiers/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ searchTerm }),
+      });
+      if (!response.ok) return;
+
+      const payload = await response.json();
+      const candidates = Array.isArray(payload?.soldiers) ? payload.soldiers : [];
+
+      const targetId = String(soldier?.idNumber || '').trim();
+      const targetRoom = String(soldier?.roomNumber || '').trim();
+      const targetName = String(soldier?.fullName || '').trim();
+
+      const mappedCandidates = candidates
+        .map((candidate) => mapSoldierData(candidate?.raw || candidate))
+        .filter(Boolean);
+
+      const matched =
+        mappedCandidates.find((item) => String(item.idNumber || '').trim() === targetId) ||
+        mappedCandidates.find((item) =>
+          String(item.fullName || '').trim() === targetName &&
+          String(item.roomNumber || '').trim() === targetRoom
+        );
+
+      const sheetEmail = String(matched?.email || '').trim();
+      if (sheetEmail) {
+        setSelectedSoldierSheetEmail(sheetEmail);
+      }
+    } catch {
+      // Best effort: keep fallback to Firestore email when sheet fetch fails.
+    }
   };
 
   const handleOpenEditModal = async (soldier) => {
@@ -893,22 +937,23 @@ export default function SoldierManagement() {
                   <h4 className="text-base phone-sm:text-lg font-semibold text-gray-800 border-b pb-2">Basic Information</h4>
                   <div className="space-y-3 text-sm text-gray-600">
                     <div><span className="font-medium">Full Name:</span> {selectedSoldier.fullName}</div>
-                    <div><span className="font-medium">Email:</span> {selectedSoldier.email || 'Not specified'}</div>
+                    <div><span className="font-medium">Email:</span> {selectedSoldierSheetEmail || selectedSoldier.email || 'Not specified'}</div>
                     <div><span className="font-medium">Phone:</span> {selectedSoldier.phone || 'Not specified'}</div>
                     <div><span className="font-medium">Room:</span> {selectedSoldier.roomNumber || 'Not specified'}</div>
-                    <div><span className="font-medium">Status:</span> {selectedSoldier.status || 'Home'}</div>
                   </div>
                 </div>
 
                 {/* Military Info */}
                 <div className="space-y-4">
-                  <h4 className="text-base phone-sm:text-lg font-semibold text-gray-800 border-b pb-2">Military Information</h4>
+                  <h4 className="text-base phone-sm:text-lg font-semibold text-gray-800 border-b pb-2">Military Section</h4>
                   <div className="space-y-3 text-sm text-gray-600">
                     <div><span className="font-medium">Personal Number:</span> {selectedSoldier.personalNumber || 'Not specified'}</div>
                     <div><span className="font-medium">Unit:</span> {selectedSoldier.unit || 'Not specified'}</div>
                     <div><span className="font-medium">Battalion:</span> {selectedSoldier.battalion || 'Not specified'}</div>
-                    <div><span className="font-medium">Mashakit Tash:</span> {selectedSoldier.mashakitTash || 'Not specified'}</div>
+                    <div><span className="font-medium">Mashakit Tash Name:</span> {selectedSoldier.mashakitTash || 'Not specified'}</div>
+                    <div><span className="font-medium">Mashakit Tash Number:</span> {selectedSoldier.mashakitPhone || 'Not specified'}</div>
                     <div><span className="font-medium">Officer Name:</span> {selectedSoldier.officerName || 'Not specified'}</div>
+                    <div><span className="font-medium">Officer Number:</span> {selectedSoldier.officerPhone || 'Not specified'}</div>
                   </div>
                 </div>
 

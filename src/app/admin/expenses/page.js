@@ -102,13 +102,18 @@ export default function AdminExpensesPage() {
 
   // Report modal state
   const [reportOpen, setReportOpen] = useState(false);
+  const [reportFilterModalOpen, setReportFilterModalOpen] = useState(false);
+  const [showTimeRangeOptions, setShowTimeRangeOptions] = useState(false);
+  const [showCategoryOptions, setShowCategoryOptions] = useState(false);
+  const [showPaymentMethodOptions, setShowPaymentMethodOptions] = useState(false);
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [reportItems, setReportItems] = useState([]);
   const [reportLoading, setReportLoading] = useState(false);
   const [reportFilters, setReportFilters] = useState({
-    dateRange: "all",
+    dateRange: "",
     category: "",
     paymentMethod: "",
+    titleQuery: "",
     customFrom: "",
     customTo: ""
   });
@@ -123,12 +128,26 @@ export default function AdminExpensesPage() {
   const [photoViewerOpen, setPhotoViewerOpen] = useState(false);
   const [selectedPhoto, setSelectedPhoto] = useState(null);
 
+  // Preview search state (separate from sort filters)
+  const [previewSearch, setPreviewSearch] = useState('');
+
   // Save confirmation popup state
   const [savedExpenseSummary, setSavedExpenseSummary] = useState(null);
+  const isAnyOverlayOpen =
+    reportOpen ||
+    Boolean(editingExpense) ||
+    deleteConfirmOpen ||
+    photoViewerOpen ||
+    exportModalOpen ||
+    savedExpenseSummary ||
+    allRefundsOpen ||
+    pastRefundsOpen ||
+    approveModalOpen ||
+    reportFilterModalOpen;
 
   // Prevent background scrolling when modals are open
   useEffect(() => {
-    if (reportOpen || editingExpense || deleteConfirmOpen || photoViewerOpen || exportModalOpen || savedExpenseSummary) {
+    if (isAnyOverlayOpen) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = 'unset';
@@ -138,7 +157,15 @@ export default function AdminExpensesPage() {
     return () => {
       document.body.style.overflow = 'unset';
     };
-  }, [reportOpen, editingExpense, deleteConfirmOpen, photoViewerOpen, exportModalOpen, savedExpenseSummary]);
+  }, [isAnyOverlayOpen]);
+
+  // Force-close native selects before opening overlays (mobile/WebKit quirk)
+  useEffect(() => {
+    if (!isAnyOverlayOpen) return;
+    if (document.activeElement && typeof document.activeElement.blur === 'function') {
+      document.activeElement.blur();
+    }
+  }, [isAnyOverlayOpen]);
 
 
   // Access control: only admins
@@ -227,12 +254,17 @@ export default function AdminExpensesPage() {
 
   const handleCloseReportModal = () => {
     setReportOpen(false);
+    setReportFilterModalOpen(false);
+    setShowTimeRangeOptions(false);
+    setShowCategoryOptions(false);
+    setShowPaymentMethodOptions(false);
     setShowSearchResults(false);
     setReportItems([]);
     setReportFilters({
-      dateRange: 'all',
+      dateRange: '',
       category: '',
       paymentMethod: '',
+      titleQuery: '',
       customFrom: '',
       customTo: ''
     });
@@ -566,6 +598,13 @@ export default function AdminExpensesPage() {
   };
 
   const fetchReportData = async () => {
+    if (reportFilters.dateRange === "custom" && (!reportFilters.customFrom || !reportFilters.customTo)) {
+      setError("Please select both From and To dates.");
+      return;
+    }
+
+    setError("");
+    setReportFilterModalOpen(false);
     setReportLoading(true);
     try {
       const querySnapshot = await getDocs(collection(db, "expenses"));
@@ -596,9 +635,14 @@ export default function AdminExpensesPage() {
       if (reportFilters.paymentMethod) {
         expenses = expenses.filter(expense => expense.reimbursementMethod === reportFilters.paymentMethod);
       }
+
+      if (reportFilters.titleQuery.trim()) {
+        const titleQuery = reportFilters.titleQuery.trim().toLowerCase();
+        expenses = expenses.filter((expense) => (expense.title || '').toLowerCase().includes(titleQuery));
+      }
       
       // Apply date filtering in JavaScript
-      if (reportFilters.dateRange !== "all") {
+      if (reportFilters.dateRange) {
         const now = new Date();
         let startDate;
         
@@ -835,13 +879,19 @@ export default function AdminExpensesPage() {
               autoComplete="off"
             />
             <div className="grid grid-cols-2 gap-3">
-              <select 
-                className="w-full px-4 py-3 rounded-xl border text-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200" 
-                value={form.category} 
-                onChange={(e)=>setForm(f=>({...f,category:e.target.value}))}
-              >
-                {CATEGORIES.map(c=> <option key={c} value={c}>{c}</option>)}
-              </select>
+              {isAnyOverlayOpen ? (
+                <div className="w-full px-4 py-3 rounded-xl border text-lg flex items-center" style={{ background: colors.surface, borderColor: colors.gray400 }}>
+                  {form.category}
+                </div>
+              ) : (
+                <select 
+                  className="w-full px-4 py-3 rounded-xl border text-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200" 
+                  value={form.category} 
+                  onChange={(e)=>setForm(f=>({...f,category:e.target.value}))}
+                >
+                  {CATEGORIES.map(c=> <option key={c} value={c}>{c}</option>)}
+                </select>
+              )}
               {form.category === "Other" && (
                 <input 
                   className="w-full px-4 py-3 rounded-xl border text-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200" 
@@ -852,13 +902,19 @@ export default function AdminExpensesPage() {
                 />
               )}
             </div>
-            <select 
-              className="w-full px-4 py-3 rounded-xl border text-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200" 
-              value={form.reimbursementMethod} 
-              onChange={(e)=>setForm(f=>({...f,reimbursementMethod:e.target.value}))}
-            >
-              {REIMBURSEMENT_METHODS.map(m=> <option key={m} value={m}>{m}</option>)}
-            </select>
+            {isAnyOverlayOpen ? (
+              <div className="w-full px-4 py-3 rounded-xl border text-lg flex items-center" style={{ background: colors.surface, borderColor: colors.gray400 }}>
+                {form.reimbursementMethod}
+              </div>
+            ) : (
+              <select 
+                className="w-full px-4 py-3 rounded-xl border text-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200" 
+                value={form.reimbursementMethod} 
+                onChange={(e)=>setForm(f=>({...f,reimbursementMethod:e.target.value}))}
+              >
+                {REIMBURSEMENT_METHODS.map(m=> <option key={m} value={m}>{m}</option>)}
+              </select>
+            )}
             <div>
               <div className="flex gap-2 items-center">
                 <button 
@@ -1022,7 +1078,7 @@ export default function AdminExpensesPage() {
 
       {/* Comprehensive Report Modal */}
       {reportOpen && (
-        <div className="fixed inset-0 z-[55] bg-black/50 flex items-center justify-center p-2 sm:p-4 overflow-hidden">
+        <div className="fixed inset-0 z-[110] bg-black/50 flex items-center justify-center p-2 sm:p-4 overflow-hidden">
           <div className="rounded-2xl w-full h-full sm:h-auto sm:max-h-[90vh] mx-0 sm:mx-4 p-3 sm:p-5 flex flex-col overflow-hidden" style={{ background: colors.surface }}>
             <div className="overflow-y-auto flex-1">
               <div className="flex items-center justify-between mb-4 border-b pb-3" style={{ borderColor: colors.gray400 }}>
@@ -1030,327 +1086,58 @@ export default function AdminExpensesPage() {
                 <button onClick={handleCloseReportModal} className="text-xl sm:text-2xl font-bold transition-colors duration-200" style={{ color: colors.muted }} onMouseEnter={(e) => e.target.style.color = colors.text} onMouseLeave={(e) => e.target.style.color = colors.muted }>✕</button>
               </div>
             
-            {/* Filters and Search Button - Only show when NOT displaying search results */}
-            {!showSearchResults && (
-              <>
-                {/* New Collapsible Filter System */}
-                <div className="space-y-4 mb-6 p-4 rounded-lg" style={{ background: colors.background }}>
-                  <h4 className="text-lg font-semibold mb-4" style={{ color: colors.text }}>Filter Expenses</h4>
-                  
-                  {/* Date Filter */}
-                  <div className="space-y-3">
-                    <button 
-                      onClick={() => setExpandedId(expandedId === 'date' ? null : 'date')}
-                      className="w-full px-3 py-2 rounded-lg font-semibold text-base transition-all duration-200 active:scale-95 touch-manipulation flex items-center justify-between border-2"
-                      style={{ 
-                        borderColor: expandedId === 'date' ? colors.primaryGreen : colors.gold,
-                        color: expandedId === 'date' ? colors.primaryGreen : 'black',
-                        background: 'transparent'
-                      }}
-                    >
-                      <span>Date Filter</span>
-                      <span className="text-lg">{expandedId === 'date' ? '▼' : '▶'}</span>
-                    </button>
-                    
-                    {expandedId === 'date' && (
-                      <div className="space-y-3 p-3 rounded-lg border" style={{ borderColor: colors.gray400, background: colors.surface }}>
-                        <div className="grid grid-cols-2 gap-2">
-                          <button 
-                            onClick={() => {
-                              setReportFilters(prev => ({ ...prev, dateRange: 'lastDay' }));
-                            }}
-                            className={`px-3 py-2 rounded-lg font-semibold text-sm transition-all duration-200 active:scale-95 touch-manipulation border-2 ${
-                              reportFilters.dateRange === 'lastDay' 
-                                ? 'text-white' 
-                                : ''
-                            }`}
-                            style={{ 
-                              background: reportFilters.dateRange === 'lastDay' ? colors.primaryGreen : 'transparent',
-                              borderColor: colors.primaryGreen,
-                              color: reportFilters.dateRange === 'lastDay' ? 'white' : colors.primaryGreen
-                            }}
-                          >
-                            Day
-                          </button>
-                          <button 
-                            onClick={() => {
-                              setReportFilters(prev => ({ ...prev, dateRange: 'lastWeek' }));
-                            }}
-                            className={`px-3 py-2 rounded-lg font-semibold text-sm transition-all duration-200 active:scale-95 touch-manipulation border-2 ${
-                              reportFilters.dateRange === 'lastWeek' 
-                                ? 'text-white' 
-                                : ''
-                            }`}
-                            style={{ 
-                              background: reportFilters.dateRange === 'lastWeek' ? colors.primaryGreen : 'transparent',
-                              borderColor: colors.primaryGreen,
-                              color: reportFilters.dateRange === 'lastWeek' ? 'white' : colors.primaryGreen
-                            }}
-                          >
-                            Week
-                          </button>
-                          <button 
-                            onClick={() => {
-                              setReportFilters(prev => ({ ...prev, dateRange: 'lastMonth' }));
-                            }}
-                            className={`px-3 py-2 rounded-lg font-semibold text-sm transition-all duration-200 active:scale-95 touch-manipulation border-2 ${
-                              reportFilters.dateRange === 'lastMonth' 
-                                ? 'text-white' 
-                                : 'white'
-                            }`}
-                            style={{ 
-                              background: reportFilters.dateRange === 'lastMonth' ? colors.primaryGreen : 'transparent',
-                              borderColor: colors.primaryGreen,
-                              color: reportFilters.dateRange === 'lastMonth' ? 'white' : colors.primaryGreen
-                            }}
-                          >
-                            Month
-                          </button>
-                          <button 
-                            onClick={() => {
-                              setReportFilters(prev => ({ ...prev, dateRange: 'custom' }));
-                            }}
-                            className={`px-3 py-2 rounded-lg font-semibold text-sm transition-all duration-200 active:scale-95 touch-manipulation border-2 ${
-                              reportFilters.dateRange === 'custom' 
-                                ? 'text-white' 
-                                : ''
-                            }`}
-                            style={{ 
-                              background: reportFilters.dateRange === 'custom' ? colors.primaryGreen : 'transparent',
-                              borderColor: colors.primaryGreen,
-                              color: reportFilters.dateRange === 'custom' ? 'white' : colors.primaryGreen
-                            }}
-                          >
-                            Select Date
-                          </button>
-                        </div>
-                        
-                        {/* Custom Date Range Inputs */}
-                        {reportFilters.dateRange === 'custom' && (
-                          <div className="grid grid-cols-2 gap-3 pt-3 border-t" style={{ borderColor: colors.gray400 }}>
-                            <div>
-                              <label className="block text-sm font-medium mb-1" style={{ color: colors.text }}>From</label>
-                              <StyledDateInput
-                                value={reportFilters.customFrom}
-                                onChange={(e) => setReportFilters(prev => ({ ...prev, customFrom: e.target.value }))}
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-sm font-medium mb-1" style={{ color: colors.text }}>To</label>
-                              <StyledDateInput
-                                value={reportFilters.customTo}
-                                onChange={(e) => setReportFilters(prev => ({ ...prev, customTo: e.target.value }))}
-                              />
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                  
-                  {/* Category Filter */}
-                  <div className="space-y-3">
-                    <button 
-                      onClick={() => setExpandedId(expandedId === 'category' ? null : 'category')}
-                      className="w-full px-3 py-2 rounded-lg font-semibold text-base transition-all duration-200 active:scale-95 touch-manipulation flex items-center justify-between border-2"
-                      style={{ 
-                        borderColor: expandedId === 'category' ? colors.primaryGreen : colors.gold,
-                        color: expandedId === 'category' ? colors.primaryGreen : 'black',
-                        background: 'transparent'
-                      }}
-                    >
-                      <span>Category Filter</span>
-                      <span className="text-lg">{expandedId === 'category' ? '▼' : '▶'}</span>
-                    </button>
-                    
-                    {expandedId === 'category' && (
-                      <div className="grid grid-cols-2 gap-2 p-3 rounded-lg border" style={{ borderColor: colors.gray400, background: colors.surface }}>
-                        <button 
-                          onClick={() => {
-                            setReportFilters(prev => ({ ...prev, category: '' }));
-                          }}
-                          className={`px-3 py-2 rounded-lg font-semibold text-sm transition-all duration-200 active:scale-95 touch-manipulation border-2 ${
-                            reportFilters.category === '' 
-                              ? 'text-white' 
-                              : ''
-                          }`}
-                          style={{ 
-                            background: reportFilters.category === '' ? colors.primaryGreen : 'transparent',
-                            borderColor: colors.primaryGreen,
-                            color: reportFilters.category === '' ? 'white' : colors.primaryGreen
-                          }}
-                        >
-                          All Categories
-                        </button>
-                        {CATEGORIES.map(category => (
-                          <button 
-                            key={category}
-                            onClick={() => {
-                              setReportFilters(prev => ({ ...prev, category }));
-                            }}
-                            className={`px-3 py-2 rounded-lg font-semibold text-sm transition-all duration-200 active:scale-95 touch-manipulation border-2 ${
-                              reportFilters.category === category 
-                                ? 'text-white' 
-                                : ''
-                            }`}
-                            style={{ 
-                              background: reportFilters.category === category ? colors.primaryGreen : 'transparent',
-                              borderColor: colors.primaryGreen,
-                              color: reportFilters.category === category ? 'white' : colors.primaryGreen
-                            }}
-                          >
-                            {category}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  
-                  {/* Payment Method Filter */}
-                  <div className="space-y-3">
-                    <button 
-                      onClick={() => setExpandedId(expandedId === 'payment' ? null : 'payment')}
-                      className="w-full px-3 py-2 rounded-lg font-semibold text-base transition-all duration-200 active:scale-95 touch-manipulation flex items-center justify-between border-2"
-                      style={{ 
-                        borderColor: expandedId === 'payment' ? colors.primaryGreen : colors.gold,
-                        color: expandedId === 'payment' ? colors.primaryGreen : 'black',
-                        background: 'transparent'
-                      }}
-                    >
-                      <span>Payment Method Filter</span>
-                      <span className="text-lg">{expandedId === 'payment' ? '▼' : '▶'}</span>
-                    </button>
-                    
-                    {expandedId === 'payment' && (
-                      <div className="grid grid-cols-2 gap-2 p-3 rounded-lg border" style={{ borderColor: colors.gray400, background: colors.surface }}>
-                        <button 
-                          onClick={() => {
-                            setReportFilters(prev => ({ ...prev, paymentMethod: '' }));
-                          }}
-                          className={`px-3 py-2 rounded-lg font-semibold text-sm transition-all duration-200 active:scale-95 touch-manipulation border-2 ${
-                            reportFilters.paymentMethod === '' 
-                              ? 'text-white' 
-                              : ''
-                          }`}
-                                                      style={{ 
-                              background: reportFilters.paymentMethod === '' ? colors.primaryGreen : 'transparent',
-                              borderColor: colors.primaryGreen,
-                              color: reportFilters.paymentMethod === '' ? 'white' : colors.primaryGreen
-                            }}
-                        >
-                          All Methods
-                        </button>
-                        {REIMBURSEMENT_METHODS.map(method => (
-                          <button 
-                            key={method}
-                            onClick={() => {
-                              setReportFilters(prev => ({ ...prev, paymentMethod: method }));
-                            }}
-                            className={`px-3 py-2 rounded-lg font-semibold text-sm transition-all duration-200 active:scale-95 touch-manipulation border-2 ${
-                              reportFilters.paymentMethod === method 
-                                ? 'text-white' 
-                                : ''
-                            }`}
-                            style={{ 
-                              background: reportFilters.paymentMethod === method ? colors.primaryGreen : 'transparent',
-                              borderColor: colors.primaryGreen,
-                              color: reportFilters.paymentMethod === method ? 'white' : colors.primaryGreen
-                            }}
-                          >
-                            {method}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  
-                  {/* Active Filters Display */}
-                  {(reportFilters.dateRange !== 'all' || reportFilters.category || reportFilters.paymentMethod) && (
-                    <div className="p-3 rounded-lg border" style={{ borderColor: colors.gray400, background: colors.surface }}>
-                      <h5 className="text-sm font-semibold mb-2" style={{ color: colors.text }}>Active Filters:</h5>
-                      <div className="flex flex-wrap gap-2">
-                        {reportFilters.dateRange !== 'all' && (
-                          <span className="px-3 py-1 rounded-full text-xs font-semibold text-white" style={{ background: colors.primaryGreen }}>
-                            Date: {reportFilters.dateRange === 'custom' ? 'Custom Range' : 
-                                   reportFilters.dateRange === 'lastDay' ? 'Last Day' :
-                                   reportFilters.dateRange === 'lastWeek' ? 'Last Week' :
-                                   reportFilters.dateRange === 'lastMonth' ? 'Last Month' : 'Custom'}
-                          </span>
-                        )}
-                        {reportFilters.category && (
-                          <span className="px-3 py-1 rounded-full text-xs font-semibold text-white" style={{ background: colors.gold }}>
-                            Category: {reportFilters.category}
-                          </span>
-                        )}
-                        {reportFilters.paymentMethod && (
-                          <span className="px-3 py-1 rounded-full text-xs font-semibold text-white" style={{ background: colors.primaryGreen }}>
-                            Payment: {reportFilters.paymentMethod}
-                          </span>
-                        )}
-                        <button 
-                          onClick={() => setReportFilters({
-                            dateRange: 'all',
-                            category: '',
-                            paymentMethod: '',
-                            customFrom: '',
-                            customTo: ''
-                          })}
-                          className="px-2 py-1 rounded-full text-xs font-semibold text-white bg-red-500 hover:bg-red-600 transition-colors"
-                        >
-                          Clear All
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Search Button */}
-                <div className="flex justify-center mb-6 sm:mb-4 flex-shrink-0">
+            {/* Recent Expenses Preview */}
+            {!showSearchResults && (() => {
+              const filteredPreview = previewSearch.trim()
+                ? items.filter((e) => (e.title || '').toLowerCase().includes(previewSearch.trim().toLowerCase()))
+                : items;
+              return (
+              <div className="mb-4 sm:mb-6 p-3 sm:p-4 rounded-lg flex-1 overflow-hidden flex flex-col" style={{ background: colors.background }}>
+                <div className="flex justify-center mb-4 flex-shrink-0">
                   <button 
-                    onClick={fetchReportData}
-                    disabled={reportLoading}
-                    className="w-full sm:w-auto px-6 py-3 border-2 font-bold text-base sm:text-lg rounded-lg transition-colors duration-200"
+                    onClick={() => setReportFilterModalOpen(true)}
+                    className="w-full px-8 py-4 border-2 font-bold text-lg sm:text-xl rounded-xl transition-colors duration-200"
                     style={{ 
                       borderColor: colors.gold, 
                       color: 'black',
-                      background: 'transparent',
-                      opacity: reportLoading ? 0.5 : 1
+                      background: 'transparent'
                     }}
                     onMouseEnter={(e) => {
-                      if (!reportLoading) {
-                        e.target.style.background = colors.gold;
-                        e.target.style.color = 'white';
-                      }
+                      e.target.style.background = colors.gold;
+                      e.target.style.color = 'white';
                     }}
                     onMouseLeave={(e) => {
-                      if (!reportLoading) {
-                        e.target.style.background = 'transparent';
-                        e.target.style.color = 'black';
-                      }
+                      e.target.style.background = 'transparent';
+                      e.target.style.color = 'black';
                     }}
                   >
-                    Search Expenses
+                    Sort Expenses
                   </button>
                 </div>
-              </>
-            )}
-            
-            {/* Recent Expenses Preview */}
-            {!showSearchResults && (
-              <div className="mb-4 sm:mb-6 p-3 sm:p-4 rounded-lg flex-1 overflow-hidden flex flex-col" style={{ background: colors.background }}>
+
                 <h4 className="text-base sm:text-lg font-semibold mb-3 flex-shrink-0" style={{ color: colors.text }}>Recent Expenses</h4>
                 
+                <div className="mb-3 flex-shrink-0">
+                  <input
+                    type="text"
+                    value={previewSearch}
+                    onChange={(e) => setPreviewSearch(e.target.value)}
+                    placeholder="Search expense by name..."
+                    className="w-full px-4 py-3 rounded-xl border text-base focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200"
+                  />
+                </div>
+
                 <div className="space-y-3 flex-1 overflow-y-auto min-h-0">
                   {loadingList ? (
                     <div className="text-center py-4" style={{ color: colors.muted }}>Loading expenses...</div>
-                  ) : items.length === 0 ? (
+                  ) : filteredPreview.length === 0 ? (
                     <div className="text-center py-4" style={{ color: colors.muted }}>No expenses found</div>
                   ) : (
                     <>
-                      {items.slice(0, expandedId === 'recent' ? items.length : 3).map(expense => renderExpenseCard(expense))}
+                      {filteredPreview.slice(0, expandedId === 'recent' ? filteredPreview.length : 3).map(expense => renderExpenseCard(expense))}
                       
                       {/* Show More/Less Button */}
-                      {items.length > 3 && (
+                      {filteredPreview.length > 3 && (
                         <div className="text-center pt-2 flex-shrink-0">
                           <button 
                             onClick={() => setExpandedId(expandedId === 'recent' ? null : 'recent')}
@@ -1368,7 +1155,7 @@ export default function AdminExpensesPage() {
                               e.target.style.color = colors.primaryGreen;
                             }}
                           >
-                            {expandedId === 'recent' ? 'Show Less' : `Show ${items.length - 3} More`}
+                            {expandedId === 'recent' ? 'Show Less' : `Show ${filteredPreview.length - 3} More`}
                           </button>
                         </div>
                       )}
@@ -1376,7 +1163,8 @@ export default function AdminExpensesPage() {
                   )}
                 </div>
               </div>
-            )}
+              );
+            })()}
             
             {/* Search Results Dashboard */}
             {showSearchResults && reportItems.length > 0 && (
@@ -1386,9 +1174,10 @@ export default function AdminExpensesPage() {
                   onClick={() => {
                     setShowSearchResults(false);
                     setReportFilters({
-                      dateRange: 'all',
+                      dateRange: '',
                       category: '',
                       paymentMethod: '',
+                      titleQuery: '',
                       customFrom: '',
                       customTo: ''
                     });
@@ -1497,7 +1286,7 @@ export default function AdminExpensesPage() {
             {/* No Results Message */}
             {showSearchResults && reportItems.length === 0 && !reportLoading && (
               <div className="text-center py-8" style={{ color: colors.muted }}>
-                {reportFilters.dateRange === "all" && !reportFilters.category 
+                {!reportFilters.dateRange && !reportFilters.category 
                   ? "No expenses found. Try adding some expenses first."
                   : "No expenses match your current filters. Try adjusting the criteria."
                 }
@@ -1505,6 +1294,253 @@ export default function AdminExpensesPage() {
             )}
             
             
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Search Filters Popup */}
+      {reportOpen && reportFilterModalOpen && (
+        <div className="fixed inset-0 z-[120] bg-black/50 flex items-center justify-center p-3 sm:p-4">
+          <div className="w-full max-w-lg rounded-2xl p-4 sm:p-5 max-h-[90vh] overflow-y-auto" style={{ background: colors.surface }}>
+            <div className="flex items-center justify-between mb-4">
+              <h4 className="text-lg sm:text-xl font-bold" style={{ color: colors.text }}>Choose Search Filters</h4>
+              <button
+                onClick={() => {
+                  setReportFilterModalOpen(false);
+                  setShowTimeRangeOptions(false);
+                  setShowCategoryOptions(false);
+                  setShowPaymentMethodOptions(false);
+                }}
+                className="text-xl font-bold"
+                style={{ color: colors.muted }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-semibold mb-2" style={{ color: colors.text }}>
+                  Time Range
+                </label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowTimeRangeOptions((prev) => !prev);
+                    setShowCategoryOptions(false);
+                    setShowPaymentMethodOptions(false);
+                  }}
+                  className="w-full px-3 py-3 rounded-xl border text-base font-semibold flex items-center justify-between"
+                  style={{
+                    borderColor: showTimeRangeOptions ? colors.primaryGreen : colors.gray400,
+                    color: colors.text,
+                    background: reportFilters.dateRange ? '#e5e7eb' : colors.white
+                  }}
+                >
+                  <span>
+                    {reportFilters.dateRange === 'lastDay' && 'Last Day'}
+                    {reportFilters.dateRange === 'lastWeek' && 'Last Week'}
+                    {reportFilters.dateRange === 'lastMonth' && 'Last Month'}
+                    {reportFilters.dateRange === 'last3Months' && 'Last 3 Months'}
+                    {reportFilters.dateRange === 'lastYear' && 'Last Year'}
+                    {reportFilters.dateRange === 'custom' && 'Custom Range'}
+                    {!reportFilters.dateRange && 'Select time range'}
+                  </span>
+                  <span className="text-lg">{showTimeRangeOptions ? '▲' : '▼'}</span>
+                </button>
+
+                {showTimeRangeOptions && (
+                  <div className="mt-2 grid grid-cols-2 gap-2 p-2 rounded-xl border" style={{ borderColor: colors.gray400, background: colors.background }}>
+                    {[
+                      { value: 'lastDay', label: 'Last Day' },
+                      { value: 'lastWeek', label: 'Last Week' },
+                      { value: 'lastMonth', label: 'Last Month' },
+                      { value: 'last3Months', label: 'Last 3 Months' },
+                      { value: 'lastYear', label: 'Last Year' },
+                      { value: 'custom', label: 'Custom Range' },
+                    ].map((option) => (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => {
+                          const isDeselect = reportFilters.dateRange === option.value;
+                          setReportFilters((prev) => ({
+                            ...prev,
+                            dateRange: isDeselect ? '' : option.value,
+                            ...((isDeselect || option.value !== 'custom') ? { customFrom: '', customTo: '' } : {})
+                          }));
+                          if (isDeselect || option.value !== 'custom') {
+                            setShowTimeRangeOptions(false);
+                          }
+                        }}
+                        className="px-3 py-2 rounded-lg border-2 text-sm font-semibold transition-colors duration-200"
+                        style={{
+                          borderColor: colors.primaryGreen,
+                          background: reportFilters.dateRange === option.value ? colors.primaryGreen : 'transparent',
+                          color: reportFilters.dateRange === option.value ? 'white' : colors.primaryGreen
+                        }}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {reportFilters.dateRange === 'custom' && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium mb-1" style={{ color: colors.text }}>From</label>
+                    <StyledDateInput
+                      value={reportFilters.customFrom}
+                      onChange={(e) => setReportFilters(prev => ({ ...prev, customFrom: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1" style={{ color: colors.text }}>To</label>
+                    <StyledDateInput
+                      value={reportFilters.customTo}
+                      onChange={(e) => setReportFilters(prev => ({ ...prev, customTo: e.target.value }))}
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-sm font-semibold mb-2" style={{ color: colors.text }}>
+                  Category (optional)
+                </label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowCategoryOptions((prev) => !prev);
+                    setShowTimeRangeOptions(false);
+                    setShowPaymentMethodOptions(false);
+                  }}
+                  className="w-full px-3 py-3 rounded-xl border text-base font-semibold flex items-center justify-between"
+                  style={{
+                    borderColor: showCategoryOptions ? colors.primaryGreen : colors.gray400,
+                    color: colors.text,
+                    background: reportFilters.category ? '#e5e7eb' : colors.white
+                  }}
+                >
+                  <span>{reportFilters.category || 'Select category'}</span>
+                  <span className="text-lg">{showCategoryOptions ? '▲' : '▼'}</span>
+                </button>
+                {showCategoryOptions && (
+                  <div className="mt-2 grid grid-cols-2 gap-2 p-2 rounded-xl border" style={{ borderColor: colors.gray400, background: colors.background }}>
+                    {CATEGORIES.map((category) => (
+                      <button
+                        key={category}
+                        type="button"
+                        onClick={() => {
+                          const isDeselect = reportFilters.category === category;
+                          setReportFilters((prev) => ({ ...prev, category: isDeselect ? '' : category }));
+                          setShowCategoryOptions(false);
+                        }}
+                        className="px-3 py-2 rounded-lg border-2 text-sm font-semibold transition-colors duration-200"
+                        style={{
+                          borderColor: colors.primaryGreen,
+                          background: reportFilters.category === category ? colors.primaryGreen : 'transparent',
+                          color: reportFilters.category === category ? 'white' : colors.primaryGreen
+                        }}
+                      >
+                        {category}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold mb-2" style={{ color: colors.text }}>
+                  Payment Method (optional)
+                </label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowPaymentMethodOptions((prev) => !prev);
+                    setShowTimeRangeOptions(false);
+                    setShowCategoryOptions(false);
+                  }}
+                  className="w-full px-3 py-3 rounded-xl border text-base font-semibold flex items-center justify-between"
+                  style={{
+                    borderColor: showPaymentMethodOptions ? colors.primaryGreen : colors.gray400,
+                    color: colors.text,
+                    background: reportFilters.paymentMethod ? '#e5e7eb' : colors.white
+                  }}
+                >
+                  <span>{reportFilters.paymentMethod || 'Select payment method'}</span>
+                  <span className="text-lg">{showPaymentMethodOptions ? '▲' : '▼'}</span>
+                </button>
+                {showPaymentMethodOptions && (
+                  <div className="mt-2 grid grid-cols-2 gap-2 p-2 rounded-xl border" style={{ borderColor: colors.gray400, background: colors.background }}>
+                    {REIMBURSEMENT_METHODS.map((method) => (
+                      <button
+                        key={method}
+                        type="button"
+                        onClick={() => {
+                          const isDeselect = reportFilters.paymentMethod === method;
+                          setReportFilters((prev) => ({ ...prev, paymentMethod: isDeselect ? '' : method }));
+                          setShowPaymentMethodOptions(false);
+                        }}
+                        className="px-3 py-2 rounded-lg border-2 text-sm font-semibold transition-colors duration-200"
+                        style={{
+                          borderColor: colors.primaryGreen,
+                          background: reportFilters.paymentMethod === method ? colors.primaryGreen : 'transparent',
+                          color: reportFilters.paymentMethod === method ? 'white' : colors.primaryGreen
+                        }}
+                      >
+                        {method}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold mb-2" style={{ color: colors.text }}>
+                  Expense Name (optional)
+                </label>
+                <input
+                  type="text"
+                  value={reportFilters.titleQuery}
+                  onChange={(e) => setReportFilters((prev) => ({ ...prev, titleQuery: e.target.value }))}
+                  placeholder="Type expense name"
+                  className="w-full px-3 py-3 rounded-xl border text-base"
+                />
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-2 pt-2">
+                <button
+                  onClick={() => {
+                    setReportFilters({
+                      dateRange: '',
+                      category: '',
+                      paymentMethod: '',
+                      titleQuery: '',
+                      customFrom: '',
+                      customTo: ''
+                    });
+                    setShowTimeRangeOptions(false);
+                    setShowCategoryOptions(false);
+                    setShowPaymentMethodOptions(false);
+                  }}
+                  className="w-full py-3 rounded-xl border-2 font-semibold"
+                  style={{ borderColor: colors.gold, color: colors.gold }}
+                >
+                  Clear
+                </button>
+                <button
+                  onClick={fetchReportData}
+                  disabled={reportLoading}
+                  className="w-full py-3 rounded-xl font-semibold text-white disabled:opacity-60"
+                  style={{ background: colors.primaryGreen }}
+                >
+                  {reportLoading ? 'Searching...' : 'Search Expenses'}
+                </button>
+              </div>
             </div>
           </div>
         </div>
