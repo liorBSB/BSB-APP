@@ -10,13 +10,8 @@ export async function POST(request) {
     }
 
     const { idNumber } = await request.json();
-    const uid = authResult.uid;
-
     if (!idNumber) {
-      return NextResponse.json(
-        { error: 'Missing idNumber' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Missing idNumber' }, { status: 400 });
     }
 
     const normalized = String(idNumber).trim();
@@ -25,14 +20,9 @@ export async function POST(request) {
       .where('idNumber', '==', normalized)
       .get();
 
-    const claimedByOther = snapshot.docs.some((doc) => doc.id !== uid);
-
-    return NextResponse.json({ taken: claimedByOther });
+    const taken = snapshot.docs.some((doc) => doc.id !== authResult.uid);
+    return NextResponse.json({ taken });
   } catch (error) {
-    console.error('check-id error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

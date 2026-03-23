@@ -1,5 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
+vi.mock('@/lib/serverAuth', () => ({
+  requireAuth: vi.fn(async () => ({ ok: true, uid: 'test-user' })),
+}));
+
 function makeRequest(body) {
   return new Request('http://localhost/api/sync-to-sheet', {
     method: 'POST',
@@ -15,25 +19,25 @@ describe('/api/sync-to-sheet POST', () => {
   beforeEach(async () => {
     vi.resetModules();
     vi.stubGlobal('fetch', vi.fn());
-    process.env.NEXT_PUBLIC_RECEPTION_SCRIPT_URL = FAKE_URL;
+    process.env.RECEPTION_SCRIPT_URL = FAKE_URL;
     const mod = await import('../../sync-to-sheet/route.js');
     POST = mod.POST;
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
-    delete process.env.NEXT_PUBLIC_RECEPTION_SCRIPT_URL;
+    delete process.env.RECEPTION_SCRIPT_URL;
   });
 
   it('returns 500 when RECEPTION_SCRIPT_URL is not configured', async () => {
     vi.resetModules();
-    delete process.env.NEXT_PUBLIC_RECEPTION_SCRIPT_URL;
+    delete process.env.RECEPTION_SCRIPT_URL;
     const mod = await import('../../sync-to-sheet/route.js');
 
     const res = await mod.POST(makeRequest({ roomNumber: '5', newStatus: 'Home' }));
     expect(res.status).toBe(500);
     const body = await res.json();
-    expect(body.message).toBe('Not configured');
+    expect(body.message).toContain('not configured');
   });
 
   it('returns 400 when roomNumber is missing', async () => {
@@ -91,7 +95,7 @@ describe('/api/sync-to-sheet POST', () => {
     const res = await POST(makeRequest({ roomNumber: '5', newStatus: 'Home' }));
     expect(res.status).toBe(500);
     const body = await res.json();
-    expect(body.message).toContain('GET failed');
+    expect(body.message).toContain('Reception read failed');
   });
 
   it('returns 500 when POST to sheet fails', async () => {
@@ -105,7 +109,7 @@ describe('/api/sync-to-sheet POST', () => {
     const res = await POST(makeRequest({ roomNumber: '5', newStatus: 'Out' }));
     expect(res.status).toBe(500);
     const body = await res.json();
-    expect(body.message).toContain('POST failed');
+    expect(body.message).toContain('Reception update failed');
   });
 
   it('returns 500 when sheet POST returns non-success status', async () => {
@@ -207,7 +211,7 @@ describe('/api/sync-to-sheet POST', () => {
     const res = await POST(makeRequest({ roomNumber: '5', newStatus: 'Out' }));
     expect(res.status).toBe(500);
     const body = await res.json();
-    expect(body.message).toBe('Unknown error');
+    expect(body.message).toBe('Reception update failed');
   });
 
   it('handles sheet returning empty array', async () => {

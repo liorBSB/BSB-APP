@@ -21,7 +21,7 @@ service firebase.storage {
     // Expenses photos uploaded by admins
     // Path: expenses/{userId}/{fileName}
     match /expenses/{userId}/{fileName} {
-      allow read: if isSignedIn();
+      allow read: if isSignedIn() && isAdmin(request.auth.uid);
       allow write: if isSignedIn() && isAdmin(request.auth.uid)
                   && request.resource.size < 10 * 1024 * 1024
                   && request.resource.contentType.matches('image/.*');
@@ -30,7 +30,7 @@ service firebase.storage {
 
     // Receipts path: receipts/{ownerUid}/{fileId}
     match /receipts/{ownerUid}/{fileId} {
-      allow read: if isSignedIn();
+      allow read: if isSignedIn() && isAdmin(request.auth.uid);
       allow write: if isSignedIn() && isAdmin(request.auth.uid)
                   && request.resource.size < 10 * 1024 * 1024
                   && request.resource.contentType.matches('image/.*');
@@ -49,7 +49,7 @@ service firebase.storage {
     // Soldier profile photos uploaded by admins
     // Path: soldier-profiles/{soldierId}/{fileName}
     match /soldier-profiles/{soldierId}/{fileName} {
-      allow read: if isSignedIn();
+      allow read: if isSignedIn() && (request.auth.uid == soldierId || isAdmin(request.auth.uid));
       allow write: if isSignedIn() && isAdmin(request.auth.uid)
                   && request.resource.size < 10 * 1024 * 1024
                   && request.resource.contentType.matches('image/.*');
@@ -59,8 +59,17 @@ service firebase.storage {
     // User profile photos uploaded by users
     // Path: user-profiles/{userId}/{userId}/{fileName} (PhotoUpload adds extra userId)
     match /user-profiles/{userId}/{uploaderId}/{fileName} {
-      allow read: if isSignedIn();
+      allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin(request.auth.uid));
       allow write: if isSignedIn() && request.auth.uid == userId
+                  && request.resource.size < 10 * 1024 * 1024
+                  && request.resource.contentType.matches('image/.*');
+      allow delete: if isSignedIn() && (request.auth.uid == userId || isAdmin(request.auth.uid));
+    }
+
+    // Admin upload path for refunds can include extra uploader segment.
+    match /refunds/{userId}/{uploaderId}/{fileName} {
+      allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin(request.auth.uid));
+      allow write: if isSignedIn() && (request.auth.uid == userId || isAdmin(request.auth.uid))
                   && request.resource.size < 10 * 1024 * 1024
                   && request.resource.contentType.matches('image/.*');
       allow delete: if isSignedIn() && (request.auth.uid == userId || isAdmin(request.auth.uid));

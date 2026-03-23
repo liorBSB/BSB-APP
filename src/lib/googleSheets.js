@@ -5,6 +5,7 @@
  */
 
 import { FIELD_MAP } from './sheetFieldMap';
+import { authedFetch } from '@/lib/authFetch';
 
 export const exportSoldierToSheets = async (soldierData) => {
   try {
@@ -25,25 +26,15 @@ export const exportSoldierToSheets = async (soldierData) => {
 };
 
 async function sendToArchiveSheet(exportData) {
-  const scriptUrl = process.env.NEXT_PUBLIC_LEFT_SOLDIERS_SCRIPT_URL;
-
-  if (!scriptUrl) {
-    throw new Error('Left soldiers script URL missing. Set NEXT_PUBLIC_LEFT_SOLDIERS_SCRIPT_URL.');
-  }
-
-  const response = await fetch(scriptUrl, {
+  const response = await authedFetch('/api/soldiers/archive', {
     method: 'POST',
-    headers: { 'Content-Type': 'text/plain' },
-    body: JSON.stringify({ action: 'archiveSoldier', data: exportData }),
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ exportData }),
   });
 
-  const result = await response.text();
-  try {
-    const parsed = JSON.parse(result);
-    if (!parsed.success) throw new Error(`Script error: ${parsed.error || 'Unknown error'}`);
-    return parsed;
-  } catch {
-    if (!response.ok) throw new Error(`Export failed: HTTP ${response.status} - ${result}`);
-    return { success: true, message: result };
+  const result = await response.json();
+  if (!response.ok || !result.success) {
+    throw new Error(result.error || result.message || `Export failed: HTTP ${response.status}`);
   }
+  return result;
 }

@@ -7,7 +7,8 @@ import { auth, db } from '@/lib/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
 import SoldierSearch from './SoldierSearch';
 import { SOLDIER_EDIT_ENABLED } from '@/lib/sheetFieldMap';
-import { syncStatusToReceptionSheet, normalizeStatus, fetchStatusFromSheet } from '@/lib/receptionSync';
+import { syncStatusToReceptionSheet, normalizeStatus } from '@/lib/receptionSync';
+import { authedFetch } from '@/lib/authFetch';
 import colors from '../app/colors';
 import { useTranslation } from 'react-i18next';
 import { StyledDateInput } from '@/components/StyledDateInput';
@@ -56,6 +57,12 @@ export default function SoldierManagement() {
   const [showSaveConfirmation, setShowSaveConfirmation] = useState(false);
   const [departureRequests, setDepartureRequests] = useState([]);
   const [departureProcessingId, setDepartureProcessingId] = useState(null);
+  const isAnyModalOpen =
+    showSoldierDetails ||
+    showEditModal ||
+    showDelayModal ||
+    showDeleteAccountModal ||
+    showSaveConfirmation;
 
   useEffect(() => {
     loadSoldiers();
@@ -111,6 +118,17 @@ export default function SoldierManagement() {
     };
   }, [showGenderDropdown, showStatusDropdown, showFamilyDropdown]);
 
+  useEffect(() => {
+    if (!isAnyModalOpen) return undefined;
+
+    const previousBodyOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      document.body.style.overflow = previousBodyOverflow;
+    };
+  }, [isAnyModalOpen]);
+
   const loadSoldiers = async () => {
     try {
       setLoading(true);
@@ -141,11 +159,10 @@ export default function SoldierManagement() {
 
   const reconcileStatusesWithSheet = async (soldierList) => {
     try {
-      const RECEPTION_URL = process.env.NEXT_PUBLIC_RECEPTION_SCRIPT_URL;
-      if (!RECEPTION_URL) return;
-      const res = await fetch(`${RECEPTION_URL}?t=${Date.now()}`);
+      const res = await authedFetch('/api/reception/all');
       if (!res.ok) return;
-      const sheetData = await res.json();
+      const payload = await res.json();
+      const sheetData = payload.rows || [];
 
       const sheetByRoom = {};
       for (const row of sheetData) {
@@ -594,15 +611,21 @@ export default function SoldierManagement() {
               </div>
               
               <div className="flex items-center gap-2 flex-shrink-0">
-                <select
-                  value={currentStatus}
-                  onChange={(e) => handleInlineStatusChange(soldier, e.target.value)}
-                  className={`px-2 py-1.5 rounded-full text-xs font-semibold cursor-pointer border-0 focus:outline-none focus:ring-2 focus:ring-white/50 ${colorClass}`}
-                >
-                  {STATUS_OPTIONS.map((opt) => (
-                    <option key={opt} value={opt}>{STATUS_LABELS[opt]}</option>
-                  ))}
-                </select>
+                {isAnyModalOpen ? (
+                  <span className={`px-2 py-1.5 rounded-full text-xs font-semibold ${colorClass}`}>
+                    {STATUS_LABELS[currentStatus] || currentStatus}
+                  </span>
+                ) : (
+                  <select
+                    value={currentStatus}
+                    onChange={(e) => handleInlineStatusChange(soldier, e.target.value)}
+                    className={`px-2 py-1.5 rounded-full text-xs font-semibold cursor-pointer border-0 focus:outline-none focus:ring-2 focus:ring-white/50 ${colorClass}`}
+                  >
+                    {STATUS_OPTIONS.map((opt) => (
+                      <option key={opt} value={opt}>{STATUS_LABELS[opt]}</option>
+                    ))}
+                  </select>
+                )}
 
                 <button
                   onClick={() => handleEditSoldier(soldier)}
@@ -812,7 +835,7 @@ export default function SoldierManagement() {
 
       {/* Soldier Details Modal */}
       {showSoldierDetails && selectedSoldier && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 phone-sm:p-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[90] p-2 phone-sm:p-4">
           <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[85vh] phone-sm:max-h-[90vh] overflow-hidden">
             {/* Header */}
             <div className="p-4 phone-sm:p-6" style={{ background: colors.primaryGreen, color: colors.white }}>
@@ -830,7 +853,7 @@ export default function SoldierManagement() {
             </div>
 
             {/* Content */}
-            <div className="p-4 phone-sm:p-6 overflow-y-auto max-h-[calc(85vh-120px)] phone-sm:max-h-[calc(90vh-140px)]">
+            <div className="p-4 phone-sm:p-6 overflow-y-auto max-h-[calc(85vh-120px)] phone-sm:max-h-[calc(90vh-140px)] [overscroll-behavior:contain] [-webkit-overflow-scrolling:touch]">
               <div className="space-y-6">
                 {/* Photo */}
                 <div className="flex justify-center">
@@ -966,7 +989,7 @@ export default function SoldierManagement() {
 
       {/* Edit Soldier Modal */}
       {SOLDIER_EDIT_ENABLED && showEditModal && selectedSoldier && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 phone-sm:p-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100] p-2 phone-sm:p-4">
           <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[95vh] phone-sm:max-h-[90vh] overflow-hidden">
             {/* Header */}
             <div className="p-4 phone-sm:p-6" style={{ background: colors.primaryGreen, color: colors.white }}>
@@ -984,7 +1007,7 @@ export default function SoldierManagement() {
             </div>
 
             {/* Form Content */}
-            <div className="p-4 phone-sm:p-6 overflow-y-auto max-h-[calc(95vh-120px)] phone-sm:max-h-[calc(90vh-140px)]">
+            <div className="p-4 phone-sm:p-6 overflow-y-auto max-h-[calc(95vh-120px)] phone-sm:max-h-[calc(90vh-140px)] [overscroll-behavior:contain] [-webkit-overflow-scrolling:touch]">
               {/* Success/Error Messages */}
               {success && (
                 <div className="mb-4 p-3 rounded-lg bg-green-100 text-green-800 text-center">
@@ -1427,7 +1450,7 @@ export default function SoldierManagement() {
 
       {/* Delay Modal */}
       {showDelayModal && soldierToDelete && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-3 phone-sm:p-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100] p-3 phone-sm:p-4">
           <div className="bg-white rounded-2xl max-w-md w-full">
             {/* Header */}
             <div className="p-4 phone-sm:p-6" style={{ background: colors.red, color: colors.white }}>
@@ -1498,7 +1521,7 @@ export default function SoldierManagement() {
 
       {/* Delete Account Confirmation Modal */}
       {showDeleteAccountModal && soldierToDeleteAccount && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-3 phone-sm:p-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100] p-3 phone-sm:p-4">
           <div className="bg-white rounded-2xl max-w-md w-full">
             <div className="p-4 phone-sm:p-6" style={{ background: '#dc2626', color: 'white' }}>
               <h3 className="text-lg phone-sm:text-xl font-bold text-center">

@@ -6,11 +6,34 @@
  * SCRIPT PROPERTIES (Project Settings > Script Properties):
  *   WEBHOOK_URL    — e.g. https://your-app.vercel.app/api/status-webhook
  *   WEBHOOK_SECRET — shared secret matching STATUS_WEBHOOK_SECRET in the app's env
+ *   SHEETS_BRIDGE_SECRET — shared secret matching app bridge env
  */
 
 var SHEET_NAME = "Sheet1";
 
+function getBridgeSecret() {
+  return PropertiesService.getScriptProperties().getProperty('SHEETS_BRIDGE_SECRET');
+}
+
+function requestSecret(e, payload) {
+  var fromQuery = e && e.parameter ? e.parameter.secret : '';
+  if (fromQuery) return String(fromQuery);
+  var fromPayload = payload && payload.secret ? payload.secret : '';
+  return String(fromPayload || '');
+}
+
+function isAuthorized(e, payload) {
+  var expected = String(getBridgeSecret() || '');
+  if (!expected) return false;
+  return requestSecret(e, payload) === expected;
+}
+
 function doGet(e) {
+  if (!isAuthorized(e, null)) {
+    return ContentService.createTextOutput(JSON.stringify({ status: "error", message: "Unauthorized" }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
   var data = sheet.getDataRange().getValues();
   var rows = data.slice(1);
@@ -33,6 +56,10 @@ function doPost(e) {
   try {
     var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
     var params = JSON.parse(e.postData.contents);
+    if (!isAuthorized(e, params)) {
+      return ContentService.createTextOutput(JSON.stringify({ status: "error", message: "Unauthorized" }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
 
     var targetId = params.id;
     var newStatus = params.status;

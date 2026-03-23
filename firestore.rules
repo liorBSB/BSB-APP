@@ -9,13 +9,27 @@ service cloud.firestore {
     // Users read their own profile; admins can read all
     match /users/{userId} {
       allow read: if isSignedIn() && (isOwner(userId) || isAdmin(request.auth.uid));
-      allow write: if isSignedIn() && (isOwner(userId) || isAdmin(request.auth.uid));
+      allow create: if isSignedIn() && (isOwner(userId) || isAdmin(request.auth.uid));
+      allow delete: if isSignedIn() && (isOwner(userId) || isAdmin(request.auth.uid));
+      allow update: if isSignedIn() && (
+        isAdmin(request.auth.uid) ||
+        (
+          isOwner(userId) &&
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+            'userType',
+            'approvedAt',
+            'approvedBy',
+            'createdAt',
+            'roleChoice'
+          ])
+        )
+      );
     }
 
     // Expenses (admin managed records)
     match /expenses/{expenseId} {
       allow create: if isSignedIn() && isAdmin(request.auth.uid);
-      allow read: if isSignedIn(); // UI will scope by role; audits can be added later
+      allow read: if isSignedIn() && isAdmin(request.auth.uid);
       allow update, delete: if isSignedIn() && isAdmin(request.auth.uid);
     }
 
@@ -53,7 +67,11 @@ service cloud.firestore {
       // Owners can update until status is terminal; admins can always update
       allow update: if isSignedIn() && (
         isAdmin(request.auth.uid) ||
-        (resource.data.ownerUid == request.auth.uid && resource.data.status in ['waiting'])
+        (
+          resource.data.ownerUid == request.auth.uid &&
+          resource.data.status in ['waiting'] &&
+          request.resource.data.ownerUid == resource.data.ownerUid
+        )
       );
       // Allow owners to delete their own requests; admins can always delete
       allow delete: if isSignedIn() && (
@@ -72,7 +90,11 @@ service cloud.firestore {
       // Owners can update until status is terminal; admins can always update
       allow update: if isSignedIn() && (
         isAdmin(request.auth.uid) ||
-        (resource.data.ownerUid == request.auth.uid && resource.data.status in ['pending'])
+        (
+          resource.data.ownerUid == request.auth.uid &&
+          resource.data.status in ['pending'] &&
+          request.resource.data.ownerUid == resource.data.ownerUid
+        )
       );
       // Allow owners to delete their own reports; admins can always delete
       allow delete: if isSignedIn() && (
@@ -102,8 +124,16 @@ service cloud.firestore {
 
     // Departure requests (auto-created by sync; managed by admins)
     match /departureRequests/{requestId} {
-      allow create: if isSignedIn();
+      allow create: if isSignedIn() && isAdmin(request.auth.uid);
       allow read, update, delete: if isSignedIn() && isAdmin(request.auth.uid);
+    }
+
+    // Report management collections (admin only)
+    match /reports/{reportId} {
+      allow read, write: if isSignedIn() && isAdmin(request.auth.uid);
+    }
+    match /reportUploads/{uploadId} {
+      allow read, write: if isSignedIn() && isAdmin(request.auth.uid);
     }
 
     // Soldiers collection (current daily data)

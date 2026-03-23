@@ -2,8 +2,7 @@
 
 'use client';
 import { useState, useEffect, useRef } from 'react';
-import { getSoldiersWithCache } from '@/lib/soldierDataService';
-import colors from '../app/colors';
+import { searchSoldiersByName } from '@/lib/soldierDataService';
 
 const FULL_NAME_COL = 'שם מלא                                  (מילוי אוטומטי: לא לגעת)';
 const ID_COL = 'מספר זהות';
@@ -11,7 +10,7 @@ const ROOM_COL = 'חדר';
 
 /**
  * Soldier Search Component — search by name or ID number.
- * Loads all soldiers once and filters client-side for instant results.
+ * Uses server-side search to avoid downloading full roster to clients.
  */
 export default function SoldierNameSearch({
   onSoldierSelect,
@@ -22,79 +21,65 @@ export default function SoldierNameSearch({
 }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [suggestions, setSuggestions] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [allSoldiers, setAllSoldiers] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
-  const [selectedSoldier, setSelectedSoldier] = useState(null);
+  const [queryError, setQueryError] = useState('');
 
   const inputRef = useRef(null);
-  const suggestionsRef = useRef(null);
-
-  // Load all soldiers once on mount (single API call, then instant client-side search)
-  useEffect(() => {
-    let cancelled = false;
-    getSoldiersWithCache()
-      .then((soldiers) => {
-        if (!cancelled) {
-          setAllSoldiers(soldiers || []);
-        }
-      })
-      .catch((err) => {
-        console.error('Error loading soldiers:', err);
-        if (!cancelled) setAllSoldiers([]);
-      })
-      .finally(() => {
-        if (!cancelled) setIsLoading(false);
-      });
-    return () => { cancelled = true; };
-  }, []);
 
   useEffect(() => {
     onLoadingChange?.(isLoading);
   }, [isLoading, onLoadingChange]);
 
-  // Filter soldiers by name or ID (client-side, instant)
-  const filterSoldiers = (term) => {
-    const t = String(term || '').trim();
-    if (t.length < 1) return [];
+  useEffect(() => {
+    let cancelled = false;
+    const normalized = searchTerm.trim();
+    setQueryError('');
 
-    const tLower = t.toLowerCase();
-    const isNumeric = /^\d+$/.test(t);
+    if (normalized.length < 2) {
+      setSuggestions([]);
+      setIsLoading(false);
+      return () => { cancelled = true; };
+    }
 
-    return allSoldiers.filter((s) => {
-      const fullName = String(s[FULL_NAME_COL] || s.fullName || '').replace(/\s+/g, ' ').trim();
-      const idNum = String(s[ID_COL] || s.idNumber || '').trim();
-
-      if (isNumeric) {
-        return idNum.includes(t) || idNum.endsWith(t) || idNum.startsWith(t);
+    const timer = setTimeout(async () => {
+      setIsLoading(true);
+      try {
+        const results = await searchSoldiersByName(normalized);
+        if (!cancelled) {
+          setSuggestions(results);
+          setShowSuggestions(true);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setSuggestions([]);
+          setQueryError('Search is temporarily unavailable');
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
       }
-      const nameWords = fullName.toLowerCase().split(/\s+/).filter(Boolean);
-      const searchWords = tLower.split(/\s+/).filter(Boolean);
-      return searchWords.every((sw) =>
-        nameWords.some((nw) => nw.includes(sw) || nw.startsWith(sw))
-      );
-    });
-  };
+    }, 250);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [searchTerm]);
 
   const handleInputChange = (e) => {
     const value = e.target.value;
     setSearchTerm(value);
 
-    if (value.trim().length < 1) {
+    if (value.trim().length < 2) {
       setSuggestions([]);
       setShowSuggestions(false);
       return;
     }
-
-    const results = filterSoldiers(value);
-    setSuggestions(results);
-    setShowSuggestions(true);
   };
 
   const handleSuggestionClick = (soldier) => {
     const name = soldier[FULL_NAME_COL] || soldier.fullName || '';
     setSearchTerm(name);
-    setSelectedSoldier(soldier);
     setShowSuggestions(false);
     setSuggestions([]);
     onSoldierSelect(soldier);
@@ -126,8 +111,8 @@ export default function SoldierNameSearch({
   // Clear selection
   const clearSelection = () => {
     setSearchTerm('');
-    setSelectedSoldier(null);
     setSuggestions([]);
+    setQueryError('');
     setShowSuggestions(false);
     onSoldierSelect(null);
     inputRef.current?.focus();
@@ -186,7 +171,6 @@ export default function SoldierNameSearch({
       {/* Suggestions Dropdown */}
       {showSuggestions && suggestions.length > 0 && (
         <div
-          ref={suggestionsRef}
           className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto"
           style={{ boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}
         >
@@ -225,16 +209,16 @@ export default function SoldierNameSearch({
       )}
 
       {/* No results message */}
-      {showSuggestions && suggestions.length === 0 && searchTerm.trim().length >= 1 && !isLoading && (
+      {showSuggestions && suggestions.length === 0 && searchTerm.trim().length >= 2 && !isLoading && (
         <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg p-4 text-center text-gray-500">
           לא נמצאו תוצאות עבור &quot;{searchTerm}&quot;
         </div>
       )}
 
       {/* Error message */}
-      {error && (
+      {(error || queryError) && (
         <div className="mt-2 text-sm text-red-600 text-right">
-          {error}
+          {error || queryError}
         </div>
       )}
     </div>

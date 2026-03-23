@@ -7,6 +7,7 @@
  *   COPY_SPREADSHEET_ID   — ID of your copy spreadsheet (the one with 2 tabs)
  *   MASTER_SPREADSHEET_ID — ID of the master/foundation spreadsheet
  *   MASTER_SHEET_NAME     — tab name inside the master spreadsheet
+ *   SHEETS_BRIDGE_SECRET  — shared secret from app server env
  *
  * TABS in the copy spreadsheet (created automatically on first sync):
  *   master_mirror — raw dump of master data (overwritten each sync)
@@ -82,6 +83,25 @@ function getProp(key) {
   return PropertiesService.getScriptProperties().getProperty(key);
 }
 
+function getBridgeSecret() {
+  return getProp('SHEETS_BRIDGE_SECRET');
+}
+
+function requestSecret(e, payload) {
+  var fromQuery = e && e.parameter ? e.parameter.secret : '';
+  if (fromQuery) return String(fromQuery);
+  var fromPayload = payload && payload.secret ? payload.secret : '';
+  return String(fromPayload || '');
+}
+
+function authorizeBridgeCall(e, payload) {
+  var expected = String(getBridgeSecret() || '');
+  if (!expected) return { ok: false, response: jsonResponse({ success: false, error: 'Bridge secret not configured' }) };
+  var provided = requestSecret(e, payload);
+  if (provided !== expected) return { ok: false, response: jsonResponse({ success: false, error: 'Unauthorized' }) };
+  return { ok: true };
+}
+
 function getCopySpreadsheet() {
   return SpreadsheetApp.openById(getProp('COPY_SPREADSHEET_ID'));
 }
@@ -138,6 +158,9 @@ function isErrorValue(val) {
 
 function doGet(e) {
   try {
+    var auth = authorizeBridgeCall(e, null);
+    if (!auth.ok) return auth.response;
+
     var action = e.parameter.action;
     var ss = getCopySpreadsheet();
     var sheet = ss.getSheetByName(SOLDIERS_TAB);
@@ -163,6 +186,9 @@ function doGet(e) {
 function doPost(e) {
   try {
     var payload = JSON.parse(e.postData.contents);
+    var auth = authorizeBridgeCall(e, payload);
+    if (!auth.ok) return auth.response;
+
     var action = payload.action;
     var ss = getCopySpreadsheet();
     var sheet = ss.getSheetByName(SOLDIERS_TAB);

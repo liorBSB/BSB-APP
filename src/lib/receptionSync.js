@@ -7,7 +7,7 @@
  * Matching strategy: soldiers are matched by room number (unique per resident).
  */
 
-const RECEPTION_SCRIPT_URL = process.env.NEXT_PUBLIC_RECEPTION_SCRIPT_URL;
+import { authedFetch } from '@/lib/authFetch';
 
 const VALID_STATUSES = ['Home', 'Out', 'In base', 'Abroad'];
 
@@ -35,18 +35,15 @@ export function normalizeStatus(status) {
  */
 export async function fetchStatusFromSheet(roomNumber) {
   try {
-    if (!RECEPTION_SCRIPT_URL || !roomNumber) return 'Home';
-
-    const res = await fetch(`${RECEPTION_SCRIPT_URL}?t=${Date.now()}`);
+    if (!roomNumber) return 'Home';
+    const res = await authedFetch('/api/reception/status', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ roomNumber }),
+    });
     if (!res.ok) return 'Home';
-
-    const soldiers = await res.json();
-    const match = soldiers.find(
-      (s) => String(s.room || '').trim() === String(roomNumber).trim()
-    );
-
-    if (!match || !match.status || match.status === 'Empty') return 'Home';
-    return VALID_STATUSES.includes(match.status) ? match.status : 'Home';
+    const data = await res.json();
+    return VALID_STATUSES.includes(data.status) ? data.status : 'Home';
   } catch {
     return 'Home';
   }
@@ -69,7 +66,7 @@ export async function syncStatusToReceptionSheet(roomNumber, newStatus) {
       return { success: false, message: 'Invalid status' };
     }
 
-    const res = await fetch('/api/sync-to-sheet', {
+    const res = await authedFetch('/api/sync-to-sheet', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ roomNumber, newStatus }),

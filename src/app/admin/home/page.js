@@ -54,6 +54,11 @@ export default function AdminHomePage() {
   const [processingApproval, setProcessingApproval] = useState(false);
   const [responseListModal, setResponseListModal] = useState({ open: false, event: null });
 
+  useEffect(() => {
+    simpleScheduler.start();
+    return () => simpleScheduler.stop();
+  }, []);
+
   const fetchData = async () => {
     try {
       const now = new Date();

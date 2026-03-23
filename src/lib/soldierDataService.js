@@ -7,52 +7,33 @@
  */
 
 import { sheetRowToApp, PRIMARY_KEY_APP } from './sheetFieldMap';
-
-const SCRIPT_URL = process.env.NEXT_PUBLIC_SOLDIER_SHEETS_SCRIPT_URL;
-
-// ── Read: get all soldiers ───────────────────────────────────────────
+import { authedFetch } from '@/lib/authFetch';
 
 export const getAllSoldiers = async () => {
-  if (!SCRIPT_URL) {
-    throw new Error('Google Sheets is not configured. Set NEXT_PUBLIC_SOLDIER_SHEETS_SCRIPT_URL.');
-  }
-
-  const response = await fetch(`${SCRIPT_URL}?action=getAllSoldiers`);
-  if (!response.ok) throw new Error(`Failed to fetch soldiers: ${response.status}`);
-
-  const data = await response.json();
-  if (!data.success) throw new Error(data.error || 'Failed to fetch soldiers');
-
-  return data.soldiers || [];
+  // Full roster fetch in browser is intentionally disabled.
+  return [];
 };
 
 // ── Read: search soldiers by name ────────────────────────────────────
 
 export const searchSoldiersByName = async (searchTerm) => {
   if (!searchTerm || searchTerm.length < 2) return [];
-  if (!SCRIPT_URL) throw new Error('Google Sheets is not configured.');
 
   const normalized = searchTerm.replace(/\s+/g, ' ').trim();
-  const response = await fetch(
-    `${SCRIPT_URL}?action=searchSoldiers&searchTerm=${encodeURIComponent(normalized)}`,
-  );
+  const response = await authedFetch('/api/soldiers/search', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ searchTerm: normalized }),
+  });
   if (!response.ok) throw new Error(`Failed to search soldiers: ${response.status}`);
 
   const data = await response.json();
-  if (!data.success) throw new Error(data.error || 'Search failed');
-
-  if (data.soldiers.length === 0 && normalized.includes(' ')) {
-    const noSpaces = normalized.replace(/\s/g, '');
-    const fbResponse = await fetch(
-      `${SCRIPT_URL}?action=searchSoldiers&searchTerm=${encodeURIComponent(noSpaces)}`,
-    );
-    if (fbResponse.ok) {
-      const fbData = await fbResponse.json();
-      if (fbData.success && fbData.soldiers.length > 0) return fbData.soldiers;
-    }
+  if (data.error) throw new Error(data.error || 'Search failed');
+  if (Array.isArray(data.soldiers)) {
+    return data.soldiers.map((s) => s.raw || s);
   }
 
-  return data.soldiers || [];
+  return [];
 };
 
 // ── Map a raw sheet row to app format ────────────────────────────────

@@ -6,27 +6,16 @@
  */
 
 import {
-  collection,
   doc,
-  updateDoc,
-  getDocs,
   getDoc,
-  query,
-  where,
-  Timestamp,
 } from 'firebase/firestore';
 import { db } from './firebase';
-import { COLLECTIONS, createDepartureRequest } from './database';
 import {
-  FIELD_MAP,
-  PRIMARY_KEY_SHEET,
   PRIMARY_KEY_APP,
-  sheetRowToApp,
-  appToSheetRow,
 } from './sheetFieldMap';
+import { authedFetch } from '@/lib/authFetch';
 
 const SYNC_CONFIG = {
-  scriptUrl: process.env.NEXT_PUBLIC_SOLDIER_SHEETS_SCRIPT_URL,
   syncInterval: 5 * 60 * 1000,
   writeToSheetsEnabled: false, // set to true to re-enable app → sheet writes
 };
@@ -39,12 +28,7 @@ export const syncToSheets = async (userId, soldierData) => {
       return { success: true, message: 'App→Sheet writes disabled (master wins)' };
     }
 
-    if (!SYNC_CONFIG.scriptUrl) {
-      console.warn('[syncToSheets] No script URL configured');
-      return { success: false, message: 'Not configured' };
-    }
-
-    const userRef = doc(db, COLLECTIONS.USERS, userId);
+    const userRef = doc(db, 'users', userId);
     const userSnap = await getDoc(userRef);
     const currentData = userSnap.exists() ? userSnap.data() : {};
 
@@ -60,28 +44,15 @@ export const syncToSheets = async (userId, soldierData) => {
       return { success: false, message: 'No ID number — cannot match to sheet row' };
     }
 
-    const sheetPayload = appToSheetRow({ ...currentData, ...soldierData });
-    sheetPayload[PRIMARY_KEY_SHEET] = idNumber;
-
-    console.log('[syncToSheets] Payload keys:', Object.keys(sheetPayload).join(', '));
-
-    const url = `${SYNC_CONFIG.scriptUrl}?action=updateSoldierData&data=${encodeURIComponent(JSON.stringify(sheetPayload))}`;
-    console.log('[syncToSheets] URL length:', url.length);
-
-    const response = await fetch(url);
-    const text = await response.text();
-    console.log('[syncToSheets] Response status:', response.status, '| body:', text.substring(0, 500));
-
-    if (!response.ok) throw new Error(`HTTP ${response.status}: ${text}`);
-
-    let result;
-    try {
-      result = JSON.parse(text);
-    } catch {
-      throw new Error(`Invalid JSON response: ${text.substring(0, 200)}`);
+    const response = await authedFetch('/api/soldiers/update-sheet', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, updateData: soldierData }),
+    });
+    const result = await response.json();
+    if (!response.ok || !result.success) {
+      throw new Error(result.error || result.message || `HTTP ${response.status}`);
     }
-
-    if (!result.success) throw new Error(result.error || result.message || 'Unknown error');
 
     console.log('[syncToSheets] Success:', result.message, '| fields:', result.updatedFields);
     return { success: true, message: result.message };
@@ -95,93 +66,16 @@ export const syncToSheets = async (userId, soldierData) => {
 
 export const syncFromSheets = async () => {
   try {
-    if (!SYNC_CONFIG.scriptUrl) {
-      return { success: false, message: 'Not configured' };
-    }
-
-    const url = `${SYNC_CONFIG.scriptUrl}?action=getAllSoldiers`;
-    const response = await fetch(url);
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
+    const response = await authedFetch('/api/admin/sync-from-sheets', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reason: 'manual_or_scheduler' }),
+    });
     const result = await response.json();
-    if (!result.success) throw new Error(result.error);
-
-    const sheetSoldiers = result.soldiers || [];
-
-    const usersQuery = query(
-      collection(db, COLLECTIONS.USERS),
-      where('userType', '==', 'user'),
-    );
-    const usersSnap = await getDocs(usersQuery);
-    const appSoldiers = usersSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-
-    let updatedCount = 0;
-
-    for (const sheetRow of sheetSoldiers) {
-      try {
-        const sheetId = String(sheetRow[PRIMARY_KEY_SHEET] || '').trim();
-        if (!sheetId) continue;
-
-        const match = appSoldiers.find(s =>
-          String(s[PRIMARY_KEY_APP] || '').trim() === sheetId,
-        );
-        if (!match) continue;
-
-        const mapped = sheetRowToApp(sheetRow);
-
-        const hasChanges = Object.keys(mapped).some(key => {
-          const appVal = String(match[key] || '').trim();
-          const sheetVal = String(mapped[key] || '').trim();
-          return sheetVal !== '' && appVal !== sheetVal;
-        });
-
-        if (hasChanges) {
-          const nonEmpty = {};
-          for (const [k, v] of Object.entries(mapped)) {
-            if (v !== '' && v !== null && v !== undefined) nonEmpty[k] = v;
-          }
-
-          const userRef = doc(db, COLLECTIONS.USERS, match.id);
-          await updateDoc(userRef, {
-            ...nonEmpty,
-            lastSyncFromSheets: Timestamp.now(),
-            updatedAt: Timestamp.now(),
-          });
-          updatedCount++;
-        }
-      } catch (err) {
-        console.error('Error syncing soldier from sheets:', err);
-      }
+    if (!response.ok) {
+      return { success: false, message: result.error || result.message || `HTTP ${response.status}` };
     }
-
-    // Flag soldiers in Firestore but missing from the sheet as potential departures.
-    // No auto-removal — admins review and approve each one.
-    const sheetIdSet = new Set(
-      sheetSoldiers
-        .map(row => String(row[PRIMARY_KEY_SHEET] || '').trim())
-        .filter(Boolean),
-    );
-
-    let flaggedCount = 0;
-    for (const soldier of appSoldiers) {
-      const appId = String(soldier[PRIMARY_KEY_APP] || '').trim();
-      if (!appId) continue;
-      if (sheetIdSet.has(appId)) continue;
-
-      try {
-        await createDepartureRequest({
-          userId: soldier.id,
-          soldierName: soldier.fullName || '',
-          idNumber: appId,
-          roomNumber: soldier.roomNumber || '',
-        });
-        flaggedCount++;
-      } catch (err) {
-        console.error('[syncFromSheets] Error creating departure request:', err);
-      }
-    }
-
-    return { success: true, updated: updatedCount, flagged: flaggedCount };
+    return result;
   } catch (error) {
     return { success: false, message: error.message };
   }
@@ -213,7 +107,6 @@ class SimpleScheduler {
   }
 
   async performSync() {
-    if (!SYNC_CONFIG.scriptUrl) return;
     await syncFromSheets();
   }
 }
@@ -221,11 +114,8 @@ class SimpleScheduler {
 const simpleScheduler = new SimpleScheduler();
 
 if (typeof window !== 'undefined') {
-  setTimeout(() => {
-    if (SYNC_CONFIG.scriptUrl) {
-      simpleScheduler.start();
-    }
-  }, 3000);
+  // Intentionally not auto-starting on all clients.
+  // Scheduling sync from Sheets must be triggered from trusted admin flows.
 }
 
 export { simpleScheduler };

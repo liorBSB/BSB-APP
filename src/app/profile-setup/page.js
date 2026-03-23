@@ -13,6 +13,7 @@ import { FIELD_MAP, PRIMARY_KEY_APP } from '@/lib/sheetFieldMap';
 import { resetSoldierAccount } from '@/lib/database';
 import { resetUserToPreSelection } from '@/lib/database';
 import { fetchStatusFromSheet } from '@/lib/receptionSync';
+import { authedFetch } from '@/lib/authFetch';
 import useAuthRedirect from '@/hooks/useAuthRedirect';
 import colors from '../colors';
 
@@ -144,10 +145,10 @@ export default function ProfileSetup() {
 
       if (normalizedIdNumber) {
         try {
-          const res = await fetch('/api/check-id', {
+          const res = await authedFetch('/api/soldiers/check-id', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ idNumber: normalizedIdNumber, uid }),
+            body: JSON.stringify({ idNumber: normalizedIdNumber }),
           });
           const data = await res.json();
           if (!res.ok) throw new Error(data.error || 'Server error');

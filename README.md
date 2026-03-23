@@ -102,7 +102,10 @@ Required environment variables:
 | `NEXT_PUBLIC_FIREBASE_APP_ID` | Firebase app ID |
 | `NEXT_PUBLIC_GOOGLE_SHEETS_ID` | Google Sheets ID (export sheet) |
 | `NEXT_PUBLIC_SOLDIER_SHEETS_ID` | Google Sheets ID (soldier data) |
-| `NEXT_PUBLIC_SOLDIER_SHEETS_SCRIPT_URL` | Google Apps Script URL |
+| `SOLDIER_SHEETS_SCRIPT_URL` | Soldier-data Apps Script URL (server-only) |
+| `RECEPTION_SCRIPT_URL` | Reception Apps Script URL (server-only) |
+| `LEFT_SOLDIERS_SCRIPT_URL` | Archive Apps Script URL (server-only) |
+| `SHEETS_BRIDGE_SECRET` | Shared secret sent to Apps Script bridge |
 
 3. Start the development server:
 

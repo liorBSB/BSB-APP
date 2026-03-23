@@ -5,6 +5,7 @@
  *
  * SCRIPT PROPERTIES (Project Settings > Script Properties):
  *   SPREADSHEET_ID — 1L3lHmJiN3Z_9_FgCpK1zRQX5S2v6j85Fesg0H29-zZU
+ *   SHEETS_BRIDGE_SECRET — shared secret from app server env
  *
  * SPREADSHEET: ArchivedSoldiers
  * TAB: Data
@@ -67,6 +68,26 @@ function getSpreadsheet() {
   return SpreadsheetApp.openById(id);
 }
 
+function getBridgeSecret() {
+  return PropertiesService.getScriptProperties().getProperty('SHEETS_BRIDGE_SECRET');
+}
+
+function requestSecret(e, payload) {
+  var fromQuery = e && e.parameter ? e.parameter.secret : '';
+  if (fromQuery) return String(fromQuery);
+  var fromPayload = payload && payload.secret ? payload.secret : '';
+  return String(fromPayload || '');
+}
+
+function authorizeBridgeCall(e, payload) {
+  var expected = String(getBridgeSecret() || '');
+  if (!expected) return { ok: false, response: jsonResponse({ success: false, error: 'Bridge secret not configured' }) };
+  if (requestSecret(e, payload) !== expected) {
+    return { ok: false, response: jsonResponse({ success: false, error: 'Unauthorized' }) };
+  }
+  return { ok: true };
+}
+
 function getOrCreateTab(ss) {
   var sheet = ss.getSheetByName(DATA_TAB);
   if (!sheet) {
@@ -94,6 +115,9 @@ function jsonResponse(obj) {
 
 function doGet(e) {
   try {
+    var auth = authorizeBridgeCall(e, null);
+    if (!auth.ok) return auth.response;
+
     var action = e.parameter.action;
     if (action === 'archiveSoldier') {
       var data = JSON.parse(e.parameter.data || '{}');
@@ -110,6 +134,9 @@ function doPost(e) {
   try {
     var raw = e.postData.contents || e.postData.getDataAsString();
     var payload = JSON.parse(raw);
+    var auth = authorizeBridgeCall(e, payload);
+    if (!auth.ok) return auth.response;
+
     if (payload.action === 'archiveSoldier') {
       return handleArchiveSoldier(payload.data);
     }
