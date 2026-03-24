@@ -30,6 +30,21 @@
     "choose_from_gallery": "Choose from Gallery",
     "remove_photo": "Remove Photo",
     "photo_uploaded": "Photo uploaded successfully",
-    "upload_failed": "Upload failed"
+    "upload_failed": "Upload failed",
+    "starting_camera": "Starting camera...",
+    "uploading": "Uploading...",
+    "retake": "Retake",
+    "use_photo": "Use Photo",
+    "flip_camera": "Flip camera",
+    "camera_not_supported": "Camera not supported on this device.",
+    "camera_access_denied": "Camera access denied. Please allow camera permissions.",
+    "no_camera_found": "No camera found on this device.",
+    "camera_not_ready": "Camera not ready yet. Please wait a moment.",
+    "camera_error": "Camera error: {{message}}",
+    "file_too_large": "File too large (max {{max}}MB)",
+    "select_image_file": "Please select an image file",
+    "login_required": "You must be logged in to upload photos",
+    "capture_failed": "Failed to capture photo. Please try again.",
+    "upload_instructions": "Take a photo or upload an existing image • Max size: {{max}}MB"
   }
 }

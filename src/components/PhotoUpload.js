@@ -1,16 +1,22 @@
-import React, { useState, useRef, useCallback } from 'react';
+'use client';
+
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { ref as storageRef, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { storage, auth } from '@/lib/firebase';
 import colors from '@/app/colors';
+import '@/i18n';
+import { useTranslation } from 'react-i18next';
 
 export default function PhotoUpload({ 
   onPhotoUploaded, 
   currentPhotoUrl = null, 
   onPhotoRemoved,
   uploadPath = 'expenses',
-  maxSize = 10 * 1024 * 1024, // 10MB
+  maxSize = 10 * 1024 * 1024,
   acceptedTypes = ['image/*']
 }) {
+  const { t } = useTranslation('components');
+
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadError, setUploadError] = useState('');
@@ -22,52 +28,76 @@ export default function PhotoUpload({
   const [cameraLoading, setCameraLoading] = useState(false);
   const [hasMultipleCameras, setHasMultipleCameras] = useState(false);
   const [cameraReady, setCameraReady] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState(null);
+
   const fileInputRef = useRef(null);
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
+  const cameraTimeoutRef = useRef(null);
 
-  // Check for multiple cameras on component mount
-  React.useEffect(() => {
-    const checkCameras = async () => {
-      try {
-        if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
-          const devices = await navigator.mediaDevices.enumerateDevices();
-          const videoDevices = devices.filter(device => device.kind === 'videoinput');
-          setHasMultipleCameras(videoDevices.length > 1);
-        }
-      } catch {
-        setHasMultipleCameras(false);
+  const checkCameras = useCallback(async () => {
+    try {
+      if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videoDevices = devices.filter(device => device.kind === 'videoinput');
+        setHasMultipleCameras(videoDevices.length > 1);
       }
-    };
-    checkCameras();
+    } catch {
+      setHasMultipleCameras(false);
+    }
   }, []);
 
-  // Reset component state when currentPhotoUrl changes (e.g., after form reset)
-  React.useEffect(() => {
+  useEffect(() => {
+    checkCameras();
+  }, [checkCameras]);
+
+  useEffect(() => {
     setPhotoUrl(currentPhotoUrl);
-    if (!currentPhotoUrl && !showCamera) {
-      // Only reset states when photo is removed AND camera is not active
+    if (!currentPhotoUrl) {
       setUploadError('');
       setUploadProgress(0);
-      // Don't stop camera if it's currently active
     }
-  }, [currentPhotoUrl, showCamera]);
+  }, [currentPhotoUrl]);
+
+  // Revoke previous object URL when previewUrl changes or on unmount
+  useEffect(() => {
+    return () => {
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+      }
+    };
+  }, [previewUrl]);
+
+  // Cleanup camera timeout and stream on unmount
+  useEffect(() => {
+    return () => {
+      if (cameraTimeoutRef.current) {
+        clearTimeout(cameraTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (cameraStream) {
+        cameraStream.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, [cameraStream]);
 
   const triggerFilePicker = () => {
     fileInputRef.current?.click();
   };
 
-  const startCamera = async () => {
+  const startCamera = async (facingFront = useFrontCamera) => {
     try {
       setCameraLoading(true);
       setUploadError('');
       
-      // Check if camera is supported
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        throw new Error('Camera not supported on this device');
+        throw new Error('CAMERA_NOT_SUPPORTED');
       }
       
-      // Stop existing stream if any
       if (cameraStream) {
         cameraStream.getTracks().forEach(track => track.stop());
         setCameraStream(null);
@@ -75,16 +105,23 @@ export default function PhotoUpload({
 
       const constraints = {
         video: {
-          facingMode: useFrontCamera ? 'user' : 'environment'
+          facingMode: facingFront ? 'user' : 'environment'
         }
       };
       
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
       
+      // Re-check cameras now that permission is granted (browsers hide devices until then)
+      checkCameras();
+
       setCameraStream(stream);
       setShowCamera(true);
+
+      if (cameraTimeoutRef.current) {
+        clearTimeout(cameraTimeoutRef.current);
+      }
       
-      setTimeout(() => {
+      cameraTimeoutRef.current = setTimeout(() => {
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
           
@@ -109,22 +146,22 @@ export default function PhotoUpload({
     } catch (error) {
       setCameraLoading(false);
       if (error.name === 'NotAllowedError') {
-        setUploadError('Camera access denied. Please allow camera permissions.');
+        setUploadError(t('photo_upload.camera_access_denied'));
       } else if (error.name === 'NotFoundError') {
-        setUploadError('No camera found on this device.');
-      } else if (error.message === 'Camera not supported on this device') {
-        setUploadError('Camera not supported on this device.');
+        setUploadError(t('photo_upload.no_camera_found'));
+      } else if (error.message === 'CAMERA_NOT_SUPPORTED') {
+        setUploadError(t('photo_upload.camera_not_supported'));
       } else {
-        setUploadError(`Camera error: ${error.message}`);
+        setUploadError(t('photo_upload.camera_error', { message: error.message }));
       }
     }
   };
 
   const flipCamera = async () => {
-    setUseFrontCamera(!useFrontCamera);
-    // Restart camera with new facing mode
+    const newVal = !useFrontCamera;
+    setUseFrontCamera(newVal);
     if (showCamera) {
-      await startCamera();
+      await startCamera(newVal);
     }
   };
 
@@ -135,13 +172,17 @@ export default function PhotoUpload({
     }
     setShowCamera(false);
     setCapturedImage(null);
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+      setPreviewUrl(null);
+    }
     setCameraLoading(false);
     setCameraReady(false);
-  }, [cameraStream]);
+  }, [cameraStream, previewUrl]);
 
   const capturePhoto = () => {
     if (!videoRef.current || !canvasRef.current) {
-      setUploadError('Camera not ready');
+      setUploadError(t('photo_upload.camera_not_ready'));
       return;
     }
 
@@ -149,29 +190,26 @@ export default function PhotoUpload({
     const canvas = canvasRef.current;
     const context = canvas.getContext('2d');
 
-    // Check if video is ready
     if (video.videoWidth === 0 || video.videoHeight === 0) {
-      setUploadError('Camera not ready yet. Please wait a moment and try again.');
+      setUploadError(t('photo_upload.camera_not_ready'));
       return;
     }
 
-    // Set canvas dimensions to match video
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
-
-    // Draw the current video frame to canvas
     context.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-    // Convert canvas to blob
     canvas.toBlob((blob) => {
       if (blob) {
-        // Convert blob to file
         const file = new File([blob], `camera_photo_${Date.now()}.jpg`, { type: 'image/jpeg' });
         
-        // Set the captured image as a file
         setCapturedImage(file);
         
-        // Then close camera
+        if (previewUrl) {
+          URL.revokeObjectURL(previewUrl);
+        }
+        setPreviewUrl(URL.createObjectURL(file));
+        
         if (cameraStream) {
           cameraStream.getTracks().forEach(track => track.stop());
           setCameraStream(null);
@@ -179,13 +217,16 @@ export default function PhotoUpload({
         setShowCamera(false);
         setCameraLoading(false);
         setCameraReady(false);
-        
-        // Automatically upload the photo as a file
-        handleFileUpload(file);
       } else {
-        setUploadError('Failed to capture photo. Please try again.');
+        setUploadError(t('photo_upload.capture_failed'));
       }
     }, 'image/jpeg', 0.8);
+  };
+
+  const confirmCapturedPhoto = () => {
+    if (capturedImage) {
+      handleFileUpload(capturedImage);
+    }
   };
 
   const handleFileUpload = async (file) => {
@@ -194,10 +235,9 @@ export default function PhotoUpload({
       setUploading(true);
       setUploadProgress(0);
 
-      // Create unique path for the photo
       const user = auth.currentUser;
       if (!user) {
-        setUploadError('You must be logged in to upload photos');
+        setUploadError(t('photo_upload.login_required'));
         return;
       }
       
@@ -206,7 +246,6 @@ export default function PhotoUpload({
       const path = `${uploadPath}/${user.uid}/${fileName}`;
       const ref = storageRef(storage, path);
 
-      // Upload the file
       const task = uploadBytesResumable(ref, file, { contentType: file.type || 'image/jpeg' });
 
       await new Promise((resolve, reject) => {
@@ -217,21 +256,23 @@ export default function PhotoUpload({
         }, reject, resolve);
       });
 
-      // Get download URL
       const downloadURL = await getDownloadURL(task.snapshot.ref);
       
       setPhotoUrl(downloadURL);
       setUploadProgress(0);
       setCapturedImage(null);
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+        setPreviewUrl(null);
+      }
       
-      // Call the callback with the new photo URL
       if (onPhotoUploaded) {
         onPhotoUploaded(downloadURL, path);
       }
 
     } catch (error) {
       console.error('Photo upload failed:', error);
-      setUploadError(error?.message ? `Failed to upload photo: ${error.message}` : 'Failed to upload photo. Please try again.');
+      setUploadError(t('photo_upload.upload_failed'));
     } finally {
       setUploading(false);
     }
@@ -239,70 +280,29 @@ export default function PhotoUpload({
 
   const retakePhoto = () => {
     setCapturedImage(null);
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+      setPreviewUrl(null);
+    }
     startCamera();
   };
 
   const handleFileSelected = async (event) => {
-    try {
-      setUploadError('');
-      const file = event.target.files?.[0];
-      if (!file) return;
+    setUploadError('');
+    const file = event.target.files?.[0];
+    if (!file) return;
 
-      // Validate file type
-      if (!file.type.startsWith('image/')) {
-        setUploadError('Please select an image file');
-        return;
-      }
-
-      // Validate file size
-      if (file.size > maxSize) {
-        setUploadError(`File too large (max ${Math.round(maxSize / 1024 / 1024)}MB)`);
-        return;
-      }
-
-      setUploading(true);
-      setUploadProgress(0);
-
-      // Create unique path for the photo
-      const user = auth.currentUser;
-      if (!user) {
-        setUploadError('You must be logged in to upload photos');
-        return;
-      }
-      
-      const timestamp = Date.now();
-      const fileName = `${timestamp}_${file.name}`;
-      const path = `${uploadPath}/${user.uid}/${fileName}`;
-      const ref = storageRef(storage, path);
-
-      // Upload the file
-      const task = uploadBytesResumable(ref, file, { contentType: file.type });
-
-      await new Promise((resolve, reject) => {
-        task.on('state_changed', (snap) => {
-          if (snap.totalBytes > 0) {
-            setUploadProgress(Math.round((snap.bytesTransferred / snap.totalBytes) * 100));
-          }
-        }, reject, resolve);
-      });
-
-      // Get download URL
-      const downloadURL = await getDownloadURL(task.snapshot.ref);
-      
-      setPhotoUrl(downloadURL);
-      setUploadProgress(0);
-      
-      // Call the callback with the new photo URL
-      if (onPhotoUploaded) {
-        onPhotoUploaded(downloadURL, path);
-      }
-
-    } catch (error) {
-      console.error('Photo upload failed:', error);
-      setUploadError(error?.message ? `Failed to upload photo: ${error.message}` : 'Failed to upload photo. Please try again.');
-    } finally {
-      setUploading(false);
+    if (!file.type.startsWith('image/')) {
+      setUploadError(t('photo_upload.select_image_file'));
+      return;
     }
+
+    if (file.size > maxSize) {
+      setUploadError(t('photo_upload.file_too_large', { max: Math.round(maxSize / 1024 / 1024) }));
+      return;
+    }
+
+    handleFileUpload(file);
   };
 
   const removePhoto = () => {
@@ -318,18 +318,8 @@ export default function PhotoUpload({
     }
   };
 
-  // Cleanup camera on unmount
-  React.useEffect(() => {
-    return () => {
-      if (cameraStream) {
-        cameraStream.getTracks().forEach(track => track.stop());
-      }
-    };
-  }, [cameraStream]);
-
   return (
     <div className="space-y-3">
-      {/* Hidden file input */}
       <input
         ref={fileInputRef}
         type="file"
@@ -339,31 +329,29 @@ export default function PhotoUpload({
         onClick={clearFileInput}
       />
 
-      {/* Hidden canvas for photo capture */}
       <canvas
         ref={canvasRef}
         className="hidden"
       />
 
-      {/* Current photo display */}
       {photoUrl && (
         <div className="relative">
           <img
             src={photoUrl}
-            alt="Receipt"
+            alt=""
             className="w-full h-48 object-cover rounded-lg border"
           />
           <button
             onClick={removePhoto}
-            className="absolute top-2 right-2 bg-red-500 text-white rounded-full w-8 h-8 flex items-center justify-center hover:bg-red-600 transition-colors"
-            title="Remove photo"
+            className="absolute top-2 right-2 text-white rounded-full w-8 h-8 flex items-center justify-center transition-colors"
+            style={{ backgroundColor: colors.red }}
+            title={t('photo_upload.remove_photo')}
           >
             ✕
           </button>
         </div>
       )}
 
-      {/* Camera view */}
       {showCamera && (
         <div className="relative bg-black rounded-lg overflow-hidden">
           <video
@@ -375,45 +363,50 @@ export default function PhotoUpload({
             className="w-full h-64 object-cover"
             style={{ backgroundColor: 'black' }}
             onCanPlay={() => setCameraLoading(false)}
-            onError={() => setUploadError('Video error occurred. Please try again.')}
+            onError={() => setUploadError(t('photo_upload.camera_error', { message: 'video' }))}
           />
           
           {cameraLoading && (
             <div className="absolute inset-0 flex items-center justify-center bg-black/50">
               <div className="text-white text-center">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-2"></div>
-                <p>Starting camera...</p>
+                <p>{t('photo_upload.starting_camera')}</p>
               </div>
             </div>
           )}
           
           <div className="absolute bottom-0 left-0 right-0 bg-black/50 p-4">
-            <div className="flex justify-center gap-3">
+            <div className="flex items-center justify-between px-6">
+              <button
+                onClick={flipCamera}
+                className="rounded-full w-11 h-11 flex items-center justify-center backdrop-blur-sm transition-colors"
+                style={{ backgroundColor: 'rgba(255,255,255,0.2)' }}
+                title={t('photo_upload.flip_camera')}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
+                  <path d="M11 19H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h5" />
+                  <path d="M13 5h7a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-5" />
+                  <circle cx="10" cy="12" r="1" />
+                  <path d="m18 8-2 2h4l-2-2Z" />
+                  <path d="m6 16 2-2H4l2 2Z" />
+                </svg>
+              </button>
               <button
                 onClick={capturePhoto}
                 disabled={!cameraReady}
-                className={`rounded-full w-16 h-16 flex items-center justify-center text-2xl transition-colors ${
+                className={`rounded-full w-16 h-16 flex items-center justify-center transition-colors border-4 ${
                   cameraReady 
-                    ? 'bg-white text-black hover:bg-gray-200' 
-                    : 'bg-gray-400 text-gray-600 cursor-not-allowed'
+                    ? 'bg-white border-white/50 hover:bg-gray-100' 
+                    : 'bg-gray-400 border-gray-500 cursor-not-allowed'
                 }`}
-                title={cameraReady ? "Take photo" : "Camera not ready yet"}
+                title={cameraReady ? t('photo_upload.take_photo') : t('photo_upload.camera_not_ready')}
               >
-                📸
+                <div className={`rounded-full w-12 h-12 ${cameraReady ? 'bg-white' : 'bg-gray-400'}`} />
               </button>
-              {hasMultipleCameras && (
-                <button
-                  onClick={flipCamera}
-                  className="bg-gray-500 text-white rounded-full w-12 h-12 flex items-center justify-center text-xl hover:bg-gray-600 transition-colors"
-                  title="Flip camera"
-                >
-                  {useFrontCamera ? '👤' : '👥'}
-                </button>
-              )}
               <button
                 onClick={stopCamera}
-                className="bg-red-500 text-white rounded-full w-12 h-12 flex items-center justify-center text-xl hover:bg-red-600 transition-colors"
-                title="Cancel"
+                className="rounded-full w-11 h-11 flex items-center justify-center text-white text-lg backdrop-blur-sm transition-colors"
+                style={{ backgroundColor: 'rgba(255,255,255,0.2)' }}
               >
                 ✕
               </button>
@@ -422,75 +415,84 @@ export default function PhotoUpload({
         </div>
       )}
 
-      {/* Captured image preview */}
       {capturedImage && !showCamera && (
         <div className="relative">
           <img
-            src={URL.createObjectURL(capturedImage)}
-            alt="Captured photo"
+            src={previewUrl}
+            alt=""
             className="w-full h-48 object-cover rounded-lg border"
           />
           <div className="absolute bottom-2 left-2 right-2 flex gap-2">
             <button
               onClick={retakePhoto}
-              className="bg-gray-500 text-white py-2 px-4 rounded-lg font-semibold hover:bg-gray-600 transition-colors"
+              disabled={uploading}
+              className="bg-gray-500 text-white py-2 px-4 rounded-lg font-semibold hover:bg-gray-600 transition-colors disabled:opacity-50"
             >
-              Retake
+              {t('photo_upload.retake')}
+            </button>
+            <button
+              onClick={confirmCapturedPhoto}
+              disabled={uploading}
+              className="py-2 px-4 rounded-lg font-semibold text-white transition-colors disabled:opacity-50"
+              style={{ backgroundColor: colors.green }}
+            >
+              {t('photo_upload.use_photo')}
             </button>
           </div>
         </div>
       )}
 
-      {/* Upload buttons - only show when no photo and no camera active */}
       {!photoUrl && !showCamera && !capturedImage && (
         <div className="grid grid-cols-2 gap-3">
           <button
             onClick={startCamera}
             disabled={uploading || cameraLoading}
-            className="px-4 py-3 rounded-xl border-2 border-dashed border-blue-300 hover:border-blue-400 transition-colors flex items-center justify-center gap-2 text-blue-600 hover:text-blue-700 bg-blue-50 disabled:opacity-50"
+            className="px-4 py-3 rounded-xl border-2 border-dashed transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+            style={{ 
+              borderColor: colors.gold, 
+              color: colors.gold, 
+              backgroundColor: `${colors.gold}10`
+            }}
           >
             <span className="text-2xl">{cameraLoading ? '⏳' : '📱'}</span>
-            <span className="text-sm">{cameraLoading ? 'Starting...' : 'Take Photo'}</span>
+            <span className="text-sm">{cameraLoading ? t('photo_upload.starting_camera') : t('photo_upload.take_photo')}</span>
           </button>
           <button
             onClick={triggerFilePicker}
             disabled={uploading}
-            className="px-4 py-3 rounded-xl border-2 border-dashed border-gray-300 hover:border-gray-400 transition-colors flex items-center justify-center gap-2 text-gray-600 hover:text-gray-700"
+            className="px-4 py-3 rounded-xl border-2 border-dashed transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+            style={{ borderColor: colors.gray400, color: colors.muted }}
           >
             <span className="text-2xl">📁</span>
-            <span className="text-sm">Upload</span>
+            <span className="text-sm">{t('photo_upload.choose_from_gallery')}</span>
           </button>
-          
         </div>
       )}
 
-      {/* Upload progress */}
       {uploading && (
         <div className="w-full">
-          <div className="flex items-center justify-between text-sm text-gray-600 mb-1">
-            <span>Uploading...</span>
+          <div className="flex items-center justify-between text-sm mb-1" style={{ color: colors.muted }}>
+            <span>{t('photo_upload.uploading')}</span>
             <span>{uploadProgress}%</span>
           </div>
           <div className="w-full bg-gray-200 rounded-full h-2">
             <div
-              className="bg-blue-500 h-2 rounded-full transition-all duration-300"
-              style={{ width: `${uploadProgress}%` }}
+              className="h-2 rounded-full transition-all duration-300"
+              style={{ width: `${uploadProgress}%`, backgroundColor: colors.gold }}
             />
           </div>
         </div>
       )}
 
-      {/* Error message */}
       {uploadError && (
-        <div className="text-red-600 text-sm bg-red-50 p-2 rounded">
+        <div className="text-sm p-2 rounded" style={{ color: colors.red, backgroundColor: `${colors.red}10` }}>
           {uploadError}
         </div>
       )}
 
-      {/* Upload instructions */}
       {!photoUrl && !showCamera && !capturedImage && !uploading && (
-        <p className="text-xs text-gray-500 text-center">
-          Take a photo with your camera or upload an existing image • Max size: {Math.round(maxSize / 1024 / 1024)}MB
+        <p className="text-xs text-center" style={{ color: colors.muted }}>
+          {t('photo_upload.upload_instructions', { max: Math.round(maxSize / 1024 / 1024) })}
         </p>
       )}
     </div>

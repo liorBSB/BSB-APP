@@ -5,7 +5,7 @@ import i18n from '@/i18n';
 import { useTranslation } from 'react-i18next';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import Image from 'next/image';
+/* eslint-disable @next/next/no-img-element */
 import { signInWithPopup, onAuthStateChanged } from 'firebase/auth';
 import { auth, googleProvider } from '../lib/firebase';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
@@ -87,7 +87,7 @@ export default function AuthPage() {
           phone-lg:bg-white phone-lg:rounded-[2.5rem] phone-lg:shadow-lg phone-lg:p-[3.5rem_2.2rem]"
       >
         <div style={{ textAlign: 'center', marginBottom: '4rem' }}>
-          <Image
+          <img
             src="/House_Logo.jpg"
             alt="House Logo"
             width={220}
@@ -180,7 +180,7 @@ export default function AuthPage() {
             </>
           ) : (
             <>
-              <Image
+              <img
                 src="/google-logo.png"
                 alt="Google"
                 width={20}

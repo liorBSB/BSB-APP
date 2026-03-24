@@ -134,6 +134,9 @@ export default function ProfileSetup() {
         ...(normalizedIdNumber ? { idNumber: normalizedIdNumber } : {}),
       };
 
+      const roomNumber = selectedSoldierNormalized.roomNumber || '';
+      const statusPromise = fetchStatusFromSheet(roomNumber);
+
       if (normalizedIdNumber) {
         try {
           const res = await authedFetch('/api/soldiers/check-id', {
@@ -161,8 +164,7 @@ export default function ProfileSetup() {
         }
       }
 
-      const roomNumber = selectedSoldierNormalized.roomNumber || '';
-      const currentStatus = await fetchStatusFromSheet(roomNumber);
+      const currentStatus = await statusPromise;
 
       const userData = {
         uid,
@@ -212,7 +214,11 @@ export default function ProfileSetup() {
     );
   }
 
-  if (!isReady) return null;
+  if (!isReady) return (
+    <main className="min-h-screen flex items-center justify-center font-body bg-gradient-to-br from-blue-200/60 to-green-100/60">
+      <HouseLoader size={100} />
+    </main>
+  );
 
   return (
     <main className="min-h-screen flex items-center justify-center font-body px-4 pb-8 bg-gradient-to-br from-blue-200/60 to-green-100/60">
