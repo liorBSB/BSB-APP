@@ -506,20 +506,20 @@ export default function SettingsPage() {
                   </div>
                 )}
                 
-                {!personalIdData.profilePhotoUrl && (
-                  <div className="mt-3 text-center">
-                    <button
-                      onClick={() => setShowPhotoUpload(true)}
-                      className="px-4 py-2 rounded-lg font-semibold text-white text-sm transition-all hover:scale-105"
-                      style={{ background: colors.gold, boxShadow: '0 4px 12px rgba(237, 195, 129, 0.3)' }}
-                    >
-{t('add_photo')}
-                    </button>
+                <div className="mt-3 text-center">
+                  <button
+                    onClick={() => setShowPhotoUpload(true)}
+                    className="px-4 py-2 rounded-lg font-semibold text-white text-sm transition-all hover:scale-105"
+                    style={{ background: colors.gold, boxShadow: '0 4px 12px rgba(237, 195, 129, 0.3)' }}
+                  >
+                    {personalIdData.profilePhotoUrl ? t('retake_photo') : t('add_photo')}
+                  </button>
+                  {!personalIdData.profilePhotoUrl && (
                     <p className="mt-2 text-xs text-gray-500">
                       {t('no_profile_photo_helper_text')}
                     </p>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
               
               {/* All Fields - Stacked Vertically */}

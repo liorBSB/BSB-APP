@@ -93,6 +93,7 @@ export default function AdminExpensesPage() {
   const [approvingRefundId, setApprovingRefundId] = useState(null);
   const [approvingRefundData, setApprovingRefundData] = useState(null);
   const [receiptPhoto, setReceiptPhoto] = useState(null);
+  const [editRefundStatus, setEditRefundStatus] = useState('approved');
 
   // Export modal state
   const [exportModalOpen, setExportModalOpen] = useState(false);
@@ -485,7 +486,7 @@ export default function AdminExpensesPage() {
     if (request) {
       setApprovingRefundId(requestId);
       setApprovingRefundData(request);
-      // Initialize receipt photo if one exists
+      setEditRefundStatus(request.status === 'denied' ? 'denied' : 'approved');
       if (request.receiptPhotoUrl) {
         setReceiptPhoto({ url: request.receiptPhotoUrl, path: request.photoPath || '' });
       } else {
@@ -1015,46 +1016,41 @@ export default function AdminExpensesPage() {
                 .filter(request => request.status === 'waiting')
                 .slice(0, 3)
                 .map(request => (
-                  <div key={request.id} className="bg-white/10 rounded-lg p-4 border border-white/20">
+                  <div key={request.id} className="bg-blue-50 rounded-xl shadow-md p-6">
                     <div className="flex flex-col gap-3">
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
-                          <h5 className="text-white font-bold text-xl mb-2">{request.title}</h5>
-                          <p className="text-white/90 text-lg font-semibold mb-1">Amount: ₪{request.amount}</p>
-                          <p className="text-white/80 text-base font-medium mb-1">Method: {request.repaymentMethod}</p>
-                          <p className="text-white/80 text-base font-medium mb-1">From: {request.ownerName} (Room {request.ownerRoomNumber})</p>
-                          <p className="text-white/70 text-base">Date: {request.expenseDate?.toDate?.()?.toLocaleDateString?.() || 'No date'}</p>
+                          <h5 className="font-bold text-xl mb-2" style={{ color: colors.primaryGreen }}>{request.title}</h5>
+                          <p className="text-gray-700 text-lg font-semibold mb-1">Amount: ₪{request.amount}</p>
+                          <p className="text-gray-600 text-base font-medium mb-1">Method: {request.repaymentMethod}</p>
+                          <p className="text-gray-600 text-base font-medium mb-1">From: {request.ownerName} (Room {request.ownerRoomNumber})</p>
+                          <p className="text-gray-500 text-base">Date: {request.expenseDate?.toDate?.()?.toLocaleDateString?.() || 'No date'}</p>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <span className="px-3 py-1 rounded-full text-sm font-bold bg-yellow-500 text-white">
-                            Waiting
-                          </span>
-                        </div>
+                        <span className="px-3 py-1 rounded-full text-sm font-bold flex-shrink-0" style={{ background: colors.gold, color: 'white' }}>
+                          Waiting
+                        </span>
                       </div>
                       
-                      {/* Action buttons for waiting requests */}
-                      <div className="flex gap-3 mt-3">
+                      <div className="flex gap-3 mt-1">
                         <button
                           onClick={() => handleApproveRefund(request.id)}
-                          className="flex-1 px-4 py-3 rounded-lg font-bold text-lg border-2"
+                          className="flex-1 px-4 py-3 rounded-xl font-bold text-base transition-all active:scale-95"
                           style={{ 
-                            borderColor: colors.primaryGreen, 
-                            color: colors.primaryGreen,
-                            background: 'transparent'
+                            background: colors.primaryGreen,
+                            color: 'white'
                           }}
                         >
-                          ✅ Approve
+                          Approve
                         </button>
                         <button
                           onClick={() => handleDenyRefund(request.id)}
-                          className="flex-1 px-4 py-3 rounded-lg font-bold text-lg border-2"
+                          className="flex-1 px-4 py-3 rounded-xl font-bold text-base transition-all active:scale-95"
                           style={{ 
-                            borderColor: colors.red, 
-                            color: colors.red,
-                            background: 'transparent'
+                            background: colors.red,
+                            color: 'white'
                           }}
                         >
-                          ❌ Deny
+                          Deny
                         </button>
                       </div>
                     </div>
@@ -1758,52 +1754,42 @@ export default function AdminExpensesPage() {
                   return refundSortOrder === 'latest' ? dateB - dateA : dateA - dateB;
                 })
                 .map(request => (
-                  <div key={request.id} className="border rounded-lg p-4 hover:bg-gray-50">
-                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-                                             <div className="flex-1">
-                         <h5 className="font-bold text-xl text-gray-800 mb-2">{request.title}</h5>
-                         <p className="text-gray-700 text-lg font-semibold mb-1">Amount: ₪{request.amount}</p>
-                         <p className="text-gray-600 text-base font-medium mb-1">Method: {request.repaymentMethod}</p>
-                         <p className="text-gray-600 text-base font-medium mb-1">From: {request.ownerName} (Room {request.ownerRoomNumber})</p>
-                         <p className="text-gray-500 text-base">Date: {request.expenseDate?.toDate?.()?.toLocaleDateString?.() || 'No date'}</p>
-                       </div>
-                      <div className="flex flex-col gap-2">
-                        <span className={`px-3 py-1 rounded-full text-xs font-semibold text-center ${
+                  <div key={request.id} className="bg-white border border-gray-200 rounded-xl shadow-sm p-5">
+                    <div className="flex flex-col gap-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1">
+                          <h5 className="font-bold text-lg mb-2" style={{ color: colors.primaryGreen }}>{request.title}</h5>
+                          <p className="text-gray-700 text-base font-semibold mb-1">Amount: ₪{request.amount}</p>
+                          <p className="text-gray-600 text-sm font-medium mb-1">Method: {request.repaymentMethod}</p>
+                          <p className="text-gray-600 text-sm font-medium mb-1">From: {request.ownerName} (Room {request.ownerRoomNumber})</p>
+                          <p className="text-gray-500 text-sm">Date: {request.expenseDate?.toDate?.()?.toLocaleDateString?.() || 'No date'}</p>
+                        </div>
+                        <span className={`px-3 py-1 rounded-full text-xs font-semibold flex-shrink-0 ${
                           request.status === 'waiting' ? 'bg-yellow-100 text-yellow-800' : 
                           request.status === 'approved' ? 'bg-green-100 text-green-800' : 
                           'bg-red-100 text-red-800'
                         }`}>
                           {request.status}
                         </span>
-                        
-                        {/* Action buttons for waiting requests */}
-                        {request.status === 'waiting' && (
-                          <div className="flex gap-2">
-                            <button
-                              onClick={() => handleApproveRefund(request.id)}
-                              className="px-3 py-1 rounded text-xs font-semibold border-2"
-                              style={{ 
-                                borderColor: colors.primaryGreen, 
-                                color: colors.primaryGreen,
-                                background: 'transparent'
-                              }}
-                            >
-                              ✅ Approve
-                            </button>
-                            <button
-                              onClick={() => handleDenyRefund(request.id)}
-                              className="px-3 py-1 rounded text-xs font-semibold border-2"
-                              style={{ 
-                                borderColor: colors.red, 
-                                color: colors.red,
-                                background: 'transparent'
-                              }}
-                            >
-                              ❌ Deny
-                            </button>
-                          </div>
-                        )}
                       </div>
+                      {request.status === 'waiting' && (
+                        <div className="flex gap-3">
+                          <button
+                            onClick={() => handleApproveRefund(request.id)}
+                            className="flex-1 px-3 py-2 rounded-lg text-sm font-semibold text-white"
+                            style={{ background: colors.primaryGreen }}
+                          >
+                            ✅ Approve
+                          </button>
+                          <button
+                            onClick={() => handleDenyRefund(request.id)}
+                            className="flex-1 px-3 py-2 rounded-lg text-sm font-semibold text-white"
+                            style={{ background: colors.red }}
+                          >
+                            ❌ Deny
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -1877,77 +1863,78 @@ export default function AdminExpensesPage() {
               <div className="mb-4">
                 <input
                   type="text"
-                  placeholder="Search by name..."
+                  placeholder="Search by name or title..."
                   value={refundSearchTerm}
                   onChange={(e) => setRefundSearchTerm(e.target.value)}
-                  className="w-full px-4 py-2 border rounded-lg"
+                  className="w-full px-4 py-3 border rounded-lg text-lg"
                 />
               </div>
               
               {/* Past refunds list */}
-              <div className="space-y-3">
+              <div className="space-y-4">
                 {refundRequests
-                  .filter(request => 
-                    request.status !== 'waiting' && 
-                    (refundSearchTerm === '' || 
-                     request.ownerName?.toLowerCase().includes(refundSearchTerm.toLowerCase()))
-                  )
+                  .filter(request => {
+                    if (request.status === 'waiting') return false;
+                    if (refundSearchTerm === '') return true;
+                    const term = refundSearchTerm.toLowerCase();
+                    return (request.ownerName || '').toLowerCase().includes(term) ||
+                           (request.title || '').toLowerCase().includes(term);
+                  })
                   .sort((a, b) => {
                     const dateA = a.createdAt?.toDate?.() || new Date(a.createdAt);
                     const dateB = b.createdAt?.toDate?.() || new Date(b.createdAt);
-                    return dateB - dateA; // Latest first
+                    return dateB - dateA;
                   })
                   .map(request => (
-                    <div key={request.id} className="border rounded-lg p-4 hover:bg-gray-50">
-                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-                                               <div className="flex-1">
-                           <h5 className="font-bold text-xl text-gray-800 mb-2">{request.title}</h5>
-                           <p className="text-gray-700 text-lg font-semibold mb-1">Amount: ₪{request.amount}</p>
-                           <p className="text-gray-600 text-base font-medium mb-1">Method: {request.repaymentMethod}</p>
-                           <p className="text-gray-600 text-base font-medium mb-1">From: {request.ownerName} (Room {request.ownerRoomNumber})</p>
-                           <p className="text-gray-500 text-base mb-1">Date: {request.expenseDate?.toDate?.()?.toLocaleDateString?.() || 'No date'}</p>
-                           {request.status === 'approved' && request.receiptPhotoUrl && (
-                             <button
-                               onClick={() => {
-                                 setSelectedPhoto({ url: request.receiptPhotoUrl, title: `Receipt for ${request.title}` });
-                                 setPhotoViewerOpen(true);
-                               }}
-                               className="text-blue-600 hover:text-blue-800 text-base font-medium underline"
-                             >
-                               📷 Show Receipt
-                             </button>
-                           )}
-                         </div>
-                        <div className="flex flex-col gap-2">
-                          <span className={`px-3 py-1 rounded-full text-xs font-semibold text-center ${
+                    <div key={request.id} className="bg-white border border-gray-200 rounded-xl shadow-sm p-5">
+                      <div className="flex flex-col gap-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex-1">
+                            <h5 className="font-extrabold text-2xl mb-3" style={{ color: colors.primaryGreen }}>{request.title}</h5>
+                            <p className="text-gray-700 text-xl font-semibold mb-2">Amount: ₪{request.amount}</p>
+                            <p className="text-gray-600 text-lg font-medium mb-1">Method: {request.repaymentMethod}</p>
+                            <p className="text-gray-600 text-lg font-medium mb-1">From: {request.ownerName} (Room {request.ownerRoomNumber})</p>
+                            <p className="text-gray-500 text-lg mb-1">Date: {request.expenseDate?.toDate?.()?.toLocaleDateString?.() || 'No date'}</p>
+                            {request.status === 'approved' && request.receiptPhotoUrl && (
+                              <button
+                                onClick={() => {
+                                  setSelectedPhoto({ url: request.receiptPhotoUrl, title: `Receipt for ${request.title}` });
+                                  setPhotoViewerOpen(true);
+                                }}
+                                className="text-lg font-semibold underline mt-2"
+                                style={{ color: colors.primaryGreen }}
+                              >
+                                📷 Show Receipt
+                              </button>
+                            )}
+                          </div>
+                          <span className={`px-3 py-1.5 rounded-full text-sm font-bold flex-shrink-0 ${
                             request.status === 'approved' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                           }`}>
                             {request.status}
                           </span>
-                          
-                          {/* Edit button for past requests */}
-                          <button
-                            onClick={() => {
-                              setApprovingRefundId(request.id);
-                              setApprovingRefundData(request);
-                              // Initialize receipt photo if one exists
-                              if (request.receiptPhotoUrl) {
-                                setReceiptPhoto({ url: request.receiptPhotoUrl, path: request.photoPath || '' });
-                              } else {
-                                setReceiptPhoto(null);
-                              }
-                              setApproveModalOpen(true);
-                            }}
-                            className="px-3 py-1 rounded text-xs font-semibold border-2"
-                            style={{ 
-                              borderColor: colors.gold, 
-                              color: colors.gold,
-                              background: 'transparent'
-                            }}
-                          >
-                            ✏️ Edit
-                          </button>
                         </div>
+                        <button
+                          onClick={() => {
+                            setApprovingRefundId(request.id);
+                            setApprovingRefundData(request);
+                            setEditRefundStatus(request.status === 'denied' ? 'denied' : 'approved');
+                            if (request.receiptPhotoUrl) {
+                              setReceiptPhoto({ url: request.receiptPhotoUrl, path: request.photoPath || '' });
+                            } else {
+                              setReceiptPhoto(null);
+                            }
+                            setApproveModalOpen(true);
+                          }}
+                          className="w-full px-4 py-3 rounded-xl text-lg font-bold border-2 transition-colors"
+                          style={{ 
+                            borderColor: colors.gold, 
+                            color: colors.gold,
+                            background: 'transparent'
+                          }}
+                        >
+                          ✏️ Edit
+                        </button>
                       </div>
                     </div>
                   ))}
@@ -1970,34 +1957,56 @@ export default function AdminExpensesPage() {
       {/* Approve Refund Modal */}
       {approveModalOpen && approvingRefundData && (
         <div className="fixed inset-0 z-[60] bg-black/50 flex items-center justify-center p-2 sm:p-4">
-          <div className="bg-white rounded-2xl w-full h-full sm:h-auto sm:max-w-md mx-0 sm:mx-4 p-3 sm:p-5 max-h-[90vh] flex flex-col">
-            <div className="flex items-center justify-between mb-4 border-b pb-3 border-gray-200">
-              <h3 className="text-xl sm:text-2xl font-bold text-gray-800">
-                {approvingRefundData.status === 'waiting' ? 'Approve Refund Request' : 'Edit Refund Request'}
-              </h3>
+          <div className="bg-white rounded-2xl w-full h-full sm:h-auto sm:max-w-md mx-0 sm:mx-4 p-4 sm:p-6 max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between mb-5 border-b pb-4 border-gray-200">
+              <h3 className="text-2xl font-bold text-gray-800">Edit Refund Request</h3>
               <button onClick={() => {
                 setApproveModalOpen(false);
                 setReceiptPhoto(null);
               }} className="text-gray-600 hover:text-gray-800 text-2xl transition-colors">✕</button>
             </div>
             
-            <div className="flex-1 space-y-4">
-              <div className="bg-gray-50 rounded-lg p-4">
-                <h4 className="font-semibold text-lg mb-2 text-gray-800">{approvingRefundData.title}</h4>
-                <p className="text-gray-700 text-base mb-1">Amount: ₪{approvingRefundData.amount}</p>
-                <p className="text-gray-600 text-base mb-1">From: {approvingRefundData.ownerName} (Room {approvingRefundData.ownerRoomNumber})</p>
-                {approvingRefundData.status !== 'waiting' && (
-                  <p className="text-gray-600 text-base">Current Status: {approvingRefundData.status}</p>
-                )}
+            <div className="flex-1 overflow-y-auto space-y-5">
+              <div className="bg-gray-50 rounded-xl p-5">
+                <h4 className="font-bold text-2xl mb-3" style={{ color: colors.primaryGreen }}>{approvingRefundData.title}</h4>
+                <p className="text-gray-700 text-xl font-semibold mb-2">Amount: ₪{approvingRefundData.amount}</p>
+                <p className="text-gray-600 text-lg font-medium mb-2">From: {approvingRefundData.ownerName} (Room {approvingRefundData.ownerRoomNumber})</p>
+                <p className="text-gray-500 text-lg">Date: {approvingRefundData.expenseDate?.toDate?.()?.toLocaleDateString?.() || 'No date'}</p>
+              </div>
+
+              {/* Status Toggle */}
+              <div>
+                <label className="block text-lg font-bold mb-3 text-gray-800">Status</label>
+                <div className="flex rounded-xl overflow-hidden border-2 border-gray-200">
+                  <button
+                    onClick={() => setEditRefundStatus('approved')}
+                    className="flex-1 py-3 text-lg font-bold transition-colors"
+                    style={{
+                      background: editRefundStatus === 'approved' ? colors.primaryGreen : 'transparent',
+                      color: editRefundStatus === 'approved' ? 'white' : colors.primaryGreen
+                    }}
+                  >
+                    Approved
+                  </button>
+                  <button
+                    onClick={() => setEditRefundStatus('denied')}
+                    className="flex-1 py-3 text-lg font-bold transition-colors"
+                    style={{
+                      background: editRefundStatus === 'denied' ? colors.red : 'transparent',
+                      color: editRefundStatus === 'denied' ? 'white' : colors.red
+                    }}
+                  >
+                    Denied
+                  </button>
+                </div>
               </div>
               
               <div>
-                <label className="block text-sm font-medium mb-2 text-gray-700">Receipt Photo</label>
+                <label className="block text-lg font-bold mb-3 text-gray-800">Receipt Photo</label>
                 
-                {/* Show existing receipt if available */}
                 {approvingRefundData.receiptPhotoUrl && !receiptPhoto && (
                   <div className="mb-4">
-                    <p className="text-sm text-gray-600 mb-2">Current receipt:</p>
+                    <p className="text-base text-gray-600 mb-2">Current receipt:</p>
                     <div className="relative">
                       <img
                         src={approvingRefundData.receiptPhotoUrl}
@@ -2008,7 +2017,8 @@ export default function AdminExpensesPage() {
                         onClick={() => {
                           setReceiptPhoto({ url: approvingRefundData.receiptPhotoUrl, path: approvingRefundData.photoPath || '' });
                         }}
-                        className="absolute top-2 right-2 bg-blue-500 text-white rounded-full w-8 h-8 flex items-center justify-center hover:bg-blue-600 transition-colors"
+                        className="absolute top-2 right-2 text-white rounded-full w-8 h-8 flex items-center justify-center transition-colors"
+                        style={{ background: colors.primaryGreen }}
                         title="Use this receipt"
                       >
                         ✓
@@ -2019,7 +2029,6 @@ export default function AdminExpensesPage() {
                 
                 <PhotoUpload
                   onPhotoUploaded={(photoUrl, photoPath) => {
-                    // Store the photo URL for the receipt
                     setReceiptPhoto({ url: photoUrl, path: photoPath });
                   }}
                   onPhotoRemoved={() => {
@@ -2031,46 +2040,34 @@ export default function AdminExpensesPage() {
               </div>
             </div>
             
-            <div className="flex gap-3 pt-4 border-t border-gray-200">
-              {approvingRefundData.status === 'waiting' ? (
-                // For waiting requests: Approve or Deny
-                <>
-                  <button
-                    onClick={() => confirmApproveRefund(receiptPhoto?.url || '')}
-                    disabled={!receiptPhoto?.url}
-                    className="flex-1 px-4 sm:px-6 py-3 rounded-lg font-semibold text-white text-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                    style={{ background: colors.primaryGreen }}
-                  >
-                    Save & Approve
-                  </button>
-                  <button
-                    onClick={() => confirmApproveRefund('')}
-                    className="flex-1 px-4 sm:px-6 py-3 rounded-lg font-semibold text-white text-lg"
-                    style={{ background: colors.gold }}
-                  >
-                    Go Without Receipt
-                  </button>
-                </>
-              ) : (
-                // For past requests: Change status options
-                <>
-                  <button
-                    onClick={() => handleStatusChange('approved', receiptPhoto?.url || '')}
-                    disabled={!receiptPhoto?.url}
-                    className="flex-1 px-4 sm:px-6 py-3 rounded-lg font-semibold text-white text-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                    style={{ background: colors.primaryGreen }}
-                  >
-                    Approve Request
-                  </button>
-                  <button
-                    onClick={() => handleStatusChange('denied', '')}
-                    className="flex-1 px-4 sm:px-6 py-3 rounded-lg font-semibold text-white text-lg"
-                    style={{ background: colors.red }}
-                  >
-                    Deny Request
-                  </button>
-                </>
-              )}
+            <div className="flex gap-3 pt-5 border-t border-gray-200 mt-4">
+              <button
+                onClick={() => {
+                  if (approvingRefundData.status === 'waiting') {
+                    if (editRefundStatus === 'approved') {
+                      confirmApproveRefund(receiptPhoto?.url || '');
+                    } else {
+                      handleStatusChange('denied', '');
+                    }
+                  } else {
+                    handleStatusChange(editRefundStatus, receiptPhoto?.url || '');
+                  }
+                }}
+                className="flex-1 px-6 py-4 rounded-xl font-bold text-white text-xl"
+                style={{ background: colors.primaryGreen }}
+              >
+                Save Changes
+              </button>
+              <button
+                onClick={() => {
+                  setApproveModalOpen(false);
+                  setReceiptPhoto(null);
+                }}
+                className="flex-1 px-6 py-4 rounded-xl font-bold text-xl border-2"
+                style={{ borderColor: colors.gray400, color: colors.muted }}
+              >
+                Cancel
+              </button>
             </div>
           </div>
         </div>

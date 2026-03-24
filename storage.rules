@@ -66,6 +66,17 @@ service firebase.storage {
       allow delete: if isSignedIn() && (request.auth.uid == userId || isAdmin(request.auth.uid));
     }
 
+    // Feedback screenshots uploaded by users
+    // Path: feedback/{ownerUid}/{fileId}
+    match /feedback/{ownerUid}/{fileId} {
+      allow read: if isSignedIn() && (request.auth.uid == ownerUid || isAdmin(request.auth.uid));
+      allow write: if isSignedIn()
+                  && request.auth.uid == ownerUid
+                  && request.resource.size < 10 * 1024 * 1024
+                  && request.resource.contentType.matches('image/.*');
+      allow delete: if isSignedIn() && (request.auth.uid == ownerUid || isAdmin(request.auth.uid));
+    }
+
     // Admin upload path for refunds can include extra uploader segment.
     match /refunds/{userId}/{uploaderId}/{fileName} {
       allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin(request.auth.uid));

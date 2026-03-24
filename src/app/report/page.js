@@ -11,6 +11,7 @@ import { addDoc, collection, doc, getDoc, serverTimestamp } from 'firebase/fires
 import { onAuthStateChanged } from 'firebase/auth';
 import { ref as storageRef, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { authedFetch } from '@/lib/authFetch';
+import HouseLoader from '@/components/HouseLoader';
 
 const SHOW_PROBLEM_REPORT = false;
 
@@ -324,13 +325,15 @@ function ReportPageContent() {
         photoPath: refundPhotoPath || '',
       };
 
-      await addDoc(collection(db, 'refundRequests'), payload);
+      const docRef = await addDoc(collection(db, 'refundRequests'), payload);
+      console.log('Refund request saved, doc ID:', docRef.id);
       setRefundConfirmOpen(false);
       setRefundSuccess(t('request_submitted'));
       setRefundForm({ title: '', amount: '', category: 'transportation', method: 'bit', expenseDate: '' });
       setRefundPhotoUrl('');
       setRefundPhotoPath('');
     } catch (e) {
+      console.error('Refund request failed:', e);
       setRefundConfirmOpen(false);
       setRefundError('Failed to submit request');
     } finally {
@@ -552,24 +555,23 @@ function ReportPageContent() {
               onChange={handleScreenshotFiles}
               className="hidden"
             />
-            <button
-              type="button"
-              onClick={() => feedbackFileRef.current?.click()}
-              disabled={screenshotUploading}
-              className="w-full px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 text-white flex items-center justify-center gap-2"
-              style={{ background: 'rgba(255,255,255,0.1)', border: '2px solid rgba(255,255,255,0.3)' }}
-            >
-              {screenshotUploading ? (
-                <span>{t('uploading_screenshots')}</span>
-              ) : (
-                <>
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
-                  <span>{t('add_screenshots')}</span>
-                </>
-              )}
-            </button>
+            {screenshotUploading ? (
+              <div className="flex justify-center py-3">
+                <HouseLoader size={56} text={t('uploading_screenshots')} />
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => feedbackFileRef.current?.click()}
+                className="w-full px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 text-white flex items-center justify-center gap-2"
+                style={{ background: 'rgba(255,255,255,0.1)', border: '2px solid rgba(255,255,255,0.3)' }}
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                <span>{t('add_screenshots')}</span>
+              </button>
+            )}
             {feedbackScreenshots.length > 0 && (
               <div className="flex flex-wrap gap-2 mt-3">
                 {feedbackScreenshots.map((s, idx) => (

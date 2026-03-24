@@ -49,5 +49,6 @@
   "go_back_to_start": "Go Back to Start",
   "verify_and_delete": "Verify & Delete My Account",
   "verify_delete_desc": "To proceed, you will need to verify your identity via Google sign-in.",
-  "deletion_cancelled": "Verification was cancelled. You can try again when ready."
+  "deletion_cancelled": "Verification was cancelled. You can try again when ready.",
+  "retake_photo": "Retake Photo"
 } 
