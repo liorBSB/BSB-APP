@@ -18,7 +18,7 @@ import EditFieldModal from '@/components/EditFieldModal';
 import PencilIcon from '@/components/PencilIcon';
 import AddItemModal from '@/components/AddItemModal';
 import { StyledDateTimeInput } from '@/components/StyledDateInput';
-import LanguageSwitcher from '@/components/LanguageSwitcher';
+
 
 export default function AdminHomePage() {
   const router = useRouter();
@@ -252,6 +252,11 @@ export default function AdminHomePage() {
 
   const handleEditSave = async () => {
     const { type, item, form } = editModal;
+    if (form.startTime && form.endTime) {
+      const s = form.startTime.seconds ? new Date(form.startTime.seconds * 1000) : new Date(form.startTime);
+      const e = form.endTime.seconds ? new Date(form.endTime.seconds * 1000) : new Date(form.endTime);
+      if (e <= s) { alert('End time must be after start time'); return; }
+    }
     const collectionName = type === 'event' ? 'events' : type === 'survey' ? 'surveys' : 'messages';
     const updateData = { ...form };
     if (updateData.dueDate) updateData.dueDate = new Date(updateData.dueDate);
@@ -274,7 +279,6 @@ export default function AdminHomePage() {
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-blue-200/60 to-green-100/60 font-body flex flex-col items-center pt-6 pb-40 px-4">
-      <LanguageSwitcher />
       <div className="w-full max-w-md">
         {/* Header */}
         <div
@@ -385,35 +389,29 @@ export default function AdminHomePage() {
                     <div className="flex-1 pr-4">
                       <div className="font-bold text-xl text-[#076332] mb-3 leading-tight line-clamp-2">{event.title}</div>
                       {event.body && <div className="text-base font-medium text-gray-700 mb-4 leading-relaxed line-clamp-2">{event.body}</div>}
-                      {event.startTime && (
-                        <div className="text-sm font-semibold text-gray-600 mb-1">
-                          Start: {new Date(event.startTime.seconds ? event.startTime.seconds * 1000 : event.startTime).toLocaleDateString('en-US', { 
-                            weekday: 'short', 
-                            month: 'short', 
-                            day: 'numeric',
-                            hour: '2-digit', 
-                            minute: '2-digit' 
-                          })}
-                        </div>
-                      )}
-                      {event.endTime && (
-                        <div className="text-sm font-semibold text-gray-600">
-                          End: {new Date(event.endTime.seconds ? event.endTime.seconds * 1000 : event.endTime).toLocaleDateString('en-US', { 
-                            weekday: 'short', 
-                            month: 'short', 
-                            day: 'numeric',
-                            hour: '2-digit', 
-                            minute: '2-digit' 
-                          })}
-                        </div>
-                      )}
+                      {(event.startTime || event.endTime) && (() => {
+                        const fmt = (ts) => {
+                          const d = new Date(ts.seconds ? ts.seconds * 1000 : ts);
+                          const date = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+                          const time = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+                          return `${date}, ${time}`;
+                        };
+                        const s = event.startTime ? fmt(event.startTime) : null;
+                        const e = event.endTime ? fmt(event.endTime) : null;
+                        return (
+                          <div className="text-sm font-medium mt-1" style={{ color: colors.muted }}>
+                            {s}{e && ' → '}{e}
+                          </div>
+                        );
+                      })()}
                     </div>
                     <div className="flex-shrink-0 flex items-center gap-2">
                       <button 
                         onClick={() => setResponseListModal({ open: true, event })}
-                        className="px-3 py-1 rounded-lg bg-blue-500 text-white font-semibold text-xs shadow-md hover:bg-blue-600 transition-colors"
+                        className="px-3 py-1.5 rounded-xl font-semibold text-xs transition-all duration-150 active:scale-95"
+                        style={{ backgroundColor: colors.gold, color: '#fff' }}
                       >
-                        Responses
+                        {t('responses', 'Responses')}
                       </button>
                       <button onClick={() => handleEditClick('event', event)} className="p-2 rounded-full hover:bg-gray-100">
                         <PencilIcon />
@@ -516,28 +514,21 @@ export default function AdminHomePage() {
                     <div className="flex-1 pr-4">
                       <div className="font-bold text-xl text-[#076332] mb-3 leading-tight line-clamp-2">{message.title}</div>
                       {message.body && <div className="text-base font-medium text-gray-700 mb-4 leading-relaxed line-clamp-2">{message.body}</div>}
-                      {message.startTime && (
-                        <div className="text-sm font-semibold text-gray-600 mb-1">
-                          Start: {new Date(message.startTime.seconds ? message.startTime.seconds * 1000 : message.startTime).toLocaleDateString('en-US', { 
-                            weekday: 'short', 
-                            month: 'short', 
-                            day: 'numeric',
-                            hour: '2-digit', 
-                            minute: '2-digit' 
-                          })}
-                        </div>
-                      )}
-                      {message.endTime && (
-                        <div className="text-sm font-semibold text-gray-600">
-                          End: {new Date(message.endTime.seconds ? message.endTime.seconds * 1000 : message.endTime).toLocaleDateString('en-US', { 
-                            weekday: 'short', 
-                            month: 'short', 
-                            day: 'numeric',
-                            hour: '2-digit', 
-                            minute: '2-digit' 
-                          })}
-                        </div>
-                      )}
+                      {(message.startTime || message.endTime) && (() => {
+                        const fmt = (ts) => {
+                          const d = new Date(ts.seconds ? ts.seconds * 1000 : ts);
+                          const date = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+                          const time = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+                          return `${date}, ${time}`;
+                        };
+                        const s = message.startTime ? fmt(message.startTime) : null;
+                        const e = message.endTime ? fmt(message.endTime) : null;
+                        return (
+                          <div className="text-sm font-medium mt-1" style={{ color: colors.muted }}>
+                            {s}{e && ' → '}{e}
+                          </div>
+                        );
+                      })()}
                     </div>
                     <button onClick={() => handleEditClick('message', message)} className="flex-shrink-0 p-2 rounded-full hover:bg-gray-100">
                       <PencilIcon />
@@ -688,102 +679,90 @@ export default function AdminHomePage() {
       />
 
       {/* Response List Modal */}
-      {responseListModal.open && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-lg w-full max-w-lg max-h-[85vh] overflow-hidden">
-            {/* Header */}
-            <div className="px-6 py-4 border-b border-gray-200">
-              <div className="flex justify-between items-center">
-                <h2 className="text-xl font-bold text-[#076332]">Event Responses</h2>
-                <button
-                  onClick={() => setResponseListModal({ open: false, event: null })}
-                  className="text-gray-400 hover:text-gray-600 text-2xl font-bold"
-                >
-                  ×
-                </button>
+      {responseListModal.open && (() => {
+        const sections = [
+          { key: 'coming', label: t('coming', 'Coming'), data: responseListModal.event?.coming, color: colors.primaryGreen, bg: 'rgba(7,99,50,0.08)', icon: '✓' },
+          { key: 'maybe', label: t('maybe', 'Maybe'), data: responseListModal.event?.maybe, color: colors.gold, bg: 'rgba(237,195,129,0.15)', icon: '?' },
+          { key: 'notComing', label: t('not_coming', 'Not Coming'), data: responseListModal.event?.notComing, color: colors.red, bg: 'rgba(255,82,82,0.08)', icon: '✕' },
+        ];
+        return (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div
+              className="w-full max-w-lg max-h-[85vh] overflow-hidden rounded-3xl shadow-2xl"
+              style={{ backgroundColor: colors.surface }}
+            >
+
+              <div className="px-6 pt-5 pb-4">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h2 className="text-xl font-bold" style={{ color: colors.primaryGreen }}>
+                      {t('event_responses', 'Event Responses')}
+                    </h2>
+                    <h3 className="text-base font-medium mt-1" style={{ color: colors.text }}>
+                      {responseListModal.event?.title}
+                    </h3>
+                  </div>
+                  <button
+                    onClick={() => setResponseListModal({ open: false, event: null })}
+                    className="w-8 h-8 flex items-center justify-center rounded-full transition-colors"
+                    style={{ backgroundColor: colors.gray400 + '33' }}
+                  >
+                    <span className="text-gray-500 text-lg leading-none">✕</span>
+                  </button>
+                </div>
               </div>
-              <h3 className="text-lg font-semibold text-gray-800 mt-2">{responseListModal.event?.title}</h3>
-            </div>
-            
-            {/* Content */}
-            <div className="p-6 overflow-y-auto max-h-[calc(85vh-120px)]">
-              <div className="space-y-6">
-                {/* Coming List */}
-                <div>
-                  <div className="flex items-center justify-between mb-3">
-                    <h4 className="text-lg font-bold text-green-600">COMING</h4>
-                    <span className="text-sm font-bold text-gray-600">
-                      {responseListModal.event?.coming?.length || 0}
-                    </span>
-                  </div>
-                  <div className="border border-gray-200 rounded-lg p-4 max-h-40 overflow-y-auto">
-                    {responseListModal.event?.coming?.length > 0 ? (
-                      <div className="space-y-2">
-                        {responseListModal.event.coming.map((person, index) => (
-                          <div key={index} className="flex justify-between items-center py-2 px-3 bg-gray-50 rounded">
-                            <span className="font-semibold text-gray-800">{person.fullName}</span>
-                            <span className="text-sm font-medium text-gray-600">Room {person.roomNumber}</span>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="text-center py-4 text-gray-500 font-medium">No responses yet</div>
-                    )}
-                  </div>
-                </div>
 
-                {/* Maybe List */}
-                <div>
-                  <div className="flex items-center justify-between mb-3">
-                    <h4 className="text-lg font-bold text-yellow-600">MAYBE</h4>
-                    <span className="text-sm font-bold text-gray-600">
-                      {responseListModal.event?.maybe?.length || 0}
-                    </span>
-                  </div>
-                  <div className="border border-gray-200 rounded-lg p-4 max-h-40 overflow-y-auto">
-                    {responseListModal.event?.maybe?.length > 0 ? (
-                      <div className="space-y-2">
-                        {responseListModal.event.maybe.map((person, index) => (
-                          <div key={index} className="flex justify-between items-center py-2 px-3 bg-gray-50 rounded">
-                            <span className="font-semibold text-gray-800">{person.fullName}</span>
-                            <span className="text-sm font-medium text-gray-600">Room {person.roomNumber}</span>
-                          </div>
-                        ))}
+              <div className="px-5 pb-6 overflow-y-auto max-h-[calc(85vh-120px)]">
+                <div className="space-y-4">
+                  {sections.map(({ key, label, data, color, bg, icon }) => (
+                    <div key={key} className="rounded-2xl overflow-hidden" style={{ backgroundColor: bg }}>
+                      <div className="flex items-center gap-2 px-4 py-3">
+                        <span
+                          className="w-7 h-7 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0"
+                          style={{ backgroundColor: color }}
+                        >
+                          {icon}
+                        </span>
+                        <span className="font-bold text-base flex-1" style={{ color }}>
+                          {label}
+                        </span>
+                        <span
+                          className="text-sm font-bold px-2.5 py-0.5 rounded-full"
+                          style={{ backgroundColor: color + '18', color }}
+                        >
+                          {data?.length || 0}
+                        </span>
                       </div>
-                    ) : (
-                      <div className="text-center py-4 text-gray-500 font-medium">No responses yet</div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Not Coming List */}
-                <div>
-                  <div className="flex items-center justify-between mb-3">
-                    <h4 className="text-lg font-bold text-red-600">NOT COMING</h4>
-                    <span className="text-sm font-bold text-gray-600">
-                      {responseListModal.event?.notComing?.length || 0}
-                    </span>
-                  </div>
-                  <div className="border border-gray-200 rounded-lg p-4 max-h-40 overflow-y-auto">
-                    {responseListModal.event?.notComing?.length > 0 ? (
-                      <div className="space-y-2">
-                        {responseListModal.event.notComing.map((person, index) => (
-                          <div key={index} className="flex justify-between items-center py-2 px-3 bg-gray-50 rounded">
-                            <span className="font-semibold text-gray-800">{person.fullName}</span>
-                            <span className="text-sm font-medium text-gray-600">Room {person.roomNumber}</span>
+                      <div className="px-4 pb-3 max-h-44 overflow-y-auto">
+                        {data?.length > 0 ? (
+                          <div className="space-y-2">
+                            {data.map((person, index) => (
+                              <div
+                                key={index}
+                                className="flex justify-between items-center py-2.5 px-4 rounded-xl"
+                                style={{ backgroundColor: 'rgba(255,255,255,0.85)' }}
+                              >
+                                <span className="font-semibold text-sm" style={{ color: colors.text }}>{person.fullName}</span>
+                                <span className="text-xs font-medium px-2 py-1 rounded-lg" style={{ backgroundColor: color + '12', color }}>
+                                  Room {person.roomNumber}
+                                </span>
+                              </div>
+                            ))}
                           </div>
-                        ))}
+                        ) : (
+                          <div className="text-center py-3 text-sm" style={{ color: colors.muted }}>
+                            {t('no_responses_yet', 'No responses yet')}
+                          </div>
+                        )}
                       </div>
-                    ) : (
-                      <div className="text-center py-4 text-gray-500 font-medium">No responses yet</div>
-                    )}
-                  </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Edit Modal */}
       {editModal.open && (

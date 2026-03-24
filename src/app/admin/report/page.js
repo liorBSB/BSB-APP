@@ -12,6 +12,10 @@ import { StyledDateInput } from '@/components/StyledDateInput';
 import AdminBottomNavBar from '@/components/AdminBottomNavBar';
 import ComingSoon from '@/components/ComingSoon';
 import PhotoUpload from '@/components/PhotoUpload';
+import { authedFetch } from '@/lib/authFetch';
+import HouseLoader from '@/components/HouseLoader';
+
+const SHOW_PROBLEM_REPORT = false;
 
 // --- FEATURE GATE: To re-enable reports, replace the bottom wrapper with `export default AdminReportPageContent;` ---
 function AdminReportPageContent() {
@@ -36,8 +40,7 @@ function AdminReportPageContent() {
   const [submitSuccess, setSubmitSuccess] = useState('');
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [submittedReport, setSubmittedReport] = useState(null);
-  const [uploadedPhotoUrl, setUploadedPhotoUrl] = useState('');
-  const [uploadedPhotoPath, setUploadedPhotoPath] = useState('');
+  const adminReportPhotoRef = useRef(null);
   const [filteredFixedProblems, setFilteredFixedProblems] = useState([]);
   const [fixedProblemsFilters, setFixedProblemsFilters] = useState({
     category: 'all',
@@ -93,6 +96,91 @@ function AdminReportPageContent() {
 
     return () => unsubscribe();
   }, [router]);
+
+  // --- Website feedback state ---
+  const [feedbackSubject, setFeedbackSubject] = useState('');
+  const [feedbackBody, setFeedbackBody] = useState('');
+  const [feedbackSending, setFeedbackSending] = useState(false);
+  const [feedbackError, setFeedbackError] = useState('');
+  const [feedbackSuccess, setFeedbackSuccess] = useState(false);
+  const [feedbackConfirmOpen, setFeedbackConfirmOpen] = useState(false);
+  const [feedbackScreenshots, setFeedbackScreenshots] = useState([]);
+  const feedbackFileRef = useRef(null);
+
+  const handleScreenshotFiles = (e) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+
+    const staged = files
+      .filter((f) => f.size <= 10 * 1024 * 1024 && f.type.startsWith('image/'))
+      .map((file) => ({ file, previewUrl: URL.createObjectURL(file), name: file.name }));
+
+    setFeedbackScreenshots((prev) => [...prev, ...staged]);
+    if (feedbackFileRef.current) feedbackFileRef.current.value = '';
+  };
+
+  const removeScreenshot = (idx) => {
+    setFeedbackScreenshots((prev) => {
+      const removed = prev[idx];
+      if (removed?.previewUrl) URL.revokeObjectURL(removed.previewUrl);
+      return prev.filter((_, i) => i !== idx);
+    });
+  };
+
+  const handleFeedbackReview = () => {
+    setFeedbackError('');
+    if (!feedbackSubject.trim()) { setFeedbackError(t('feedback_subject_required')); return; }
+    if (!feedbackBody.trim()) { setFeedbackError(t('feedback_body_required')); return; }
+    setFeedbackConfirmOpen(true);
+  };
+
+  const handleFeedbackConfirm = async () => {
+    setFeedbackError('');
+    try {
+      setFeedbackSending(true);
+      const user = auth.currentUser;
+      if (!user) { setFeedbackError('You must be logged in'); setFeedbackSending(false); return; }
+
+      const uploadedUrls = [];
+      for (const s of feedbackScreenshots) {
+        const { compressImage } = await import('@/components/PhotoUpload');
+        const compressed = await compressImage(s.file);
+        const path = `feedback/${user.uid}/${Date.now()}_${s.name}`;
+        const sRef = storageRef(storage, path);
+        const snap = await uploadBytesResumable(sRef, compressed, { contentType: compressed.type || 'image/jpeg' });
+        const url = await getDownloadURL(snap.ref);
+        uploadedUrls.push(url);
+      }
+
+      const res = await authedFetch('/api/send-feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          subject: feedbackSubject.trim(),
+          body: feedbackBody.trim(),
+          senderName: adminData?.fullName || adminData?.firstName + ' ' + adminData?.lastName || '',
+          roomNumber: 'Staff',
+          phone: adminData?.phone || '',
+          screenshots: uploadedUrls,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || 'Failed to send');
+      }
+      setFeedbackConfirmOpen(false);
+      setFeedbackSuccess(true);
+      setFeedbackSubject('');
+      setFeedbackBody('');
+      feedbackScreenshots.forEach((s) => { if (s.previewUrl) URL.revokeObjectURL(s.previewUrl); });
+      setFeedbackScreenshots([]);
+    } catch (e) {
+      setFeedbackConfirmOpen(false);
+      setFeedbackError(t('feedback_error'));
+    } finally {
+      setFeedbackSending(false);
+    }
+  };
 
   const categoryOptions = [
     { value: 'air_conditioning', label: 'Air Conditioning' },
@@ -153,7 +241,7 @@ function AdminReportPageContent() {
   
   // Modal states
   const [photoModalOpen, setPhotoModalOpen] = useState(false);
-  const [selectedPhoto, setSelectedPhoto] = useState('');
+  const [selectedPhoto, setSelectedPhoto] = useState(null);
   const [showAllReports, setShowAllReports] = useState(false);
   const [showFixedProblems, setShowFixedProblems] = useState(false);
   const [fixedProblems, setFixedProblems] = useState([]);
@@ -472,25 +560,18 @@ function AdminReportPageContent() {
     });
   };
 
-  const openPhotoModal = (photoUrl) => {
-    setSelectedPhoto(photoUrl);
+  const openPhotoModal = (item) => {
+    const photos = item.photos?.length > 0
+      ? item.photos
+      : (item.photoUrl ? [{ url: item.photoUrl }] : []);
+    if (photos.length === 0) return;
+    setSelectedPhoto({ photos, index: 0 });
     setPhotoModalOpen(true);
-  };
-
-  const handlePhotoUploaded = (photoUrl, photoPath) => {
-    setUploadedPhotoUrl(photoUrl);
-    setUploadedPhotoPath(photoPath);
-  };
-
-  const handlePhotoRemoved = () => {
-    setUploadedPhotoUrl('');
-    setUploadedPhotoPath('');
   };
 
   const handleReportSubmit = async () => {
     setSubmitError(''); setSubmitSuccess('');
     
-    // Validate form
     if (!desc.trim()) {
       setSubmitError('Please describe the problem');
       return;
@@ -515,6 +596,14 @@ function AdminReportPageContent() {
         setSubmitError('You must be logged in to submit a report');
         return;
       }
+
+      let photoResults;
+      try {
+        photoResults = await adminReportPhotoRef.current?.upload() || [];
+      } catch {
+        setSubmitError('Photo upload failed');
+        return;
+      }
       
       const userSnap = await getDoc(doc(db, 'users', user.uid));
       const userData = userSnap.exists() ? userSnap.data() : {};
@@ -525,11 +614,12 @@ function AdminReportPageContent() {
         ownerRoomNumber: userData.roomNumber || '',
         description: desc.trim(),
         category: selectedCategory,
-        isInMyRoom: false, // Admins always report problems in other locations
+        isInMyRoom: false,
         house: selectedHouse,
         floor: selectedFloor,
-        photoUrl: uploadedPhotoUrl || '',
-        photoPath: uploadedPhotoPath || '',
+        photos: photoResults.map(p => ({ url: p.url, path: p.path })),
+        photoUrl: photoResults[0]?.url || '',
+        photoPath: photoResults[0]?.path || '',
         status: 'pending',
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
@@ -538,30 +628,25 @@ function AdminReportPageContent() {
       
       await addDoc(collection(db, 'problemReports'), payload);
       
-      // Store submitted report details for success modal
       setSubmittedReport({
         description: desc,
         category: selectedCategory,
-        isInMyRoom: false, // Admins always report problems in other locations
+        isInMyRoom: false,
         house: selectedHouse,
         floor: selectedFloor,
-        photoUrl: uploadedPhotoUrl,
+        photos: photoResults,
         submittedAt: new Date()
       });
       
-      // Show success modal
       setShowSuccessModal(true);
+      adminReportPhotoRef.current?.clear();
       
-      // Reset form
       setDesc('');
-      setIsInMyRoom(false); // Reset to "Not in my room" for admins
+      setIsInMyRoom(false);
       setSelectedCategory('');
       setSelectedHouse('');
       setSelectedFloor('');
-      setUploadedPhotoUrl('');
-      setUploadedPhotoPath('');
       
-      // Refresh the problem reports list
       fetchProblemReports();
       
     } catch (e) {
@@ -682,8 +767,93 @@ function AdminReportPageContent() {
           <p className="text-sm text-muted">View and manage all submitted reports</p>
         </div>
 
-        {/* Report a Problem Form - Same as Soldiers */}
-        <div className="rounded-3xl p-10 mb-8 shadow-lg flex flex-col items-center" style={{ background: 'rgba(0,0,0,0.38)' }}>
+        {/* ========== WEBSITE FEEDBACK FORM ========== */}
+        <div className="rounded-3xl p-8 mb-8 shadow-lg flex flex-col items-center" style={{ background: 'rgba(0,0,0,0.38)' }}>
+          <h2 className="text-2xl font-extrabold mb-6 text-white text-center tracking-wide">{t('report_website_problem')}</h2>
+
+          {feedbackError && <div className="mb-4 w-full text-red-200 text-sm bg-red-500/20 rounded px-3 py-2">{feedbackError}</div>}
+          {feedbackSuccess && (
+            <div className="mb-4 w-full text-green-200 text-sm bg-green-500/20 rounded px-3 py-2 flex items-center gap-2">
+              <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+              {t('feedback_sent')}
+            </div>
+          )}
+
+          <div className="mb-4 w-full">
+            <label className="block text-base mb-2 text-white font-semibold">{t('email_subject')}</label>
+            <input
+              className="w-full border border-white/30 px-4 py-3 rounded-xl text-lg focus:outline-none transition"
+              style={{ background: colors.white, color: 'black' }}
+              placeholder={t('email_subject_placeholder')}
+              value={feedbackSubject}
+              onChange={e => setFeedbackSubject(e.target.value)}
+            />
+          </div>
+
+          <div className="mb-4 w-full">
+            <label className="block text-base mb-2 text-white font-semibold">{t('email_body')}</label>
+            <textarea
+              className="w-full border border-white/30 px-4 py-3 rounded-xl text-lg placeholder-black/50 focus:outline-none transition"
+              style={{ background: colors.white, color: 'black' }}
+              rows={5}
+              placeholder={t('email_body_placeholder')}
+              value={feedbackBody}
+              onChange={e => setFeedbackBody(e.target.value)}
+            />
+          </div>
+
+          <div className="mb-6 w-full">
+            <label className="block text-base mb-2 text-white font-semibold">{t('attach_screenshots')}</label>
+            <input
+              ref={feedbackFileRef}
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={handleScreenshotFiles}
+              className="hidden"
+            />
+            <button
+              type="button"
+              onClick={() => feedbackFileRef.current?.click()}
+              className="w-full px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 text-white flex items-center justify-center gap-2"
+              style={{ background: 'rgba(255,255,255,0.1)', border: '2px solid rgba(255,255,255,0.3)' }}
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              <span>{t('add_screenshots')}</span>
+            </button>
+            {feedbackScreenshots.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-3">
+                {feedbackScreenshots.map((s, idx) => (
+                  <div key={idx} className="relative w-16 h-16 rounded-lg overflow-hidden border-2 border-white/30">
+                    <img src={s.previewUrl} alt="" className="w-full h-full object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => removeScreenshot(idx)}
+                      className="absolute top-0 right-0 bg-black/60 text-white w-5 h-5 flex items-center justify-center text-xs rounded-bl-lg"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <button
+            onClick={handleFeedbackReview}
+            className="w-full text-white py-4 rounded-full font-bold text-xl transition hover:opacity-90"
+            style={{ background: colors.gold }}
+          >
+            {t('send_feedback')}
+          </button>
+        </div>
+
+        {/* ========== PROBLEM REPORT FORM (hidden) ========== */}
+        {SHOW_PROBLEM_REPORT && (<div className="rounded-3xl p-10 mb-8 shadow-lg flex flex-col items-center" style={{ background: 'rgba(0,0,0,0.38)' }}>
           <h2 className="text-3xl font-extrabold mb-8 text-white text-center tracking-wide">Report a Problem</h2>
           
           {/* Error and Success Messages */}
@@ -810,10 +980,9 @@ function AdminReportPageContent() {
           {/* Photo Upload Section */}
           <div className="w-full mb-6">
             <PhotoUpload
-              onPhotoUploaded={handlePhotoUploaded}
-              onPhotoRemoved={handlePhotoRemoved}
-              currentPhotoUrl={uploadedPhotoUrl}
+              ref={adminReportPhotoRef}
               uploadPath="reports"
+              maxPhotos={5}
               maxSize={10 * 1024 * 1024}
               acceptedTypes={['image/*']}
             />
@@ -827,12 +996,10 @@ function AdminReportPageContent() {
           >
             {submitting ? 'Submitting...' : 'Submit Report'}
           </button>
-        </div>
-
-
+        </div>)}
 
         {/* Request Refund Section */}
-        <div className="w-full max-w-md rounded-2xl p-4 mb-6" style={{ background: colors.sectionBg }}>
+        {SHOW_PROBLEM_REPORT && (<div className="w-full max-w-md rounded-2xl p-4 mb-6" style={{ background: colors.sectionBg }}>
           <button 
             onClick={() => setRefundOpen(true)} 
             className="w-full rounded-full px-6 py-4 font-bold text-white text-lg shadow" 
@@ -840,9 +1007,10 @@ function AdminReportPageContent() {
           >
             Request Refund
           </button>
-        </div>
+        </div>)}
 
         {/* Recent Reports Section */}
+        {SHOW_PROBLEM_REPORT && (
         <div className="w-full max-w-md rounded-2xl p-4 mb-6" style={{ background: colors.sectionBg }}>
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-lg font-semibold text-white">Recent Reports</h3>
@@ -905,15 +1073,18 @@ function AdminReportPageContent() {
                   <p className="text-white/90 leading-relaxed text-sm">{report.description}</p>
                 </div>
 
-                {/* Photo */}
-                {report.photoUrl && (
-                  <div className="mb-3">
-                    <img 
-                      src={report.photoUrl} 
-                      alt="Problem report photo" 
-                      className="w-full h-32 object-cover rounded-lg cursor-pointer hover:opacity-80 transition-opacity border border-white/20"
-                      onClick={() => openPhotoModal(report.photoUrl)}
-                    />
+                {/* Photos */}
+                {(report.photos?.length > 0 || report.photoUrl) && (
+                  <div className="mb-3 flex flex-wrap gap-2">
+                    {(report.photos?.length > 0 ? report.photos : [{ url: report.photoUrl }]).map((p, idx) => (
+                      <img
+                        key={idx}
+                        src={p.url}
+                        alt="Problem report photo"
+                        className={`${report.photos?.length > 1 ? 'w-24 h-24' : 'w-full h-32'} object-cover rounded-lg cursor-pointer hover:opacity-80 transition-opacity border border-white/20`}
+                        onClick={() => openPhotoModal(report)}
+                      />
+                    ))}
                   </div>
                 )}
 
@@ -930,13 +1101,63 @@ function AdminReportPageContent() {
               </div>
             ))
           )}
-        </div>
+        </div>)}
       </div>
       
       <AdminBottomNavBar active="report" />
 
+      {/* Feedback confirmation modal */}
+      {feedbackConfirmOpen && (
+        <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl">
+            <div className="px-5 pt-5 pb-3">
+              <h3 className="text-lg font-bold text-center mb-4">{t('confirm_feedback_title')}</h3>
+              <div className="space-y-2.5 text-sm">
+                <div className="py-2 border-b border-gray-100">
+                  <span className="text-gray-500">{t('email_subject')}</span>
+                  <p className="font-medium mt-0.5">{feedbackSubject}</p>
+                </div>
+                <div className="py-2 border-b border-gray-100">
+                  <span className="text-gray-500">{t('email_body')}</span>
+                  <p className="font-medium mt-0.5 whitespace-pre-wrap max-h-32 overflow-y-auto">{feedbackBody}</p>
+                </div>
+                {feedbackScreenshots.length > 0 && (
+                  <div className="pt-1">
+                    <span className="text-gray-500 text-xs block mb-1.5">{t('screenshots_count', { count: feedbackScreenshots.length })}</span>
+                    <div className="flex flex-wrap gap-2">
+                      {feedbackScreenshots.map((s, idx) => (
+                        <img key={idx} src={s.previewUrl} alt="" className="w-14 h-14 object-cover rounded-lg" />
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="flex gap-3 px-5 pb-5 pt-3">
+              <button
+                type="button"
+                onClick={() => setFeedbackConfirmOpen(false)}
+                className="flex-1 py-3 rounded-xl font-semibold text-sm border-2 transition-all active:scale-95"
+                style={{ borderColor: colors.gray400, color: colors.text }}
+              >
+                {t('go_back')}
+              </button>
+              <button
+                type="button"
+                onClick={handleFeedbackConfirm}
+                disabled={feedbackSending}
+                className="flex-1 py-3 rounded-xl font-semibold text-sm text-white transition-all active:scale-95 disabled:opacity-60"
+                style={{ backgroundColor: colors.primaryGreen }}
+              >
+                {feedbackSending ? t('submitting') : t('confirm_send')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Refund Request Modal */}
-      {refundOpen && (
+      {SHOW_PROBLEM_REPORT && refundOpen && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
           <div className="bg-white rounded-2xl w-full max-w-md mx-4 p-5">
             <div className="flex items-center justify-between mb-3">
@@ -998,11 +1219,14 @@ function AdminReportPageContent() {
       )}
 
       {/* Photo Modal */}
-      {photoModalOpen && (
+      {photoModalOpen && selectedPhoto?.photos && (
         <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden">
+          <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
             <div className="flex items-center justify-between p-4 border-b">
-              <h3 className="text-lg font-bold">Problem Report Photo</h3>
+              <h3 className="text-lg font-bold">
+                Problem Report Photo
+                {selectedPhoto.photos.length > 1 && ` (${selectedPhoto.index + 1}/${selectedPhoto.photos.length})`}
+              </h3>
               <button 
                 onClick={() => setPhotoModalOpen(false)} 
                 className="text-gray-600 hover:text-gray-800 text-2xl"
@@ -1010,19 +1234,47 @@ function AdminReportPageContent() {
                 ✕
               </button>
             </div>
-            <div className="p-4">
+            <div className="flex-1 overflow-auto p-4 flex items-center justify-center relative">
+              {selectedPhoto.photos.length > 1 && selectedPhoto.index > 0 && (
+                <button
+                  onClick={() => setSelectedPhoto(prev => ({ ...prev, index: prev.index - 1 }))}
+                  className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/30 text-white flex items-center justify-center text-xl hover:bg-black/50 z-10"
+                >
+                  ‹
+                </button>
+              )}
               <img 
-                src={selectedPhoto} 
+                src={selectedPhoto.photos[selectedPhoto.index]?.url} 
                 alt="Problem report photo" 
                 className="w-full h-auto max-h-[70vh] object-contain rounded-lg"
               />
+              {selectedPhoto.photos.length > 1 && selectedPhoto.index < selectedPhoto.photos.length - 1 && (
+                <button
+                  onClick={() => setSelectedPhoto(prev => ({ ...prev, index: prev.index + 1 }))}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/30 text-white flex items-center justify-center text-xl hover:bg-black/50 z-10"
+                >
+                  ›
+                </button>
+              )}
             </div>
+            {selectedPhoto.photos.length > 1 && (
+              <div className="flex justify-center gap-1.5 pb-3">
+                {selectedPhoto.photos.map((_, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => setSelectedPhoto(prev => ({ ...prev, index: idx }))}
+                    className="w-2 h-2 rounded-full transition-colors"
+                    style={{ backgroundColor: idx === selectedPhoto.index ? colors.primaryGreen : colors.gray400 }}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}
 
       {/* Show All Reports Modal */}
-      {showAllReports && (
+      {SHOW_PROBLEM_REPORT && showAllReports && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl w-full max-w-md max-h-[90vh] overflow-hidden flex flex-col">
             <div className="flex items-center justify-between p-4 border-b flex-shrink-0" style={{ backgroundColor: colors.gold + '20' }}>
@@ -1261,15 +1513,18 @@ function AdminReportPageContent() {
                         <p className="text-gray-800 leading-relaxed">{report.description}</p>
                       </div>
 
-                      {/* Photo */}
-                      {report.photoUrl && (
-                        <div className="mb-4">
-                          <img 
-                            src={report.photoUrl} 
-                            alt="Problem report photo" 
-                            className="w-full h-40 object-cover rounded-lg cursor-pointer hover:opacity-80 transition-opacity border border-gray-200"
-                            onClick={() => openPhotoModal(report.photoUrl)}
-                          />
+                      {/* Photos */}
+                      {(report.photos?.length > 0 || report.photoUrl) && (
+                        <div className="mb-4 flex flex-wrap gap-2">
+                          {(report.photos?.length > 0 ? report.photos : [{ url: report.photoUrl }]).map((p, idx) => (
+                            <img
+                              key={idx}
+                              src={p.url}
+                              alt="Problem report photo"
+                              className={`${report.photos?.length > 1 ? 'w-28 h-28' : 'w-full h-40'} object-cover rounded-lg cursor-pointer hover:opacity-80 transition-opacity border border-gray-200`}
+                              onClick={() => openPhotoModal(report)}
+                            />
+                          ))}
                         </div>
                       )}
 
@@ -1323,7 +1578,7 @@ function AdminReportPageContent() {
       )}
 
       {/* Fixed Problems Modal */}
-      {showFixedProblems && (
+      {SHOW_PROBLEM_REPORT && showFixedProblems && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
             <div className="flex items-center justify-between p-4 border-b flex-shrink-0" style={{ backgroundColor: colors.primaryGreen + '10' }}>
@@ -1509,15 +1764,18 @@ function AdminReportPageContent() {
                           <p className="text-gray-800 leading-relaxed">{problem.description}</p>
                         </div>
 
-                        {/* Photo */}
-                        {problem.photoUrl && (
-                          <div className="mb-3">
-                            <img 
-                              src={problem.photoUrl} 
-                              alt="Fixed problem photo" 
-                              className="w-full h-40 object-cover rounded-lg cursor-pointer hover:opacity-80 transition-opacity border border-gray-200"
-                              onClick={() => openPhotoModal(problem.photoUrl)}
-                            />
+                        {/* Photos */}
+                        {(problem.photos?.length > 0 || problem.photoUrl) && (
+                          <div className="mb-3 flex flex-wrap gap-2">
+                            {(problem.photos?.length > 0 ? problem.photos : [{ url: problem.photoUrl }]).map((p, idx) => (
+                              <img
+                                key={idx}
+                                src={p.url}
+                                alt="Fixed problem photo"
+                                className={`${problem.photos?.length > 1 ? 'w-28 h-28' : 'w-full h-40'} object-cover rounded-lg cursor-pointer hover:opacity-80 transition-opacity border border-gray-200`}
+                                onClick={() => openPhotoModal(problem)}
+                              />
+                            ))}
                           </div>
                         )}
                       </div>
@@ -1531,7 +1789,7 @@ function AdminReportPageContent() {
       )}
 
       {/* Success Modal */}
-      {showSuccessModal && submittedReport && (
+      {SHOW_PROBLEM_REPORT && showSuccessModal && submittedReport && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl w-full max-w-md max-h-[90vh] overflow-hidden flex flex-col">
             <div className="flex items-center justify-between p-4 border-b flex-shrink-0" style={{ backgroundColor: colors.gold + '20' }}>
@@ -1582,15 +1840,13 @@ function AdminReportPageContent() {
                     <p className="text-gray-800">{submittedReport.submittedAt.toLocaleString()}</p>
                   </div>
                   
-                  {submittedReport.photoUrl && (
+                  {submittedReport.photos?.length > 0 && (
                     <div>
                       <span className="text-sm font-medium text-gray-600">Photo:</span>
-                      <div className="mt-2">
-                        <img 
-                          src={submittedReport.photoUrl} 
-                          alt="Submitted photo" 
-                          className="w-full h-32 object-cover rounded-lg"
-                        />
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {submittedReport.photos.map((p, idx) => (
+                          <img key={idx} src={p.url} alt="Submitted photo" className="w-full h-32 object-cover rounded-lg" />
+                        ))}
                       </div>
                     </div>
                   )}
@@ -1614,27 +1870,58 @@ function AdminReportPageContent() {
         </div>
       )}
 
-      {/* Photo Modal */}
-      {photoModalOpen && (
+      {/* Photo Modal (Fixed problems tab) */}
+      {photoModalOpen && selectedPhoto?.photos && (
         <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
             <div className="flex items-center justify-between p-4 border-b flex-shrink-0">
-              <h3 className="text-lg font-bold text-gray-800">Problem Report Photo</h3>
+              <h3 className="text-lg font-bold text-gray-800">
+                Problem Report Photo
+                {selectedPhoto.photos.length > 1 && ` (${selectedPhoto.index + 1}/${selectedPhoto.photos.length})`}
+              </h3>
               <button 
-                onClick={() => setShowPhotoModal(false)} 
+                onClick={() => setPhotoModalOpen(false)} 
                 className="text-2xl text-gray-500 hover:text-gray-700 transition-colors"
               >
                 ✕
               </button>
             </div>
             
-            <div className="flex-1 overflow-hidden p-4">
+            <div className="flex-1 overflow-auto p-4 flex items-center justify-center relative">
+              {selectedPhoto.photos.length > 1 && selectedPhoto.index > 0 && (
+                <button
+                  onClick={() => setSelectedPhoto(prev => ({ ...prev, index: prev.index - 1 }))}
+                  className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/30 text-white flex items-center justify-center text-xl hover:bg-black/50 z-10"
+                >
+                  ‹
+                </button>
+              )}
               <img 
-                src={selectedPhoto} 
+                src={selectedPhoto.photos[selectedPhoto.index]?.url} 
                 alt="Problem report photo" 
                 className="w-full h-full object-contain rounded-lg"
               />
+              {selectedPhoto.photos.length > 1 && selectedPhoto.index < selectedPhoto.photos.length - 1 && (
+                <button
+                  onClick={() => setSelectedPhoto(prev => ({ ...prev, index: prev.index + 1 }))}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/30 text-white flex items-center justify-center text-xl hover:bg-black/50 z-10"
+                >
+                  ›
+                </button>
+              )}
             </div>
+            {selectedPhoto.photos.length > 1 && (
+              <div className="flex justify-center gap-1.5 pb-3">
+                {selectedPhoto.photos.map((_, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => setSelectedPhoto(prev => ({ ...prev, index: idx }))}
+                    className="w-2 h-2 rounded-full transition-colors"
+                    style={{ backgroundColor: idx === selectedPhoto.index ? colors.primaryGreen : colors.gray400 }}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -1643,7 +1930,4 @@ function AdminReportPageContent() {
   );
 }
 
-export default function AdminReportPage() {
-  return <ComingSoon navBar={<AdminBottomNavBar active="report" />} />;
-}
-// --- END FEATURE GATE ---
+export default AdminReportPageContent;

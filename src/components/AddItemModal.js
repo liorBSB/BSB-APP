@@ -6,17 +6,37 @@ const emptyForm = { title: '', body: '', startTime: '', endTime: '', link: '' };
 
 export default function AddItemModal({ open, onClose, onSave, type = 'event', loading = false }) {
   const [form, setForm] = useState(emptyForm);
+  const [dateError, setDateError] = useState('');
 
   useEffect(() => {
-    if (open) setForm(emptyForm);
+    if (open) { setForm(emptyForm); setDateError(''); }
   }, [open]);
 
+  const validate = (f) => {
+    if (type === 'survey') {
+      if (f.endTime && new Date(f.endTime) <= new Date()) {
+        return 'End time must be in the future';
+      }
+    } else {
+      if (f.startTime && f.endTime && new Date(f.endTime) <= new Date(f.startTime)) {
+        return 'End time must be after start time';
+      }
+    }
+    return '';
+  };
+
   const handleChange = (e) => {
-    setForm(f => ({ ...f, [e.target.name]: e.target.value }));
+    setForm(f => {
+      const updated = { ...f, [e.target.name]: e.target.value };
+      setDateError(validate(updated));
+      return updated;
+    });
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    const err = validate(form);
+    if (err) { setDateError(err); return; }
     onSave(form);
   };
 
@@ -63,30 +83,37 @@ export default function AddItemModal({ open, onClose, onSave, type = 'event', lo
               />
             </div>
           )}
-          <div className="mb-4">
-            <label className="block text-gray-700 font-semibold mb-2">Start Time</label>
-            <StyledDateTimeInput
-              name="startTime"
-              value={form.startTime}
-              onChange={handleChange}
-              required
-            />
-          </div>
+          {type !== 'survey' && (
+            <div className="mb-4">
+              <label className="block text-gray-700 font-semibold mb-2">Start Time</label>
+              <StyledDateTimeInput
+                name="startTime"
+                value={form.startTime}
+                onChange={handleChange}
+                required
+              />
+            </div>
+          )}
           <div className="mb-6">
-            <label className="block text-gray-700 font-semibold mb-2">End Time</label>
+            <label className="block text-gray-700 font-semibold mb-2">
+              {type === 'survey' ? 'Due Date' : 'End Time'}
+            </label>
             <StyledDateTimeInput
               name="endTime"
               value={form.endTime}
               onChange={handleChange}
               required
             />
+            {dateError && (
+              <p className="text-sm font-medium mt-1.5" style={{ color: colors.red }}>{dateError}</p>
+            )}
           </div>
           <div className="flex gap-4">
             <button
               type="submit"
-              className="flex-1 px-4 py-2 rounded-lg text-white font-semibold"
+              className="flex-1 px-4 py-2 rounded-lg text-white font-semibold disabled:opacity-50"
               style={{ background: colors.gold }}
-              disabled={loading}
+              disabled={loading || !!dateError}
             >
               {loading ? 'Saving...' : 'Add'}
             </button>

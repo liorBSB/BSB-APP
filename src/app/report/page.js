@@ -1,7 +1,7 @@
 "use client";
 import { useTranslation } from 'react-i18next';
 import BottomNavBar from '@/components/BottomNavBar';
-import LanguageSwitcher from '@/components/LanguageSwitcher';
+
 import PhotoUpload from '@/components/PhotoUpload';
 import { useState, useEffect, useRef } from 'react';
 import colors from '../colors';
@@ -11,7 +11,7 @@ import { addDoc, collection, doc, getDoc, serverTimestamp } from 'firebase/fires
 import { onAuthStateChanged } from 'firebase/auth';
 import { ref as storageRef, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { authedFetch } from '@/lib/authFetch';
-import HouseLoader from '@/components/HouseLoader';
+import { compressImage } from '@/components/PhotoUpload';
 
 const SHOW_PROBLEM_REPORT = false;
 
@@ -39,40 +39,36 @@ function ReportPageContent() {
   const [feedbackSuccess, setFeedbackSuccess] = useState(false);
   const [feedbackConfirmOpen, setFeedbackConfirmOpen] = useState(false);
   const [feedbackScreenshots, setFeedbackScreenshots] = useState([]);
-  const [screenshotUploading, setScreenshotUploading] = useState(false);
   const feedbackFileRef = useRef(null);
 
-  const handleScreenshotFiles = async (e) => {
+  const handleScreenshotFiles = (e) => {
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
 
-    const user = auth.currentUser;
-    if (!user) return;
+    const staged = files
+      .filter((f) => f.size <= 10 * 1024 * 1024 && f.type.startsWith('image/'))
+      .map((file) => ({ file, previewUrl: URL.createObjectURL(file), name: file.name }));
 
-    setScreenshotUploading(true);
-    const newScreenshots = [];
-
-    for (const file of files) {
-      if (file.size > 10 * 1024 * 1024) continue;
-      try {
-        const path = `feedback/${user.uid}/${Date.now()}_${file.name}`;
-        const sRef = storageRef(storage, path);
-        const snap = await uploadBytesResumable(sRef, file);
-        const url = await getDownloadURL(snap.ref);
-        newScreenshots.push({ url, path, name: file.name });
-      } catch (err) {
-        console.error('Screenshot upload failed:', err);
-      }
-    }
-
-    setFeedbackScreenshots(prev => [...prev, ...newScreenshots]);
-    setScreenshotUploading(false);
+    setFeedbackScreenshots((prev) => [...prev, ...staged]);
     if (feedbackFileRef.current) feedbackFileRef.current.value = '';
   };
 
   const removeScreenshot = (idx) => {
-    setFeedbackScreenshots(prev => prev.filter((_, i) => i !== idx));
+    setFeedbackScreenshots((prev) => {
+      const removed = prev[idx];
+      if (removed?.previewUrl) URL.revokeObjectURL(removed.previewUrl);
+      return prev.filter((_, i) => i !== idx);
+    });
   };
+
+  useEffect(() => {
+    return () => {
+      feedbackScreenshots.forEach((s) => {
+        if (s.previewUrl) URL.revokeObjectURL(s.previewUrl);
+      });
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleFeedbackReview = () => {
     setFeedbackError('');
@@ -86,6 +82,19 @@ function ReportPageContent() {
 
     try {
       setFeedbackSending(true);
+      const user = auth.currentUser;
+      if (!user) { setFeedbackError('You must be logged in'); setFeedbackSending(false); return; }
+
+      const uploadedUrls = [];
+      for (const s of feedbackScreenshots) {
+        const compressed = await compressImage(s.file);
+        const path = `feedback/${user.uid}/${Date.now()}_${s.name}`;
+        const sRef = storageRef(storage, path);
+        const snap = await uploadBytesResumable(sRef, compressed, { contentType: compressed.type || 'image/jpeg' });
+        const url = await getDownloadURL(snap.ref);
+        uploadedUrls.push(url);
+      }
+
       const res = await authedFetch('/api/send-feedback', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -95,7 +104,7 @@ function ReportPageContent() {
           senderName: userData?.fullName || '',
           roomNumber: userData?.roomNumber || '',
           phone: userData?.phone || '',
-          screenshots: feedbackScreenshots.map(s => s.url),
+          screenshots: uploadedUrls,
         }),
       });
 
@@ -108,6 +117,7 @@ function ReportPageContent() {
       setFeedbackSuccess(true);
       setFeedbackSubject('');
       setFeedbackBody('');
+      feedbackScreenshots.forEach((s) => { if (s.previewUrl) URL.revokeObjectURL(s.previewUrl); });
       setFeedbackScreenshots([]);
     } catch (e) {
       setFeedbackConfirmOpen(false);
@@ -129,8 +139,7 @@ function ReportPageContent() {
   const [submitSuccess, setSubmitSuccess] = useState('');
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [submittedReport, setSubmittedReport] = useState(null);
-  const [uploadedPhotoUrl, setUploadedPhotoUrl] = useState('');
-  const [uploadedPhotoPath, setUploadedPhotoPath] = useState('');
+  const reportPhotoRef = useRef(null);
   const categoryDropdownRef = useRef(null);
 
   const categoryOptions = [
@@ -153,16 +162,6 @@ function ReportPageContent() {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
-
-  const handlePhotoUploaded = (photoUrl, photoPath) => {
-    setUploadedPhotoUrl(photoUrl);
-    setUploadedPhotoPath(photoPath);
-  };
-
-  const handlePhotoRemoved = () => {
-    setUploadedPhotoUrl('');
-    setUploadedPhotoPath('');
-  };
 
   const handleReportSubmit = async () => {
     setSubmitError(''); setSubmitSuccess('');
@@ -197,6 +196,14 @@ function ReportPageContent() {
         setSubmitError('You must be logged in');
         return;
       }
+
+      let photoResults;
+      try {
+        photoResults = await reportPhotoRef.current?.upload() || [];
+      } catch {
+        setSubmitError('Photo upload failed');
+        return;
+      }
       
       const userSnap = await getDoc(doc(db, 'users', user.uid));
       const uData = userSnap.exists() ? userSnap.data() : {};
@@ -210,8 +217,9 @@ function ReportPageContent() {
         isInMyRoom: isInMyRoom,
         house: isInMyRoom ? uData.house || '' : selectedHouse,
         floor: isInMyRoom ? uData.floor || '' : selectedFloor,
-        photoUrl: uploadedPhotoUrl || '',
-        photoPath: uploadedPhotoPath || '',
+        photos: photoResults.map(p => ({ url: p.url, path: p.path })),
+        photoUrl: photoResults[0]?.url || '',
+        photoPath: photoResults[0]?.path || '',
         status: 'pending',
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
@@ -227,19 +235,18 @@ function ReportPageContent() {
         house: isInMyRoom ? null : selectedHouse,
         floor: isInMyRoom ? null : selectedFloor,
         roomNumber: isInMyRoom ? uData.roomNumber : null,
-        photoUrl: uploadedPhotoUrl,
+        photos: photoResults,
         submittedAt: new Date()
       });
       
       setShowSuccessModal(true);
+      reportPhotoRef.current?.clear();
       
       setDesc('');
       setIsInMyRoom(null);
       setSelectedCategory('');
       setSelectedHouse('');
       setSelectedFloor('');
-      setUploadedPhotoUrl('');
-      setUploadedPhotoPath('');
       
     } catch (e) {
       setSubmitError('Failed to submit problem report');
@@ -255,9 +262,9 @@ function ReportPageContent() {
   const [refundError, setRefundError] = useState('');
   const [refundSuccess, setRefundSuccess] = useState('');
   const [refundForm, setRefundForm] = useState({ title: '', amount: '', category: 'transportation', method: 'bit', expenseDate: '' });
-  const [refundPhotoUrl, setRefundPhotoUrl] = useState('');
-  const [refundPhotoPath, setRefundPhotoPath] = useState('');
   const [refundConfirmOpen, setRefundConfirmOpen] = useState(false);
+  const [refundPhotoPreviews, setRefundPhotoPreviews] = useState([]);
+  const refundPhotoRef = useRef(null);
   const [categoryDropOpen, setCategoryDropOpen] = useState(false);
   const [methodDropOpen, setMethodDropOpen] = useState(false);
   const categoryRef = useRef(null);
@@ -271,16 +278,6 @@ function ReportPageContent() {
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
   }, []);
-
-  const handleRefundPhotoUploaded = (photoUrl, photoPath) => {
-    setRefundPhotoUrl(photoUrl);
-    setRefundPhotoPath(photoPath);
-  };
-
-  const handleRefundPhotoRemoved = () => {
-    setRefundPhotoUrl('');
-    setRefundPhotoPath('');
-  };
 
   const validateRefund = () => {
     if (!refundForm.title.trim()) return 'Please enter what for';
@@ -297,6 +294,7 @@ function ReportPageContent() {
     if (v) { setRefundError(v); return; }
     setCategoryDropOpen(false);
     setMethodDropOpen(false);
+    setRefundPhotoPreviews(refundPhotoRef.current?.getPreviewUrls() || []);
     setRefundConfirmOpen(true);
   };
 
@@ -306,6 +304,16 @@ function ReportPageContent() {
       setRefundSaving(true);
       const user = auth.currentUser;
       if (!user) { setRefundError('You must be logged in'); setRefundSaving(false); setRefundConfirmOpen(false); return; }
+
+      let photoResults;
+      try {
+        photoResults = await refundPhotoRef.current?.upload() || [];
+      } catch {
+        setRefundError('Photo upload failed');
+        setRefundSaving(false);
+        return;
+      }
+
       const userSnap = await getDoc(doc(db, 'users', user.uid));
       const uData = userSnap.exists() ? userSnap.data() : {};
       const payload = {
@@ -321,17 +329,17 @@ function ReportPageContent() {
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
         softDeleted: false,
-        receiptPhotoUrl: refundPhotoUrl || '',
-        photoPath: refundPhotoPath || '',
+        photos: photoResults.map(p => ({ url: p.url, path: p.path })),
+        receiptPhotoUrl: photoResults[0]?.url || '',
+        photoPath: photoResults[0]?.path || '',
       };
 
-      const docRef = await addDoc(collection(db, 'refundRequests'), payload);
-      console.log('Refund request saved, doc ID:', docRef.id);
+      await addDoc(collection(db, 'refundRequests'), payload);
       setRefundConfirmOpen(false);
       setRefundSuccess(t('request_submitted'));
       setRefundForm({ title: '', amount: '', category: 'transportation', method: 'bit', expenseDate: '' });
-      setRefundPhotoUrl('');
-      setRefundPhotoPath('');
+      refundPhotoRef.current?.clear();
+      setRefundPhotoPreviews([]);
     } catch (e) {
       console.error('Refund request failed:', e);
       setRefundConfirmOpen(false);
@@ -343,7 +351,6 @@ function ReportPageContent() {
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-blue-200/60 to-green-100/60 font-body flex flex-col items-center pt-10 pb-32 px-2 phone-sm:px-2 phone-md:px-4 phone-lg:px-6">
-      <LanguageSwitcher />
       <div className="w-full max-w-md">
 
         {/* ========== PROBLEM REPORT (hidden) ========== */}
@@ -489,12 +496,11 @@ function ReportPageContent() {
             
             <div className="w-full mb-6">
               <PhotoUpload
-                onPhotoUploaded={handlePhotoUploaded}
-                onPhotoRemoved={handlePhotoRemoved}
-                currentPhotoUrl={uploadedPhotoUrl}
+                ref={reportPhotoRef}
                 uploadPath="reports"
                 maxSize={10 * 1024 * 1024}
                 acceptedTypes={['image/*']}
+                maxPhotos={5}
               />
             </div>
             
@@ -555,28 +561,22 @@ function ReportPageContent() {
               onChange={handleScreenshotFiles}
               className="hidden"
             />
-            {screenshotUploading ? (
-              <div className="flex justify-center py-3">
-                <HouseLoader size={56} text={t('uploading_screenshots')} />
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() => feedbackFileRef.current?.click()}
-                className="w-full px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 text-white flex items-center justify-center gap-2"
-                style={{ background: 'rgba(255,255,255,0.1)', border: '2px solid rgba(255,255,255,0.3)' }}
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-                <span>{t('add_screenshots')}</span>
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={() => feedbackFileRef.current?.click()}
+              className="w-full px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 text-white flex items-center justify-center gap-2"
+              style={{ background: 'rgba(255,255,255,0.1)', border: '2px solid rgba(255,255,255,0.3)' }}
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              <span>{t('add_screenshots')}</span>
+            </button>
             {feedbackScreenshots.length > 0 && (
               <div className="flex flex-wrap gap-2 mt-3">
                 {feedbackScreenshots.map((s, idx) => (
                   <div key={idx} className="relative w-16 h-16 rounded-lg overflow-hidden border-2 border-white/30">
-                    <img src={s.url} alt="" className="w-full h-full object-cover" />
+                    <img src={s.previewUrl} alt="" className="w-full h-full object-cover" />
                     <button
                       type="button"
                       onClick={() => removeScreenshot(idx)}
@@ -669,12 +669,11 @@ function ReportPageContent() {
               
               <div className="w-full">
                 <PhotoUpload
-                  onPhotoUploaded={handleRefundPhotoUploaded}
-                  onPhotoRemoved={handleRefundPhotoRemoved}
-                  currentPhotoUrl={refundPhotoUrl}
+                  ref={refundPhotoRef}
                   uploadPath="refunds"
                   maxSize={10 * 1024 * 1024}
                   acceptedTypes={['image/*']}
+                  maxPhotos={5}
                 />
               </div>
               
@@ -713,10 +712,14 @@ function ReportPageContent() {
                   <span className="text-gray-500">{t('expense_date')}</span>
                   <span className="font-medium">{refundForm.expenseDate ? new Date(refundForm.expenseDate).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : ''}</span>
                 </div>
-                {refundPhotoUrl && (
+                {refundPhotoPreviews.length > 0 && (
                   <div className="pt-1">
                     <span className="text-gray-500 text-xs block mb-1.5">{t('receipt_attached')}</span>
-                    <img src={refundPhotoUrl} alt="" className="w-full h-28 object-cover rounded-lg" />
+                    <div className="flex flex-wrap gap-2">
+                      {refundPhotoPreviews.map((url, idx) => (
+                        <img key={idx} src={url} alt="" className="w-20 h-20 object-cover rounded-lg" />
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
@@ -764,7 +767,7 @@ function ReportPageContent() {
                     <span className="text-gray-500 text-xs block mb-1.5">{t('screenshots_count', { count: feedbackScreenshots.length })}</span>
                     <div className="flex flex-wrap gap-2">
                       {feedbackScreenshots.map((s, idx) => (
-                        <img key={idx} src={s.url} alt="" className="w-14 h-14 object-cover rounded-lg" />
+                        <img key={idx} src={s.previewUrl} alt="" className="w-14 h-14 object-cover rounded-lg" />
                       ))}
                     </div>
                   </div>
@@ -849,15 +852,13 @@ function ReportPageContent() {
                     <p className="text-gray-800">{submittedReport.submittedAt.toLocaleString()}</p>
                   </div>
                   
-                  {submittedReport.photoUrl && (
+                  {submittedReport.photos?.length > 0 && (
                     <div>
                       <span className="text-sm font-medium text-gray-600">Photo:</span>
-                      <div className="mt-2">
-                        <img 
-                          src={submittedReport.photoUrl} 
-                          alt="Submitted photo" 
-                          className="w-full h-32 object-cover rounded-lg"
-                        />
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {submittedReport.photos.map((p, idx) => (
+                          <img key={idx} src={p.url} alt="" className="w-full h-32 object-cover rounded-lg" />
+                        ))}
                       </div>
                     </div>
                   )}

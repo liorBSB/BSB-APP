@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { auth, db } from '../../lib/firebase';
 import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { useTranslation } from 'react-i18next';
-import LanguageSwitcher from '@/components/LanguageSwitcher';
+
 import SoldierNameSearch from '@/components/SoldierNameSearch';
 import HouseLoader from '@/components/HouseLoader';
 import { mapSoldierData } from '@/lib/soldierDataService';
@@ -34,9 +34,6 @@ export default function ProfileSetup() {
   const [isReclaiming, setIsReclaiming] = useState(false);
   const [isStartingOver, setIsStartingOver] = useState(false);
 
-  const changeLanguage = (lng) => {
-    i18n.changeLanguage(lng);
-  };
 
   // Handle soldier selection from Google Sheets
   const handleSoldierSelect = (soldierData) => {
@@ -222,7 +219,6 @@ export default function ProfileSetup() {
 
   return (
     <main className="min-h-screen flex items-center justify-center font-body px-4 pb-8 bg-gradient-to-br from-blue-200/60 to-green-100/60">
-      <LanguageSwitcher className="absolute top-4 right-4 bg-surface p-2 rounded-full text-white text-xl hover:text-text" />
       <div
         className="w-full max-w-md mx-auto 
           bg-white rounded-2xl shadow-lg p-6 phone-lg:p-8"

@@ -18,18 +18,14 @@ export default function BottomNavBar({ active }) {
   const { t } = useTranslation('home');
   const router = useRouter();
   const pathname = usePathname();
-  const isRTL = i18n.language === 'he';
-
   const tabs = [
     { key: 'report', label: t('report'), href: '/report', icon: icons.report },
     { key: 'home', label: t('home'), href: '/home', icon: icons.home },
     { key: 'settings', label: t('settings'), href: '/settings', icon: icons.settings },
   ];
-  const navTabs = isRTL ? [...tabs].reverse() : tabs;
-
   return (
-    <nav className="fixed bottom-0 left-0 w-full max-w-md mx-auto bg-white rounded-t-2xl shadow-lg flex justify-between items-center px-4 py-2 z-50" style={{ right: 0, left: 0 }}>
-      {navTabs.map(tab => (
+    <nav className="fixed bottom-0 left-0 w-full max-w-md mx-auto bg-white rounded-t-2xl shadow-lg flex justify-between items-center px-4 py-2 z-50" style={{ right: 0, left: 0, direction: 'ltr' }}>
+      {tabs.map(tab => (
         <button
           key={tab.key}
           onClick={() => router.push(tab.href)}
@@ -38,7 +34,7 @@ export default function BottomNavBar({ active }) {
           <div className={`flex items-center justify-center ${tab.key === active ? 'bg-[#EDC381] text-white' : 'text-gray-700'} rounded-full ${tab.key === active ? 'w-12 h-12 -mt-8 shadow-lg' : 'w-8 h-8'} transition-all duration-200`}>
             {tab.icon}
           </div>
-          <span className={`text-xs mt-1 ${tab.key === active ? 'font-bold text-[#EDC381]' : 'text-gray-700'}`}>{tab.label}</span>
+          <span dir="auto" className={`text-xs mt-1 ${tab.key === active ? 'font-bold text-[#EDC381]' : 'text-gray-700'}`}>{tab.label}</span>
         </button>
       ))}
     </nav>

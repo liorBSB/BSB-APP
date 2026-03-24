@@ -20,6 +20,7 @@ import { deleteDoc } from "firebase/firestore";
 import AdminBottomNavBar from "@/components/AdminBottomNavBar";
 import DatePickerModal from "@/components/DatePickerModal";
 import PhotoUpload from "@/components/PhotoUpload";
+import { deleteStorageFile } from "@/lib/storageCleanup";
 import { StyledDateInput, StyledDateTimeInput } from "@/components/StyledDateInput";
 import colors from "@/app/colors";
 import '@/i18n';
@@ -61,10 +62,10 @@ export default function AdminExpensesPage() {
     notes: "",
     linkedSoldierUid: "",
     expenseDate: new Date().toISOString().slice(0,10),
-    photoUrl: "",
-    photoPath: "",
   });
   const [datePickerOpen, setDatePickerOpen] = useState(false);
+  const expensePhotoRef = useRef(null);
+  const refundReceiptPhotoRef = useRef(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -92,7 +93,6 @@ export default function AdminExpensesPage() {
   const [approveModalOpen, setApproveModalOpen] = useState(false);
   const [approvingRefundId, setApprovingRefundId] = useState(null);
   const [approvingRefundData, setApprovingRefundData] = useState(null);
-  const [receiptPhoto, setReceiptPhoto] = useState(null);
   const [editRefundStatus, setEditRefundStatus] = useState('approved');
 
   // Export modal state
@@ -220,7 +220,6 @@ export default function AdminExpensesPage() {
     title: "", amount: "", category: "Food", categoryOther: "",
     reimbursementMethod: "Credit Card", notes: "", linkedSoldierUid: "",
     expenseDate: new Date().toISOString().slice(0, 10),
-    photoUrl: "", photoPath: "",
   });
 
   const handleCloseEditModal = () => {
@@ -235,22 +234,6 @@ export default function AdminExpensesPage() {
         setShowSearchResults(true);
       }
     }
-  };
-
-  const handlePhotoUploaded = (photoUrl, photoPath) => {
-    setForm(prev => ({
-      ...prev,
-      photoUrl,
-      photoPath
-    }));
-  };
-
-  const handlePhotoRemoved = () => {
-    setForm(prev => ({
-      ...prev,
-      photoUrl: "",
-      photoPath: ""
-    }));
   };
 
   const handleCloseReportModal = () => {
@@ -285,8 +268,6 @@ export default function AdminExpensesPage() {
       notes: expense.notes || "",
       linkedSoldierUid: expense.linkedSoldierUid || "",
       expenseDate: expense.expenseDate?.toDate?.()?.toISOString().slice(0,10) || new Date().toISOString().slice(0,10),
-      photoUrl: expense.photoUrl || "",
-      photoPath: expense.photoPath || "",
     });
     setReportOpen(false);
     
@@ -306,6 +287,11 @@ export default function AdminExpensesPage() {
     
     try {
       await deleteDoc(doc(db, "expenses", expenseToDelete.id));
+      const photosToDelete = (expenseToDelete.photos || []).map(p => p.path).filter(Boolean);
+      if (!photosToDelete.length && expenseToDelete.photoPath) photosToDelete.push(expenseToDelete.photoPath);
+      for (const path of photosToDelete) {
+        deleteStorageFile(path).catch(console.error);
+      }
       setSuccess("Expense deleted successfully");
       setDeleteConfirmOpen(false);
       setExpenseToDelete(null);
@@ -343,6 +329,20 @@ export default function AdminExpensesPage() {
     setSuccess("");
 
     try {
+      const oldPhotoPaths = (editingExpense.photos || []).map(p => p.path).filter(Boolean);
+      if (!oldPhotoPaths.length && editingExpense.photoPath) oldPhotoPaths.push(editingExpense.photoPath);
+
+      let photoResults;
+      try {
+        photoResults = await expensePhotoRef.current?.upload() || [];
+      } catch {
+        showError("Photo upload failed");
+        setSaving(false);
+        return;
+      }
+
+      const newPhotoPaths = new Set(photoResults.map(p => p.path));
+
       const payload = {
         title: form.title.trim(),
         amount: Number(form.amount),
@@ -353,12 +353,19 @@ export default function AdminExpensesPage() {
         notes: form.notes.trim(),
         linkedSoldierUid: form.linkedSoldierUid || null,
         expenseDate: new Date(form.expenseDate),
-        photoUrl: form.photoUrl,
-        photoPath: form.photoPath,
+        photos: photoResults.map(p => ({ url: p.url, path: p.path })),
+        photoUrl: photoResults[0]?.url || '',
+        photoPath: photoResults[0]?.path || '',
         updatedAt: serverTimestamp(),
       };
 
       await updateDoc(doc(db, "expenses", editingExpense.id), payload);
+
+      for (const oldPath of oldPhotoPaths) {
+        if (!newPhotoPaths.has(oldPath)) {
+          deleteStorageFile(oldPath).catch(console.error);
+        }
+      }
       
       showSuccess("Expense updated successfully");
       setEditingExpense(null);
@@ -405,6 +412,15 @@ export default function AdminExpensesPage() {
         showError("Please sign in again"); 
         return; 
       }
+
+      let photoResults;
+      try {
+        photoResults = await expensePhotoRef.current?.upload() || [];
+      } catch {
+        showError("Photo upload failed");
+        setSaving(false);
+        return;
+      }
       
       const payload = {
         ownerUid: user.uid,
@@ -417,8 +433,9 @@ export default function AdminExpensesPage() {
         notes: form.notes.trim(),
         linkedSoldierUid: form.linkedSoldierUid || null,
         expenseDate: new Date(form.expenseDate),
-        photoUrl: form.photoUrl || null,
-        photoPath: form.photoPath || null,
+        photos: photoResults.map(p => ({ url: p.url, path: p.path })),
+        photoUrl: photoResults[0]?.url || null,
+        photoPath: photoResults[0]?.path || null,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
         softDeleted: false,
@@ -435,10 +452,11 @@ export default function AdminExpensesPage() {
         reimbursementMethod: payload.reimbursementMethod,
         notes: payload.notes,
         expenseDate: payload.expenseDate,
-        photoUrl: payload.photoUrl,
+        photos: payload.photos,
       });
       
       resetForm();
+      expensePhotoRef.current?.clear();
       
       // Refresh the expenses list
       await fetchList();
@@ -487,38 +505,34 @@ export default function AdminExpensesPage() {
       setApprovingRefundId(requestId);
       setApprovingRefundData(request);
       setEditRefundStatus(request.status === 'denied' ? 'denied' : 'approved');
-      if (request.receiptPhotoUrl) {
-        setReceiptPhoto({ url: request.receiptPhotoUrl, path: request.photoPath || '' });
-      } else {
-        setReceiptPhoto(null);
-      }
       setApproveModalOpen(true);
     }
   };
 
-  const confirmApproveRefund = async (receiptPhotoUrl) => {
+  const confirmApproveRefund = async (receiptPhotoUrl, receiptResults) => {
     try {
       await updateDoc(doc(db, "refundRequests", approvingRefundId), {
         status: 'approved',
         approvedAt: serverTimestamp(),
         approvedBy: auth.currentUser.uid,
-        receiptPhotoUrl: receiptPhotoUrl
+        receiptPhotoUrl: receiptPhotoUrl,
+        photos: receiptResults?.map(p => ({ url: p.url, path: p.path })) || [],
       });
       await fetchRefundRequests(); // Refresh the list
       setApproveModalOpen(false);
       setApprovingRefundId(null);
       setApprovingRefundData(null);
-      setReceiptPhoto(null);
     } catch (error) {
       console.error('Error approving refund:', error);
     }
   };
 
-  const handleStatusChange = async (newStatus, receiptPhotoUrl) => {
+  const handleStatusChange = async (newStatus, receiptPhotoUrl, receiptResults) => {
     try {
       const updateData = {
         status: newStatus,
-        receiptPhotoUrl: receiptPhotoUrl || approvingRefundData.receiptPhotoUrl || ''
+        receiptPhotoUrl: receiptPhotoUrl || approvingRefundData.receiptPhotoUrl || '',
+        photos: receiptResults?.map(p => ({ url: p.url, path: p.path })) || approvingRefundData.photos || [],
       };
 
       if (newStatus === 'approved') {
@@ -564,8 +578,12 @@ export default function AdminExpensesPage() {
 
   const amountFormatted = (amt) => new Intl.NumberFormat("he-IL", { style: "currency", currency: "ILS" }).format(amt || 0);
 
-  const openPhotoViewer = (photoUrl, expenseTitle) => {
-    setSelectedPhoto({ url: photoUrl, title: expenseTitle });
+  const openPhotoViewer = (expense) => {
+    const photos = expense.photos?.length > 0
+      ? expense.photos
+      : (expense.photoUrl ? [{ url: expense.photoUrl }] : []);
+    if (photos.length === 0) return;
+    setSelectedPhoto({ photos, title: expense.title, index: 0 });
     setPhotoViewerOpen(true);
   };
 
@@ -763,7 +781,7 @@ export default function AdminExpensesPage() {
         `"${(expense.notes || '').replace(/"/g, '""')}"`,
         `"${(expense.reimbursementMethod || '').replace(/"/g, '""')}"`,
         `"${(expense.createdByName || '').replace(/"/g, '""')}"`,
-        `"${expense.photoUrl || ''}"`
+        `"${expense.photos?.map(p => p.url).join('; ') || expense.photoUrl || ''}"`
       ].join(','))
     ].join('\n');
 
@@ -789,17 +807,19 @@ export default function AdminExpensesPage() {
       <div className="flex" style={{ flexDirection: isRTL ? 'row-reverse' : 'row' }}>
         {/* Photo / Category icon side */}
         <div
-          className="flex-shrink-0 flex items-center justify-center cursor-pointer"
-          style={{ width: 90, minHeight: 90, background: expense.photoUrl ? 'transparent' : colors.background }}
-          onClick={() => {
-            if (expense.photoUrl) {
-              setSelectedPhoto({ url: expense.photoUrl, title: expense.title });
-              setPhotoViewerOpen(true);
-            }
-          }}
+          className="flex-shrink-0 flex items-center justify-center cursor-pointer relative"
+          style={{ width: 90, minHeight: 90, background: (expense.photos?.length > 0 || expense.photoUrl) ? 'transparent' : colors.background }}
+          onClick={() => openPhotoViewer(expense)}
         >
-          {expense.photoUrl ? (
-            <img src={expense.photoUrl} alt="Receipt" className="w-full h-full object-cover" style={{ minHeight: 90 }} />
+          {(expense.photos?.length > 0 || expense.photoUrl) ? (
+            <>
+              <img src={expense.photos?.[0]?.url || expense.photoUrl} alt="Receipt" className="w-full h-full object-cover" style={{ minHeight: 90 }} />
+              {expense.photos?.length > 1 && (
+                <span className="absolute bottom-1 right-1 text-[10px] font-bold text-white px-1.5 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(0,0,0,0.6)' }}>
+                  +{expense.photos.length - 1}
+                </span>
+              )}
+            </>
           ) : (
             <span className="text-3xl">{CATEGORY_ICONS[expense.category] || '📦'}</span>
           )}
@@ -951,11 +971,10 @@ export default function AdminExpensesPage() {
             <div className="bg-white/10 rounded-xl p-4">
               <h3 className="text-white font-semibold mb-3 text-center">Receipt Photo</h3>
               <PhotoUpload
-                key={`photo-${form.photoUrl}-${Date.now()}`}
-                onPhotoUploaded={handlePhotoUploaded}
-                onPhotoRemoved={handlePhotoRemoved}
-                currentPhotoUrl={form.photoUrl}
+                ref={expensePhotoRef}
+                key="new-expense"
                 uploadPath="expenses"
+                maxPhotos={5}
               />
             </div>
             
@@ -1084,9 +1103,14 @@ export default function AdminExpensesPage() {
             
             {/* Recent Expenses Preview */}
             {!showSearchResults && (() => {
+              const sortedByCreation = [...items].sort((a, b) => {
+                const dateA = a.createdAt?.toDate?.() || new Date(a.createdAt || 0);
+                const dateB = b.createdAt?.toDate?.() || new Date(b.createdAt || 0);
+                return dateB - dateA;
+              });
               const filteredPreview = previewSearch.trim()
-                ? items.filter((e) => (e.title || '').toLowerCase().includes(previewSearch.trim().toLowerCase()))
-                : items;
+                ? sortedByCreation.filter((e) => (e.title || '').toLowerCase().includes(previewSearch.trim().toLowerCase()))
+                : sortedByCreation;
               return (
               <div className="mb-4 sm:mb-6 p-3 sm:p-4 rounded-lg flex-1 overflow-hidden flex flex-col" style={{ background: colors.background }}>
                 <div className="flex justify-center mb-4 flex-shrink-0">
@@ -1107,7 +1131,7 @@ export default function AdminExpensesPage() {
                       e.target.style.color = 'black';
                     }}
                   >
-                    Sort Expenses
+                    Sort Expenses / Create Reports
                   </button>
                 </div>
 
@@ -1547,7 +1571,10 @@ export default function AdminExpensesPage() {
         <div className="fixed inset-0 z-[80] bg-black/80 flex items-center justify-center p-2 sm:p-4">
           <div className="bg-white rounded-2xl w-full h-full sm:h-auto sm:max-w-4xl sm:max-h-[90vh] flex flex-col">
             <div className="flex items-center justify-between p-3 sm:p-4 border-b">
-              <h3 className="text-lg sm:text-xl font-bold text-gray-800">Receipt: {selectedPhoto.title}</h3>
+              <h3 className="text-lg sm:text-xl font-bold text-gray-800">
+                Receipt: {selectedPhoto.title}
+                {selectedPhoto.photos.length > 1 && ` (${selectedPhoto.index + 1}/${selectedPhoto.photos.length})`}
+              </h3>
               <button 
                 onClick={() => setPhotoViewerOpen(false)}
                 className="text-gray-600 hover:text-gray-800 text-xl sm:text-2xl font-bold"
@@ -1555,13 +1582,41 @@ export default function AdminExpensesPage() {
                 ✕
               </button>
             </div>
-            <div className="flex-1 overflow-auto p-2 sm:p-4">
+            <div className="flex-1 overflow-auto p-2 sm:p-4 flex items-center justify-center relative">
+              {selectedPhoto.photos.length > 1 && selectedPhoto.index > 0 && (
+                <button
+                  onClick={() => setSelectedPhoto(prev => ({ ...prev, index: prev.index - 1 }))}
+                  className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/30 text-white flex items-center justify-center text-xl hover:bg-black/50 z-10"
+                >
+                  ‹
+                </button>
+              )}
               <img
-                src={selectedPhoto.url}
+                src={selectedPhoto.photos[selectedPhoto.index]?.url}
                 alt="Receipt"
                 className="w-full h-auto max-h-full object-contain"
               />
+              {selectedPhoto.photos.length > 1 && selectedPhoto.index < selectedPhoto.photos.length - 1 && (
+                <button
+                  onClick={() => setSelectedPhoto(prev => ({ ...prev, index: prev.index + 1 }))}
+                  className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/30 text-white flex items-center justify-center text-xl hover:bg-black/50 z-10"
+                >
+                  ›
+                </button>
+              )}
             </div>
+            {selectedPhoto.photos.length > 1 && (
+              <div className="flex justify-center gap-1.5 pb-3">
+                {selectedPhoto.photos.map((_, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => setSelectedPhoto(prev => ({ ...prev, index: idx }))}
+                    className="w-2 h-2 rounded-full transition-colors"
+                    style={{ backgroundColor: idx === selectedPhoto.index ? colors.primaryGreen : colors.gray400 }}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -1578,9 +1633,11 @@ export default function AdminExpensesPage() {
 
             {/* Summary content */}
             <div className="p-5 space-y-3">
-              {savedExpenseSummary.photoUrl && (
-                <div className="flex justify-center">
-                  <img src={savedExpenseSummary.photoUrl} alt="Receipt" className="w-20 h-20 object-cover rounded-lg border" style={{ borderColor: colors.gray400 }} />
+              {savedExpenseSummary.photos?.length > 0 && (
+                <div className="flex justify-center gap-2 flex-wrap">
+                  {savedExpenseSummary.photos.map((p, idx) => (
+                    <img key={idx} src={p.url} alt="Receipt" className="w-20 h-20 object-cover rounded-lg border" style={{ borderColor: colors.gray400 }} />
+                  ))}
                 </div>
               )}
 
@@ -1681,11 +1738,11 @@ export default function AdminExpensesPage() {
                 <div className="rounded-xl p-3 sm:p-4" style={{ background: colors.background }}>
                   <h3 className="font-semibold mb-3 text-center" style={{ color: colors.text }}>Receipt Photo</h3>
                   <PhotoUpload
-                    key={`photo-${form.photoUrl}-${Date.now()}`}
-                    onPhotoUploaded={handlePhotoUploaded}
-                    onPhotoRemoved={handlePhotoRemoved}
-                    currentPhotoUrl={form.photoUrl}
+                    ref={expensePhotoRef}
+                    key={`edit-${editingExpense?.id}`}
+                    currentPhotos={editingExpense?.photos || (editingExpense?.photoUrl ? [{url: editingExpense.photoUrl, path: editingExpense.photoPath || ''}] : [])}
                     uploadPath="expenses"
+                    maxPhotos={5}
                   />
                 </div>
               </div>
@@ -1919,11 +1976,6 @@ export default function AdminExpensesPage() {
                             setApprovingRefundId(request.id);
                             setApprovingRefundData(request);
                             setEditRefundStatus(request.status === 'denied' ? 'denied' : 'approved');
-                            if (request.receiptPhotoUrl) {
-                              setReceiptPhoto({ url: request.receiptPhotoUrl, path: request.photoPath || '' });
-                            } else {
-                              setReceiptPhoto(null);
-                            }
                             setApproveModalOpen(true);
                           }}
                           className="w-full px-4 py-3 rounded-xl text-lg font-bold border-2 transition-colors"
@@ -2004,53 +2056,34 @@ export default function AdminExpensesPage() {
               <div>
                 <label className="block text-lg font-bold mb-3 text-gray-800">Receipt Photo</label>
                 
-                {approvingRefundData.receiptPhotoUrl && !receiptPhoto && (
-                  <div className="mb-4">
-                    <p className="text-base text-gray-600 mb-2">Current receipt:</p>
-                    <div className="relative">
-                      <img
-                        src={approvingRefundData.receiptPhotoUrl}
-                        alt="Current receipt"
-                        className="w-full h-48 object-cover rounded-lg border"
-                      />
-                      <button
-                        onClick={() => {
-                          setReceiptPhoto({ url: approvingRefundData.receiptPhotoUrl, path: approvingRefundData.photoPath || '' });
-                        }}
-                        className="absolute top-2 right-2 text-white rounded-full w-8 h-8 flex items-center justify-center transition-colors"
-                        style={{ background: colors.primaryGreen }}
-                        title="Use this receipt"
-                      >
-                        ✓
-                      </button>
-                    </div>
-                  </div>
-                )}
-                
                 <PhotoUpload
-                  onPhotoUploaded={(photoUrl, photoPath) => {
-                    setReceiptPhoto({ url: photoUrl, path: photoPath });
-                  }}
-                  onPhotoRemoved={() => {
-                    setReceiptPhoto(null);
-                  }}
-                  currentPhotoUrl={receiptPhoto?.url || null}
+                  ref={refundReceiptPhotoRef}
+                  key={`refund-${approvingRefundId}`}
+                  currentPhotos={approvingRefundData?.photos || (approvingRefundData?.receiptPhotoUrl ? [{url: approvingRefundData.receiptPhotoUrl, path: approvingRefundData.photoPath || ''}] : [])}
                   uploadPath={`refunds/${approvingRefundData.ownerUid || 'admin'}`}
+                  maxPhotos={5}
                 />
               </div>
             </div>
             
             <div className="flex gap-3 pt-5 border-t border-gray-200 mt-4">
               <button
-                onClick={() => {
+                onClick={async () => {
+                  let receiptResults;
+                  try {
+                    receiptResults = await refundReceiptPhotoRef.current?.upload() || [];
+                  } catch {
+                    return;
+                  }
+                  const receiptUrl = receiptResults[0]?.url || '';
                   if (approvingRefundData.status === 'waiting') {
                     if (editRefundStatus === 'approved') {
-                      confirmApproveRefund(receiptPhoto?.url || '');
+                      confirmApproveRefund(receiptUrl, receiptResults);
                     } else {
-                      handleStatusChange('denied', '');
+                      handleStatusChange('denied', '', []);
                     }
                   } else {
-                    handleStatusChange(editRefundStatus, receiptPhoto?.url || '');
+                    handleStatusChange(editRefundStatus, receiptUrl, receiptResults);
                   }
                 }}
                 className="flex-1 px-6 py-4 rounded-xl font-bold text-white text-xl"

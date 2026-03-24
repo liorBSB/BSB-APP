@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { auth, db } from '@/lib/firebase';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation';
 import BottomNavBar from '@/components/BottomNavBar';
 import EditFieldModal from '@/components/EditFieldModal';
 import PhotoUpload from '@/components/PhotoUpload';
+import { deleteStorageFile } from '@/lib/storageCleanup';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
 import DeleteAccountModal from '@/components/DeleteAccountModal';
 import Image from 'next/image';
@@ -30,6 +31,7 @@ export default function SettingsPage() {
   const [editField, setEditField] = useState(null); // 'name', 'room', 'email'
   const [showPersonalId, setShowPersonalId] = useState(false);
   const [showPhotoUpload, setShowPhotoUpload] = useState(false);
+  const profilePhotoRef = useRef(null);
   const [hasDeclinedPhoto, setHasDeclinedPhoto] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showEditAllModal, setShowEditAllModal] = useState(false);
@@ -41,6 +43,7 @@ export default function SettingsPage() {
     personalNumber: '',
     phone: '',
     profilePhotoUrl: '',
+    profilePhotoPath: '',
   });
 
   useEffect(() => {
@@ -122,15 +125,46 @@ export default function SettingsPage() {
     if (updatedAnswers.email !== undefined) setFields(prev => ({ ...prev, email: updatedAnswers.email }));
   };
 
-  const updateUserPhoto = async (photoUrl) => {
+  const handleProfilePhotoConfirm = async () => {
     try {
       const user = auth.currentUser;
-      if (user) {
-        const userRef = doc(db, 'users', user.uid);
-        await updateDoc(userRef, { profilePhotoUrl: photoUrl });
+      if (!user) return;
+
+      let photoResult;
+      try {
+        const results = await profilePhotoRef.current?.upload() || [];
+        photoResult = results[0] || null;
+      } catch {
+        setError(t('failed_to_update_photo'));
+        setTimeout(() => setError(''), 3000);
+        return;
       }
 
-      setPersonalIdData(prev => ({ ...prev, profilePhotoUrl: photoUrl }));
+      if (!photoResult) {
+        setShowPhotoUpload(false);
+        return;
+      }
+
+      const oldPath = personalIdData.profilePhotoPath;
+      const userRef = doc(db, 'users', user.uid);
+      await updateDoc(userRef, {
+        profilePhotoUrl: photoResult.url,
+        profilePhotoPath: photoResult.path,
+        photos: [{ url: photoResult.url, path: photoResult.path }],
+      });
+
+      if (oldPath && oldPath !== photoResult.path) {
+        deleteStorageFile(oldPath).catch(console.error);
+      }
+
+      setPersonalIdData(prev => ({
+        ...prev,
+        profilePhotoUrl: photoResult.url,
+        profilePhotoPath: photoResult.path,
+      }));
+      setShowPhotoUpload(false);
+      setShowPersonalId(false);
+      setHasDeclinedPhoto(false);
       setSuccess(t('profile_photo_updated'));
       setTimeout(() => setSuccess(''), 3000);
     } catch (error) {
@@ -157,6 +191,7 @@ export default function SettingsPage() {
             personalNumber: data.personalNumber || '',
             phone: data.phone || '',
             profilePhotoUrl: data.profilePhotoUrl || '',
+            profilePhotoPath: data.profilePhotoPath || '',
           });
         }
       }
@@ -362,7 +397,6 @@ export default function SettingsPage() {
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-blue-200/60 to-green-100/60 font-body flex flex-col items-center pt-10 pb-32 px-2 phone-sm:px-2 phone-md:px-4 phone-lg:px-6">
-      <LanguageSwitcher />
       <div className="w-full max-w-md">
         {/* Personal ID Button - Above Settings */}
         <div className="rounded-3xl p-8 mb-6 shadow-lg flex flex-col items-center" style={{ background: 'rgba(0,0,0,0.38)' }}>
@@ -424,6 +458,9 @@ export default function SettingsPage() {
             </>
           )}
         </div>
+
+        <LanguageSwitcher />
+
         <button
           onClick={() => { auth.signOut(); router.push('/'); }}
           style={{ width: '100%', background: 'transparent', color: colors.primaryGreen, fontWeight: 700, border: `2.5px solid ${colors.primaryGreen}`, borderRadius: 999, padding: '1.2rem 0', fontSize: 22, boxShadow: '0 2px 8px rgba(0,0,0,0.08)', marginTop: 18 }}
@@ -579,24 +616,26 @@ export default function SettingsPage() {
             </div>
             
             <PhotoUpload
-              onPhotoUploaded={(photoUrl, photoPath) => {
-                updateUserPhoto(photoUrl);
-                setShowPhotoUpload(false);
-                setShowPersonalId(false);
-                setHasDeclinedPhoto(false);
-              }}
-              onPhotoRemoved={() => setShowPhotoUpload(false)}
+              ref={profilePhotoRef}
               currentPhotoUrl={personalIdData.profilePhotoUrl || null}
+              currentPhotoPath={personalIdData.profilePhotoPath || null}
               uploadPath={`user-profiles/${auth.currentUser?.uid}`}
             />
             
-            <div className="mt-6 text-center">
+            <div className="mt-6 flex justify-center gap-3">
               <button
                 onClick={() => setShowPhotoUpload(false)}
-                className="px-6 py-2 rounded-lg font-semibold text-white"
-                style={{ background: colors.gold }}
+                className="px-6 py-2 rounded-lg font-semibold"
+                style={{ color: colors.muted, border: `1px solid ${colors.gray400}` }}
               >
-{t('cancel')}
+                {t('cancel')}
+              </button>
+              <button
+                onClick={handleProfilePhotoConfirm}
+                className="px-6 py-2 rounded-lg font-semibold text-white"
+                style={{ background: colors.primaryGreen }}
+              >
+                {t('save')}
               </button>
             </div>
           </div>

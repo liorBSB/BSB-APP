@@ -28,6 +28,8 @@
     "work_here": "Work Here",
     "live_here": "Live Here",
     "cancel": "Cancel",
+    "choose_language": "Choose your language",
+    "change_later": "You can change it later in settings",
     "soldier_description": "Regular soldier user",
     "admin_description": "Administrator with full access",
     "crew_description": "Crew member with limited access"

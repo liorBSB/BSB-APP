@@ -16,6 +16,7 @@ import EventResponseModal from '@/components/home/EventResponseModal';
 import BottomNavBar from '@/components/BottomNavBar';
 import colors from '../colors';
 import useAuthRedirect from '@/hooks/useAuthRedirect';
+
 import { useRouter } from 'next/navigation';
 
 
@@ -181,11 +182,6 @@ export default function HomePage() {
     }
   };
 
-  const handleLanguageSwitch = () => {
-    const nextLang = i18n.language === 'en' ? 'he' : 'en';
-    i18n.changeLanguage(nextLang);
-    document.documentElement.dir = nextLang === 'he' ? 'rtl' : 'ltr';
-  };
 
   const handleEventResponse = async (response) => {
     if (!selectedEvent || !auth.currentUser) return;
@@ -420,52 +416,50 @@ export default function HomePage() {
                     <div className="flex-1 min-w-0">
                       <div className="font-bold text-xl text-[#076332] mb-3 leading-tight line-clamp-2">{event.title}</div>
                       {event.body && <div className="text-base font-medium text-gray-700 mb-4 leading-relaxed line-clamp-2">{event.body}</div>}
-                      {event.startTime && (
-                        <div className="text-sm font-semibold text-gray-600 mb-1">
-                          Start: {new Date(event.startTime.seconds ? event.startTime.seconds * 1000 : event.startTime).toLocaleDateString('en-US', { 
-                            weekday: 'short', 
-                            month: 'short', 
-                            day: 'numeric',
-                            hour: '2-digit', 
-                            minute: '2-digit' 
-                          })}
-                        </div>
-                      )}
-                      {event.endTime && (
-                        <div className="text-sm font-semibold text-gray-600">
-                          End: {new Date(event.endTime.seconds ? event.endTime.seconds * 1000 : event.endTime).toLocaleDateString('en-US', { 
-                            weekday: 'short', 
-                            month: 'short', 
-                            day: 'numeric',
-                            hour: '2-digit', 
-                            minute: '2-digit' 
-                          })}
-                        </div>
-                      )}
+                      {(event.startTime || event.endTime) && (() => {
+                        const fmt = (ts) => {
+                          const d = new Date(ts.seconds ? ts.seconds * 1000 : ts);
+                          const date = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+                          const time = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+                          return `${date}, ${time}`;
+                        };
+                        const s = event.startTime ? fmt(event.startTime) : null;
+                        const e = event.endTime ? fmt(event.endTime) : null;
+                        return (
+                          <div className="text-sm font-medium mt-1" style={{ color: colors.muted }}>
+                            {s}{e && ' → '}{e}
+                          </div>
+                        );
+                      })()}
                       {(() => {
-                        const userResponse = event.coming?.find(r => r.userId === auth.currentUser?.uid) ||
-                                           event.maybe?.find(r => r.userId === auth.currentUser?.uid) ||
-                                           event.notComing?.find(r => r.userId === auth.currentUser?.uid);
-                        
-                        if (userResponse) {
-                          const responseType = event.coming?.find(r => r.userId === auth.currentUser?.uid) ? 'coming' :
-                                             event.maybe?.find(r => r.userId === auth.currentUser?.uid) ? 'maybe' : 'notComing';
-                          return (
-                            <div className="mt-3 flex items-center gap-2">
-                              <span className="text-sm font-medium text-gray-700">Your response:</span>
-                              <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                                responseType === 'coming' ? 'bg-green-100 text-green-800' :
-                                responseType === 'maybe' ? 'bg-yellow-100 text-yellow-800' :
-                                'bg-red-100 text-red-800'
-                              }`}>
-                                {responseType === 'coming' && '✅ Coming'}
-                                {responseType === 'maybe' && '🤔 Maybe'}
-                                {responseType === 'notComing' && '❌ Not Coming'}
-                              </span>
-                            </div>
-                          );
-                        }
-                        return null;
+                        const uid = auth.currentUser?.uid;
+                        const responseType = event.coming?.find(r => r.userId === uid) ? 'coming' :
+                                             event.maybe?.find(r => r.userId === uid) ? 'maybe' :
+                                             event.notComing?.find(r => r.userId === uid) ? 'notComing' : null;
+                        if (!responseType) return null;
+
+                        const cfg = {
+                          coming:    { icon: '✓', color: colors.primaryGreen, label: t('coming') },
+                          maybe:     { icon: '?', color: colors.gold, label: t('maybe') },
+                          notComing: { icon: '✕', color: colors.red, label: t('notComing') },
+                        }[responseType];
+
+                        return (
+                          <div
+                            className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-xl"
+                            style={{ backgroundColor: cfg.color + '14' }}
+                          >
+                            <span
+                              className="w-5 h-5 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
+                              style={{ backgroundColor: cfg.color }}
+                            >
+                              {cfg.icon}
+                            </span>
+                            <span className="text-sm font-semibold" style={{ color: cfg.color }}>
+                              {cfg.label}
+                            </span>
+                          </div>
+                        );
                       })()}
                     </div>
                     <div className="flex-shrink-0 flex items-center">
@@ -596,28 +590,21 @@ export default function HomePage() {
                     <div className="flex-1 pr-4">
                       <div className="font-bold text-xl text-[#076332] mb-3 leading-tight line-clamp-2">{message.title}</div>
                       {message.body && <div className="text-base font-medium text-gray-700 mb-4 leading-relaxed line-clamp-2">{message.body}</div>}
-                      {message.startTime && (
-                        <div className="text-sm font-semibold text-gray-600 mb-1">
-                          Start: {new Date(message.startTime.seconds ? message.startTime.seconds * 1000 : message.startTime).toLocaleDateString('en-US', { 
-                            weekday: 'short', 
-                            month: 'short', 
-                            day: 'numeric',
-                            hour: '2-digit', 
-                            minute: '2-digit' 
-                          })}
-                        </div>
-                      )}
-                      {message.endTime && (
-                        <div className="text-sm font-semibold text-gray-600">
-                          End: {new Date(message.endTime.seconds ? message.endTime.seconds * 1000 : message.endTime).toLocaleDateString('en-US', { 
-                            weekday: 'short', 
-                            month: 'short', 
-                            day: 'numeric',
-                            hour: '2-digit', 
-                            minute: '2-digit' 
-                          })}
-                        </div>
-                      )}
+                      {(message.startTime || message.endTime) && (() => {
+                        const fmt = (ts) => {
+                          const d = new Date(ts.seconds ? ts.seconds * 1000 : ts);
+                          const date = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+                          const time = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+                          return `${date}, ${time}`;
+                        };
+                        const s = message.startTime ? fmt(message.startTime) : null;
+                        const e = message.endTime ? fmt(message.endTime) : null;
+                        return (
+                          <div className="text-sm font-medium mt-1" style={{ color: colors.muted }}>
+                            {s}{e && ' → '}{e}
+                          </div>
+                        );
+                      })()}
                     </div>
                   </div>
                 </div>
@@ -636,108 +623,80 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* Language Switch */}
-      <button
-        onClick={handleLanguageSwitch}
-        className="absolute top-4 right-4 bg-surface p-2 rounded-full text-muted hover:text-text"
-      >
-        {i18n.language === 'en' ? 'עברית' : 'EN'}
-      </button>
 
-      {/* Render the modal at the root of the page */}
-      {modalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
-            {/* Header */}
-            <div className="px-6 py-4 border-b border-gray-200">
-              <h2 className="text-xl font-bold text-[#076332] text-center">{selectedEvent?.title}</h2>
-            </div>
-            
-            {/* Content */}
-            <div className="p-6">
-              {eventResponse ? (
-                <div className="text-center">
-                  <div className="mb-6">
-                    <div className={`inline-flex items-center justify-center w-16 h-16 rounded-full mb-4 ${
-                      eventResponse === 'coming' ? 'bg-green-100' :
-                      eventResponse === 'maybe' ? 'bg-yellow-100' :
-                      'bg-red-100'
-                    }`}>
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                        eventResponse === 'coming' ? 'bg-green-500' :
-                        eventResponse === 'maybe' ? 'bg-yellow-500' :
-                        'bg-red-500'
-                      }`}>
-                        <div className={`w-4 h-4 rounded-full ${
-                          eventResponse === 'coming' ? 'bg-white' :
-                          eventResponse === 'maybe' ? 'bg-white' :
-                          'bg-white'
-                        }`}></div>
-                      </div>
-                    </div>
-                    <h3 className="text-lg font-semibold text-gray-800 mb-2">
-                      {eventResponse === 'coming' && t('coming')}
-                      {eventResponse === 'maybe' && t('maybe')}
-                      {eventResponse === 'notComing' && t('notComing')}
-                    </h3>
-                    <p className="text-sm text-gray-600">
-                      {eventResponse === 'coming' && 'Your response has been recorded. We look forward to seeing you!'}
-                      {eventResponse === 'maybe' && 'Thank you for your response. We will keep you updated.'}
-                      {eventResponse === 'notComing' && 'Thank you for letting us know. We hope to see you at future events.'}
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <p className="text-gray-700 text-center mb-6">Please let us know if you will be attending this event:</p>
-                  
-                  <button
-                    className="w-full py-3 px-4 rounded-lg font-semibold text-white transition-all duration-200 hover:opacity-90 shadow-md"
-                    style={{ background: colors.primaryGreen }}
-                    onClick={() => handleEventResponse('coming')}
-                  >
-                    {t('coming')}
-                  </button>
-                  
-                  <button
-                    className="w-full py-3 px-4 rounded-lg font-semibold transition-all duration-200 hover:opacity-90 border-2"
-                    style={{ 
-                      background: 'transparent', 
-                      color: colors.gold, 
-                      borderColor: colors.gold 
-                    }}
-                    onClick={() => handleEventResponse('maybe')}
-                  >
-                    {t('maybe')}
-                  </button>
-                  
-                  <button
-                    className="w-full py-3 px-4 rounded-lg font-semibold transition-all duration-200 hover:opacity-90 border-2"
-                    style={{ 
-                      background: 'transparent', 
-                      color: colors.red, 
-                      borderColor: colors.red 
-                    }}
-                    onClick={() => handleEventResponse('notComing')}
-                  >
-                    {t('notComing')}
-                  </button>
-                </div>
-              )}
-            </div>
-            
-            {/* Footer */}
-            <div className="px-6 py-4 border-t border-gray-200">
+      {/* Event Response Modal */}
+      {modalOpen && (() => {
+        const responseOptions = [
+          { key: 'coming', icon: '✓', bg: colors.primaryGreen, label: t('coming') },
+          { key: 'maybe', icon: '?', bg: colors.gold, label: t('maybe') },
+          { key: 'notComing', icon: '✕', bg: colors.red, label: t('notComing') },
+        ];
+        const confirmMessages = {
+          coming: t('response_confirmed_coming', 'Your response has been recorded. See you there!'),
+          maybe: t('response_confirmed_maybe', 'Thanks! We\'ll keep you updated.'),
+          notComing: t('response_confirmed_not_coming', 'Thanks for letting us know.'),
+        };
+        const activeOption = responseOptions.find(o => o.key === eventResponse);
+
+        return (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div
+              className="w-full max-w-sm rounded-3xl shadow-2xl relative overflow-hidden"
+              style={{ backgroundColor: colors.surface }}
+            >
               <button
-                className="w-full py-2 text-gray-500 hover:text-gray-700 transition-colors text-sm font-medium"
+                className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full transition-colors z-10"
+                style={{ backgroundColor: colors.gray400 + '33' }}
                 onClick={() => setModalOpen(false)}
               >
-                {t('close')}
+                <span className="text-gray-500 text-lg leading-none">✕</span>
               </button>
+
+              <div className="px-6 pt-6 pb-2">
+                <h2 className="text-xl font-bold pr-8" style={{ color: colors.primaryGreen }}>
+                  {selectedEvent?.title}
+                </h2>
+              </div>
+
+              <div className="px-6 pb-6 pt-2">
+                {eventResponse ? (
+                  <div className="text-center py-4">
+                    <div
+                      className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"
+                      style={{ backgroundColor: activeOption?.bg }}
+                    >
+                      <span className="text-white text-2xl font-bold">{activeOption?.icon}</span>
+                    </div>
+                    <h3 className="text-lg font-bold mb-2" style={{ color: activeOption?.bg }}>
+                      {activeOption?.label}
+                    </h3>
+                    <p className="text-sm" style={{ color: colors.muted }}>
+                      {confirmMessages[eventResponse]}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-3 mt-2">
+                    <p className="text-sm text-center mb-1" style={{ color: colors.muted }}>
+                      {t('respond_prompt', 'Will you be attending?')}
+                    </p>
+                    {responseOptions.map(({ key, icon, bg, label }) => (
+                      <button
+                        key={key}
+                        className="w-full py-3.5 rounded-2xl font-semibold text-base flex items-center justify-center gap-2 text-white transition-all duration-150 active:scale-[0.97] shadow-sm hover:shadow-md"
+                        style={{ backgroundColor: bg }}
+                        onClick={() => handleEventResponse(key)}
+                      >
+                        <span className="text-lg leading-none">{icon}</span>
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
       <BottomNavBar active="home" />
 
       {surveyModalOpen && (

@@ -1,45 +1,247 @@
 'use client';
 
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useCallback, useEffect, useImperativeHandle, forwardRef, useMemo } from 'react';
 import { ref as storageRef, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { storage, auth } from '@/lib/firebase';
 import colors from '@/app/colors';
 import '@/i18n';
 import { useTranslation } from 'react-i18next';
 
-export default function PhotoUpload({ 
-  onPhotoUploaded, 
-  currentPhotoUrl = null, 
-  onPhotoRemoved,
-  uploadPath = 'expenses',
-  maxSize = 10 * 1024 * 1024,
-  acceptedTypes = ['image/*']
-}) {
+export function compressImage(file, maxDimension = 1200) {
+  return new Promise((resolve) => {
+    const objectUrl = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      let { width, height } = img;
+
+      if (width > maxDimension || height > maxDimension) {
+        if (width > height) {
+          height = Math.round(height * (maxDimension / width));
+          width = maxDimension;
+        } else {
+          width = Math.round(width * (maxDimension / height));
+          height = maxDimension;
+        }
+      }
+
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+
+      canvas.toBlob(
+        (blob) => {
+          if (blob) {
+            resolve(new File([blob], file.name || 'photo.jpg', { type: 'image/jpeg' }));
+          } else {
+            resolve(file);
+          }
+        },
+        'image/jpeg',
+        0.8,
+      );
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      resolve(file);
+    };
+    img.src = objectUrl;
+  });
+}
+
+const PhotoUpload = forwardRef(function PhotoUpload(
+  {
+    currentPhotoUrl = null,
+    currentPhotoPath = null,
+    currentPhotos: currentPhotosArray = null,
+    onPhotoRemoved,
+    uploadPath = 'expenses',
+    maxPhotos = 1,
+    maxSize = 10 * 1024 * 1024,
+    acceptedTypes = ['image/*'],
+  },
+  ref,
+) {
   const { t } = useTranslation('components');
+
+  const currentPhotos = useMemo(() => {
+    if (currentPhotosArray && currentPhotosArray.length > 0) return currentPhotosArray;
+    if (currentPhotoUrl) return [{ url: currentPhotoUrl, path: currentPhotoPath || '' }];
+    return [];
+  }, [currentPhotosArray, currentPhotoUrl, currentPhotoPath]);
 
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadError, setUploadError] = useState('');
-  const [photoUrl, setPhotoUrl] = useState(currentPhotoUrl);
+
+  const [stagedFiles, setStagedFiles] = useState([]);
+  const [removedExistingIds, setRemovedExistingIds] = useState(new Set());
+
   const [showCamera, setShowCamera] = useState(false);
   const [cameraStream, setCameraStream] = useState(null);
-  const [capturedImage, setCapturedImage] = useState(null);
   const [useFrontCamera, setUseFrontCamera] = useState(false);
   const [cameraLoading, setCameraLoading] = useState(false);
   const [hasMultipleCameras, setHasMultipleCameras] = useState(false);
   const [cameraReady, setCameraReady] = useState(false);
-  const [previewUrl, setPreviewUrl] = useState(null);
 
   const fileInputRef = useRef(null);
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const cameraTimeoutRef = useRef(null);
 
+  const stagedFilesRef = useRef(stagedFiles);
+  const removedExistingIdsRef = useRef(removedExistingIds);
+  const currentPhotosRef = useRef(currentPhotos);
+  const uploadPathRef = useRef(uploadPath);
+
+  useEffect(() => { stagedFilesRef.current = stagedFiles; }, [stagedFiles]);
+  useEffect(() => { removedExistingIdsRef.current = removedExistingIds; }, [removedExistingIds]);
+  useEffect(() => { currentPhotosRef.current = currentPhotos; }, [currentPhotos]);
+  useEffect(() => { uploadPathRef.current = uploadPath; }, [uploadPath]);
+
+  // Reset when parent entity changes
+  const currentPhotosKey = JSON.stringify(currentPhotos.map((p) => p.url));
+  useEffect(() => {
+    setStagedFiles((prev) => {
+      prev.forEach((s) => { if (s.previewUrl) URL.revokeObjectURL(s.previewUrl); });
+      return [];
+    });
+    setRemovedExistingIds(new Set());
+    setUploadError('');
+    setUploadProgress(0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPhotosKey]);
+
+  // Cleanup object URLs on unmount
+  useEffect(() => {
+    return () => {
+      stagedFiles.forEach((s) => { if (s.previewUrl) URL.revokeObjectURL(s.previewUrl); });
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    return () => { if (cameraTimeoutRef.current) clearTimeout(cameraTimeoutRef.current); };
+  }, []);
+
+  useEffect(() => {
+    return () => { if (cameraStream) cameraStream.getTracks().forEach((track) => track.stop()); };
+  }, [cameraStream]);
+
+  // --- Derived display data ---
+
+  const activeExisting = currentPhotos
+    .map((p, i) => ({ displayUrl: p.url, isExisting: true, existingIndex: i }))
+    .filter((p) => !removedExistingIds.has(p.existingIndex));
+
+  const allDisplayPhotos = [
+    ...activeExisting,
+    ...stagedFiles.map((s, i) => ({ displayUrl: s.previewUrl, isExisting: false, stagedIndex: i })),
+  ];
+
+  const totalCount = allDisplayPhotos.length;
+  const canAddMore = totalCount < maxPhotos && !showCamera;
+  const isMulti = maxPhotos > 1;
+
+  // --- Imperative handle ---
+
+  useImperativeHandle(ref, () => ({
+    async upload(onProgress) {
+      const results = [];
+      const existing = currentPhotosRef.current || [];
+      const removed = removedExistingIdsRef.current;
+      const staged = stagedFilesRef.current || [];
+
+      for (let i = 0; i < existing.length; i++) {
+        if (!removed.has(i)) {
+          results.push({ url: existing[i].url, path: existing[i].path });
+        }
+      }
+
+      if (staged.length > 0) {
+        const user = auth.currentUser;
+        if (!user) throw new Error('Not authenticated');
+
+        setUploading(true);
+        setUploadProgress(0);
+
+        try {
+          for (let i = 0; i < staged.length; i++) {
+            const compressed = await compressImage(staged[i].file);
+            const fileName = `${Date.now()}_${i}_${compressed.name || 'photo.jpg'}`;
+            const fullPath = `${uploadPathRef.current}/${user.uid}/${fileName}`;
+            const sRef = storageRef(storage, fullPath);
+
+            const task = uploadBytesResumable(sRef, compressed, {
+              contentType: compressed.type || 'image/jpeg',
+            });
+
+            await new Promise((resolve, reject) => {
+              task.on(
+                'state_changed',
+                (snap) => {
+                  if (snap.totalBytes > 0) {
+                    const filePct = snap.bytesTransferred / snap.totalBytes;
+                    const overallPct = Math.round(((i + filePct) / staged.length) * 100);
+                    setUploadProgress(overallPct);
+                    onProgress?.(overallPct);
+                  }
+                },
+                reject,
+                resolve,
+              );
+            });
+
+            const url = await getDownloadURL(task.snapshot.ref);
+            results.push({ url, path: fullPath });
+          }
+        } finally {
+          setUploading(false);
+          setUploadProgress(0);
+        }
+      }
+
+      return results;
+    },
+
+    hasFile() {
+      if (stagedFilesRef.current.length > 0) return true;
+      const existing = currentPhotosRef.current || [];
+      const removed = removedExistingIdsRef.current;
+      for (let i = 0; i < existing.length; i++) {
+        if (!removed.has(i)) return true;
+      }
+      return false;
+    },
+
+    clear() {
+      setStagedFiles((prev) => {
+        prev.forEach((s) => { if (s.previewUrl) URL.revokeObjectURL(s.previewUrl); });
+        return [];
+      });
+      setRemovedExistingIds(new Set());
+      setUploadError('');
+      setUploadProgress(0);
+    },
+
+    getPreviewUrl() {
+      if (allDisplayPhotos.length > 0) return allDisplayPhotos[0].displayUrl;
+      return null;
+    },
+
+    getPreviewUrls() {
+      return allDisplayPhotos.map((p) => p.displayUrl);
+    },
+  }));
+
+  // --- Camera ---
+
   const checkCameras = useCallback(async () => {
     try {
       if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
         const devices = await navigator.mediaDevices.enumerateDevices();
-        const videoDevices = devices.filter(device => device.kind === 'videoinput');
+        const videoDevices = devices.filter((d) => d.kind === 'videoinput');
         setHasMultipleCameras(videoDevices.length > 1);
       }
     } catch {
@@ -47,102 +249,49 @@ export default function PhotoUpload({
     }
   }, []);
 
-  useEffect(() => {
-    checkCameras();
-  }, [checkCameras]);
-
-  useEffect(() => {
-    setPhotoUrl(currentPhotoUrl);
-    if (!currentPhotoUrl) {
-      setUploadError('');
-      setUploadProgress(0);
-    }
-  }, [currentPhotoUrl]);
-
-  // Revoke previous object URL when previewUrl changes or on unmount
-  useEffect(() => {
-    return () => {
-      if (previewUrl) {
-        URL.revokeObjectURL(previewUrl);
-      }
-    };
-  }, [previewUrl]);
-
-  // Cleanup camera timeout and stream on unmount
-  useEffect(() => {
-    return () => {
-      if (cameraTimeoutRef.current) {
-        clearTimeout(cameraTimeoutRef.current);
-      }
-    };
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      if (cameraStream) {
-        cameraStream.getTracks().forEach(track => track.stop());
-      }
-    };
-  }, [cameraStream]);
-
-  const triggerFilePicker = () => {
-    fileInputRef.current?.click();
-  };
+  useEffect(() => { checkCameras(); }, [checkCameras]);
 
   const startCamera = async (facingFront = useFrontCamera) => {
     try {
       setCameraLoading(true);
       setUploadError('');
-      
+
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         throw new Error('CAMERA_NOT_SUPPORTED');
       }
-      
+
       if (cameraStream) {
-        cameraStream.getTracks().forEach(track => track.stop());
+        cameraStream.getTracks().forEach((track) => track.stop());
         setCameraStream(null);
       }
 
-      const constraints = {
-        video: {
-          facingMode: facingFront ? 'user' : 'environment'
-        }
-      };
-      
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
-      
-      // Re-check cameras now that permission is granted (browsers hide devices until then)
-      checkCameras();
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: facingFront ? 'user' : 'environment' },
+      });
 
+      checkCameras();
       setCameraStream(stream);
       setShowCamera(true);
 
-      if (cameraTimeoutRef.current) {
-        clearTimeout(cameraTimeoutRef.current);
-      }
-      
+      if (cameraTimeoutRef.current) clearTimeout(cameraTimeoutRef.current);
+
       cameraTimeoutRef.current = setTimeout(() => {
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
-          
-          videoRef.current.play().then(() => {
-            setCameraLoading(false);
-            setCameraReady(true);
-          }).catch(() => {
-            videoRef.current.muted = true;
-            videoRef.current.play().then(() => {
-              setCameraLoading(false);
-              setCameraReady(true);
-            }).catch(() => {
-              setCameraLoading(false);
-              setCameraReady(false);
+          videoRef.current
+            .play()
+            .then(() => { setCameraLoading(false); setCameraReady(true); })
+            .catch(() => {
+              videoRef.current.muted = true;
+              videoRef.current
+                .play()
+                .then(() => { setCameraLoading(false); setCameraReady(true); })
+                .catch(() => { setCameraLoading(false); setCameraReady(false); });
             });
-          });
         } else {
           setCameraLoading(false);
         }
       }, 100);
-      
     } catch (error) {
       setCameraLoading(false);
       if (error.name === 'NotAllowedError') {
@@ -160,32 +309,38 @@ export default function PhotoUpload({
   const flipCamera = async () => {
     const newVal = !useFrontCamera;
     setUseFrontCamera(newVal);
-    if (showCamera) {
-      await startCamera(newVal);
-    }
+    if (showCamera) await startCamera(newVal);
   };
 
   const stopCamera = useCallback(() => {
     if (cameraStream) {
-      cameraStream.getTracks().forEach(track => track.stop());
+      cameraStream.getTracks().forEach((track) => track.stop());
       setCameraStream(null);
     }
     setShowCamera(false);
-    setCapturedImage(null);
-    if (previewUrl) {
-      URL.revokeObjectURL(previewUrl);
-      setPreviewUrl(null);
-    }
     setCameraLoading(false);
     setCameraReady(false);
-  }, [cameraStream, previewUrl]);
+  }, [cameraStream]);
+
+  const addFile = (file) => {
+    const entry = { file, previewUrl: URL.createObjectURL(file) };
+
+    if (maxPhotos === 1) {
+      setStagedFiles((prev) => {
+        prev.forEach((s) => { if (s.previewUrl) URL.revokeObjectURL(s.previewUrl); });
+        return [entry];
+      });
+      setRemovedExistingIds(new Set(currentPhotos.map((_, i) => i)));
+    } else {
+      setStagedFiles((prev) => [...prev, entry]);
+    }
+  };
 
   const capturePhoto = () => {
     if (!videoRef.current || !canvasRef.current) {
       setUploadError(t('photo_upload.camera_not_ready'));
       return;
     }
-
     const video = videoRef.current;
     const canvas = canvasRef.current;
     const context = canvas.getContext('2d');
@@ -199,95 +354,34 @@ export default function PhotoUpload({
     canvas.height = video.videoHeight;
     context.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-    canvas.toBlob((blob) => {
-      if (blob) {
-        const file = new File([blob], `camera_photo_${Date.now()}.jpg`, { type: 'image/jpeg' });
-        
-        setCapturedImage(file);
-        
-        if (previewUrl) {
-          URL.revokeObjectURL(previewUrl);
-        }
-        setPreviewUrl(URL.createObjectURL(file));
-        
-        if (cameraStream) {
-          cameraStream.getTracks().forEach(track => track.stop());
-          setCameraStream(null);
-        }
-        setShowCamera(false);
-        setCameraLoading(false);
-        setCameraReady(false);
-      } else {
-        setUploadError(t('photo_upload.capture_failed'));
-      }
-    }, 'image/jpeg', 0.8);
-  };
+    canvas.toBlob(
+      (blob) => {
+        if (blob) {
+          const file = new File([blob], `camera_photo_${Date.now()}.jpg`, { type: 'image/jpeg' });
+          addFile(file);
 
-  const confirmCapturedPhoto = () => {
-    if (capturedImage) {
-      handleFileUpload(capturedImage);
-    }
-  };
-
-  const handleFileUpload = async (file) => {
-    try {
-      setUploadError('');
-      setUploading(true);
-      setUploadProgress(0);
-
-      const user = auth.currentUser;
-      if (!user) {
-        setUploadError(t('photo_upload.login_required'));
-        return;
-      }
-      
-      const timestamp = Date.now();
-      const fileName = file.name || `${timestamp}_photo.jpg`;
-      const path = `${uploadPath}/${user.uid}/${fileName}`;
-      const ref = storageRef(storage, path);
-
-      const task = uploadBytesResumable(ref, file, { contentType: file.type || 'image/jpeg' });
-
-      await new Promise((resolve, reject) => {
-        task.on('state_changed', (snap) => {
-          if (snap.totalBytes > 0) {
-            setUploadProgress(Math.round((snap.bytesTransferred / snap.totalBytes) * 100));
+          if (cameraStream) {
+            cameraStream.getTracks().forEach((track) => track.stop());
+            setCameraStream(null);
           }
-        }, reject, resolve);
-      });
-
-      const downloadURL = await getDownloadURL(task.snapshot.ref);
-      
-      setPhotoUrl(downloadURL);
-      setUploadProgress(0);
-      setCapturedImage(null);
-      if (previewUrl) {
-        URL.revokeObjectURL(previewUrl);
-        setPreviewUrl(null);
-      }
-      
-      if (onPhotoUploaded) {
-        onPhotoUploaded(downloadURL, path);
-      }
-
-    } catch (error) {
-      console.error('Photo upload failed:', error);
-      setUploadError(t('photo_upload.upload_failed'));
-    } finally {
-      setUploading(false);
-    }
+          setShowCamera(false);
+          setCameraLoading(false);
+          setCameraReady(false);
+        } else {
+          setUploadError(t('photo_upload.capture_failed'));
+        }
+      },
+      'image/jpeg',
+      0.8,
+    );
   };
 
-  const retakePhoto = () => {
-    setCapturedImage(null);
-    if (previewUrl) {
-      URL.revokeObjectURL(previewUrl);
-      setPreviewUrl(null);
-    }
-    startCamera();
-  };
+  // --- Gallery ---
 
-  const handleFileSelected = async (event) => {
+  const triggerFilePicker = () => fileInputRef.current?.click();
+  const clearFileInput = () => { if (fileInputRef.current) fileInputRef.current.value = ''; };
+
+  const handleFileSelected = (event) => {
     setUploadError('');
     const file = event.target.files?.[0];
     if (!file) return;
@@ -296,27 +390,58 @@ export default function PhotoUpload({
       setUploadError(t('photo_upload.select_image_file'));
       return;
     }
-
     if (file.size > maxSize) {
       setUploadError(t('photo_upload.file_too_large', { max: Math.round(maxSize / 1024 / 1024) }));
       return;
     }
 
-    handleFileUpload(file);
+    addFile(file);
   };
 
-  const removePhoto = () => {
-    setPhotoUrl(null);
-    if (onPhotoRemoved) {
-      onPhotoRemoved();
+  // --- Remove ---
+
+  const removePhoto = (photo) => {
+    if (photo.isExisting) {
+      setRemovedExistingIds((prev) => new Set([...prev, photo.existingIndex]));
+    } else {
+      setStagedFiles((prev) => {
+        const removed = prev[photo.stagedIndex];
+        if (removed?.previewUrl) URL.revokeObjectURL(removed.previewUrl);
+        return prev.filter((_, i) => i !== photo.stagedIndex);
+      });
     }
+    onPhotoRemoved?.();
   };
 
-  const clearFileInput = () => {
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-  };
+  // --- Render ---
+
+  const hasPhotos = totalCount > 0;
+  const showPickerButtons = canAddMore && !showCamera;
+
+  const pickerButtons = (
+    <div className="grid grid-cols-2 gap-3">
+      <button
+        onClick={startCamera}
+        disabled={uploading || cameraLoading}
+        className="px-4 py-3 rounded-xl border-2 border-dashed transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+        style={{ borderColor: colors.gold, color: colors.gold, backgroundColor: `${colors.gold}10` }}
+      >
+        <span className="text-2xl">{cameraLoading ? '⏳' : '📱'}</span>
+        <span className="text-sm">
+          {cameraLoading ? t('photo_upload.starting_camera') : t('photo_upload.take_photo')}
+        </span>
+      </button>
+      <button
+        onClick={triggerFilePicker}
+        disabled={uploading}
+        className="px-4 py-3 rounded-xl border-2 border-dashed transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+        style={{ borderColor: colors.gray400, color: colors.muted }}
+      >
+        <span className="text-2xl">📁</span>
+        <span className="text-sm">{t('photo_upload.choose_from_gallery')}</span>
+      </button>
+    </div>
+  );
 
   return (
     <div className="space-y-3">
@@ -328,21 +453,18 @@ export default function PhotoUpload({
         className="hidden"
         onClick={clearFileInput}
       />
+      <canvas ref={canvasRef} className="hidden" />
 
-      <canvas
-        ref={canvasRef}
-        className="hidden"
-      />
-
-      {photoUrl && (
+      {/* Single-photo preview */}
+      {!isMulti && hasPhotos && !showCamera && (
         <div className="relative">
           <img
-            src={photoUrl}
+            src={allDisplayPhotos[0].displayUrl}
             alt=""
             className="w-full h-48 object-cover rounded-lg border"
           />
           <button
-            onClick={removePhoto}
+            onClick={() => removePhoto(allDisplayPhotos[0])}
             className="absolute top-2 right-2 text-white rounded-full w-8 h-8 flex items-center justify-center transition-colors"
             style={{ backgroundColor: colors.red }}
             title={t('photo_upload.remove_photo')}
@@ -352,6 +474,29 @@ export default function PhotoUpload({
         </div>
       )}
 
+      {/* Multi-photo grid */}
+      {isMulti && hasPhotos && (
+        <div className="grid grid-cols-3 gap-2">
+          {allDisplayPhotos.map((photo, idx) => (
+            <div key={idx} className="relative aspect-square rounded-lg overflow-hidden border">
+              <img
+                src={photo.displayUrl}
+                alt=""
+                className="w-full h-full object-cover"
+              />
+              <button
+                onClick={() => removePhoto(photo)}
+                className="absolute top-1 right-1 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs transition-colors"
+                style={{ backgroundColor: colors.red }}
+              >
+                ✕
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Camera viewfinder */}
       {showCamera && (
         <div className="relative bg-black rounded-lg overflow-hidden">
           <video
@@ -365,7 +510,6 @@ export default function PhotoUpload({
             onCanPlay={() => setCameraLoading(false)}
             onError={() => setUploadError(t('photo_upload.camera_error', { message: 'video' }))}
           />
-          
           {cameraLoading && (
             <div className="absolute inset-0 flex items-center justify-center bg-black/50">
               <div className="text-white text-center">
@@ -374,7 +518,6 @@ export default function PhotoUpload({
               </div>
             </div>
           )}
-          
           <div className="absolute bottom-0 left-0 right-0 bg-black/50 p-4">
             <div className="flex items-center justify-between px-6">
               <button
@@ -395,8 +538,8 @@ export default function PhotoUpload({
                 onClick={capturePhoto}
                 disabled={!cameraReady}
                 className={`rounded-full w-16 h-16 flex items-center justify-center transition-colors border-4 ${
-                  cameraReady 
-                    ? 'bg-white border-white/50 hover:bg-gray-100' 
+                  cameraReady
+                    ? 'bg-white border-white/50 hover:bg-gray-100'
                     : 'bg-gray-400 border-gray-500 cursor-not-allowed'
                 }`}
                 title={cameraReady ? t('photo_upload.take_photo') : t('photo_upload.camera_not_ready')}
@@ -415,60 +558,10 @@ export default function PhotoUpload({
         </div>
       )}
 
-      {capturedImage && !showCamera && (
-        <div className="relative">
-          <img
-            src={previewUrl}
-            alt=""
-            className="w-full h-48 object-cover rounded-lg border"
-          />
-          <div className="absolute bottom-2 left-2 right-2 flex gap-2">
-            <button
-              onClick={retakePhoto}
-              disabled={uploading}
-              className="bg-gray-500 text-white py-2 px-4 rounded-lg font-semibold hover:bg-gray-600 transition-colors disabled:opacity-50"
-            >
-              {t('photo_upload.retake')}
-            </button>
-            <button
-              onClick={confirmCapturedPhoto}
-              disabled={uploading}
-              className="py-2 px-4 rounded-lg font-semibold text-white transition-colors disabled:opacity-50"
-              style={{ backgroundColor: colors.green }}
-            >
-              {t('photo_upload.use_photo')}
-            </button>
-          </div>
-        </div>
-      )}
+      {/* Picker buttons */}
+      {showPickerButtons && pickerButtons}
 
-      {!photoUrl && !showCamera && !capturedImage && (
-        <div className="grid grid-cols-2 gap-3">
-          <button
-            onClick={startCamera}
-            disabled={uploading || cameraLoading}
-            className="px-4 py-3 rounded-xl border-2 border-dashed transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
-            style={{ 
-              borderColor: colors.gold, 
-              color: colors.gold, 
-              backgroundColor: `${colors.gold}10`
-            }}
-          >
-            <span className="text-2xl">{cameraLoading ? '⏳' : '📱'}</span>
-            <span className="text-sm">{cameraLoading ? t('photo_upload.starting_camera') : t('photo_upload.take_photo')}</span>
-          </button>
-          <button
-            onClick={triggerFilePicker}
-            disabled={uploading}
-            className="px-4 py-3 rounded-xl border-2 border-dashed transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
-            style={{ borderColor: colors.gray400, color: colors.muted }}
-          >
-            <span className="text-2xl">📁</span>
-            <span className="text-sm">{t('photo_upload.choose_from_gallery')}</span>
-          </button>
-        </div>
-      )}
-
+      {/* Upload progress */}
       {uploading && (
         <div className="w-full">
           <div className="flex items-center justify-between text-sm mb-1" style={{ color: colors.muted }}>
@@ -490,11 +583,15 @@ export default function PhotoUpload({
         </div>
       )}
 
-      {!photoUrl && !showCamera && !capturedImage && !uploading && (
+      {showPickerButtons && !uploading && (
         <p className="text-xs text-center" style={{ color: colors.muted }}>
-          {t('photo_upload.upload_instructions', { max: Math.round(maxSize / 1024 / 1024) })}
+          {isMulti
+            ? t('photo_upload.upload_instructions_multi', { max: Math.round(maxSize / 1024 / 1024), count: totalCount, limit: maxPhotos })
+            : t('photo_upload.upload_instructions', { max: Math.round(maxSize / 1024 / 1024) })}
         </p>
       )}
     </div>
   );
-}
+});
+
+export default PhotoUpload;

@@ -1,10 +1,13 @@
 'use client';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import '@/i18n';
 import { useTranslation } from 'react-i18next';
+import i18n from '@/i18n';
 import { auth, db } from '@/lib/firebase';
 import { doc, deleteDoc, updateDoc, getDoc } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
-import LanguageSwitcher from '@/components/LanguageSwitcher';
+
 import useAuthRedirect from '@/hooks/useAuthRedirect';
 import colors from '../../colors';
 
@@ -12,6 +15,16 @@ export default function SelectionPage() {
   const router = useRouter();
   const { t } = useTranslation('register');
   const isReady = useAuthRedirect();
+  const [langPicked, setLangPicked] = useState(false);
+
+  const pickLanguage = (lang) => {
+    setLangPicked(true);
+    if (lang !== i18n.language) {
+      i18n.changeLanguage(lang);
+      if (typeof window !== 'undefined') localStorage.setItem('lang', lang);
+      document.documentElement.dir = lang === 'he' ? 'rtl' : 'ltr';
+    }
+  };
 
   const handleWorkHere = async () => {
     try {
@@ -94,15 +107,49 @@ export default function SelectionPage() {
 
   return (
     <main className="min-h-screen flex items-center justify-center font-body px-4 phone-lg:px-0" style={{ background: colors.white }}>
-      <LanguageSwitcher className="absolute top-4 right-4 bg-surface p-2 rounded-full text-white text-xl hover:text-text" />
       <div
         className="w-full max-w-xs phone-md:max-w-sm phone-lg:max-w-md mx-auto 
           bg-transparent rounded-none shadow-none p-0
           phone-lg:bg-white phone-lg:rounded-[2.5rem] phone-lg:shadow-lg phone-lg:p-[3.5rem_2.2rem]"
       >
+        {/* Language picker */}
+        <div className="mb-10">
+          <div
+            className="flex items-center justify-center rounded-full p-2 mx-auto shadow-inner"
+            style={{ backgroundColor: colors.surface, width: 'fit-content', direction: 'ltr' }}
+          >
+            <button
+              onClick={() => pickLanguage('he')}
+              className="flex items-center justify-center w-20 h-16 rounded-full transition-all duration-200"
+              style={{
+                backgroundColor: langPicked && i18n.language === 'he' ? colors.gold : 'transparent',
+                boxShadow: langPicked && i18n.language === 'he' ? '0 2px 6px rgba(0,0,0,0.15)' : 'none',
+              }}
+            >
+              <span className={`text-4xl leading-none transition-all duration-200 ${langPicked && i18n.language === 'he' ? '' : !langPicked ? 'opacity-60' : 'grayscale opacity-40'}`}>🇮🇱</span>
+            </button>
+            <button
+              onClick={() => pickLanguage('en')}
+              className="flex items-center justify-center w-20 h-16 rounded-full transition-all duration-200"
+              style={{
+                backgroundColor: langPicked && i18n.language === 'en' ? colors.gold : 'transparent',
+                boxShadow: langPicked && i18n.language === 'en' ? '0 2px 6px rgba(0,0,0,0.15)' : 'none',
+              }}
+            >
+              <span className={`text-4xl leading-none transition-all duration-200 ${langPicked && i18n.language === 'en' ? '' : !langPicked ? 'opacity-60' : 'grayscale opacity-40'}`}>🇺🇸</span>
+            </button>
+          </div>
+          <p className="text-center text-base font-medium mt-3" style={{ color: colors.muted }}>
+            {t('selection.choose_language')}
+          </p>
+          <p className="text-center text-sm mt-1" style={{ color: colors.gray400 }}>
+            {t('selection.change_later')}
+          </p>
+        </div>
+
         <h2 style={{ fontWeight: 700, fontSize: '2.5rem', textAlign: 'center', marginBottom: '2.8rem' }}>{t('selection.do_you')}</h2>
         
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', opacity: langPicked ? 1 : 0.4, pointerEvents: langPicked ? 'auto' : 'none', transition: 'opacity 0.3s' }}>
           <button
             onClick={handleWorkHere}
             style={{ 

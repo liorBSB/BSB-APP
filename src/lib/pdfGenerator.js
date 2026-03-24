@@ -155,19 +155,23 @@ function addSummaryLines(doc, lines, startY) {
 // Photo gallery
 // ---------------------------------------------------------------------------
 
-async function addPhotoGallery(doc, items, getPhotoUrl, galleryTitle, onProgress) {
-  const withPhotos = items
-    .map((item, idx) => ({ item, originalIndex: idx + 1, url: getPhotoUrl(item) }))
-    .filter(entry => entry.url);
+async function addPhotoGallery(doc, items, getAllPhotoUrls, galleryTitle, onProgress) {
+  const entries = [];
+  for (let idx = 0; idx < items.length; idx++) {
+    const urls = getAllPhotoUrls(items[idx]);
+    for (const url of urls) {
+      entries.push({ url, originalIndex: idx + 1 });
+    }
+  }
 
-  if (withPhotos.length === 0) return;
+  if (entries.length === 0) return;
 
   doc.addPage();
   doc.setFontSize(16);
   doc.setFont(font(), 'bold');
   doc.text(prepareText(galleryTitle), PAGE_WIDTH / 2, 22, { align: 'center' });
 
-  const totalText = `${t('pdf_total_photos', 'Total Photos')}: ${withPhotos.length}`;
+  const totalText = `${t('pdf_total_photos', 'Total Photos')}: ${entries.length}`;
   doc.setFontSize(11);
   doc.setFont(font(), 'normal');
   doc.text(totalText, PAGE_WIDTH / 2, 30, { align: 'center' });
@@ -180,8 +184,8 @@ async function addPhotoGallery(doc, items, getPhotoUrl, galleryTitle, onProgress
   let col = 0;
   let y = 42;
 
-  for (let i = 0; i < withPhotos.length; i++) {
-    const { url, originalIndex } = withPhotos[i];
+  for (let i = 0; i < entries.length; i++) {
+    const { url, originalIndex } = entries[i];
     const x = MARGIN + col * (photoW + gap);
 
     if (y + labelH + photoH > 280) {
@@ -205,7 +209,7 @@ async function addPhotoGallery(doc, items, getPhotoUrl, galleryTitle, onProgress
       drawPlaceholder(doc, x, y + 3, photoW, photoH);
     }
 
-    if (onProgress) onProgress(i + 1, withPhotos.length);
+    if (onProgress) onProgress(i + 1, entries.length);
 
     col++;
     if (col >= cols) {
@@ -241,7 +245,7 @@ function createTableHooks(items, photoColIndex, getPhotoUrl) {
         const item = items[data.row.index];
         if (getPhotoUrl(item)) {
           data.cell.styles.textColor = LINK_COLOR;
-          data.cell.styles.fontStyle = 'italic';
+          data.cell.styles.fontStyle = 'bold';
         }
       }
     },
@@ -344,7 +348,11 @@ export async function generateExpensesPDF(items, options = {}) {
     t('pdf_col_photo', 'Photo'),
   ];
 
-  const getPhotoUrl = (item) => item.photoUrl;
+  const getPhotoUrl = (item) => item.photos?.[0]?.url || item.photoUrl || null;
+  const getAllPhotoUrls = (item) => {
+    if (item.photos?.length > 0) return item.photos.map(p => p.url);
+    return item.photoUrl ? [item.photoUrl] : [];
+  };
   const photoColIdx = 8;
 
   const body = items.map((expense, i) => [
@@ -393,7 +401,7 @@ export async function generateExpensesPDF(items, options = {}) {
   });
 
   await addPhotoGallery(
-    doc, items, getPhotoUrl,
+    doc, items, getAllPhotoUrls,
     t('pdf_photo_gallery', 'Photos Gallery'),
     onProgress,
   );
@@ -443,7 +451,13 @@ export async function generateRefundsPDF(items, options = {}) {
     t('pdf_col_receipt', 'Receipt'),
   ];
 
-  const getPhotoUrl = (item) => item.photoUrl || item.receiptPhotoUrl || null;
+  const getPhotoUrl = (item) => item.photos?.[0]?.url || item.photoUrl || item.receiptPhotoUrl || null;
+  const getAllPhotoUrls = (item) => {
+    if (item.photos?.length > 0) return item.photos.map(p => p.url);
+    if (item.photoUrl) return [item.photoUrl];
+    if (item.receiptPhotoUrl) return [item.receiptPhotoUrl];
+    return [];
+  };
   const photoColIdx = 8;
 
   const statusLabel = (s) => {
@@ -506,7 +520,7 @@ export async function generateRefundsPDF(items, options = {}) {
   });
 
   await addPhotoGallery(
-    doc, items, getPhotoUrl,
+    doc, items, getAllPhotoUrls,
     t('pdf_receipt_gallery', 'Receipt Photos Gallery'),
     onProgress,
   );

@@ -8,7 +8,7 @@ import { useRouter } from 'next/navigation';
 /* eslint-disable @next/next/no-img-element */
 import { signInWithPopup, onAuthStateChanged } from 'firebase/auth';
 import { auth, googleProvider } from '../lib/firebase';
-import LanguageSwitcher from '@/components/LanguageSwitcher';
+
 import colors from './colors';
 
 export default function AuthPage() {
@@ -80,7 +80,6 @@ export default function AuthPage() {
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-blue-200/60 to-green-100/60 font-body flex items-center justify-center px-4 phone-lg:px-0">
-      <LanguageSwitcher className="absolute top-4 right-4 bg-surface p-2 rounded-full text-white text-xl hover:text-text" />
       <div
         className="w-full max-w-xs phone-md:max-w-sm phone-lg:max-w-md mx-auto 
           bg-transparent rounded-none shadow-none p-0

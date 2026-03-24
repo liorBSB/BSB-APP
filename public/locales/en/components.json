@@ -25,6 +25,7 @@
     "report": "Report",
     "settings": "Settings"
   },
+  "changeLang": "Change lang",
   "photo_upload": {
     "take_photo": "Take Photo",
     "choose_from_gallery": "Choose from Gallery",
@@ -45,6 +46,7 @@
     "select_image_file": "Please select an image file",
     "login_required": "You must be logged in to upload photos",
     "capture_failed": "Failed to capture photo. Please try again.",
-    "upload_instructions": "Take a photo or upload an existing image • Max size: {{max}}MB"
+    "upload_instructions": "Take a photo or upload an existing image • Max size: {{max}}MB",
+    "upload_instructions_multi": "{{count}}/{{limit}} photos • Max {{max}}MB each"
   }
 }
