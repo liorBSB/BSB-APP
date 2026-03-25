@@ -113,6 +113,7 @@ export default function ProfileSetup() {
     const uid = auth.currentUser?.uid;
     if (!uid) {
       setError(t('no_auth_error'));
+      setIsLoading(false);
       router.push('/');
       return;
     }

@@ -1,7 +1,27 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
+const mockRequireAuth = vi.fn();
+const mockTakeRateLimit = vi.fn();
+const mockUserGet = vi.fn();
+
 vi.mock('@/lib/serverAuth', () => ({
-  requireAuth: vi.fn(async () => ({ ok: true, uid: 'test-user' })),
+  requireAuth: (...args) => mockRequireAuth(...args),
+}));
+
+vi.mock('@/lib/rateLimit', () => ({
+  takeRateLimit: (...args) => mockTakeRateLimit(...args),
+  applyRateLimitHeaders: (response) => response,
+  resolveRateLimitClientId: () => 'test-ip',
+}));
+
+vi.mock('@/lib/firebaseAdmin', () => ({
+  getAdminDb: () => ({
+    collection: () => ({
+      doc: () => ({
+        get: mockUserGet,
+      }),
+    }),
+  }),
 }));
 
 function makeRequest(body) {
@@ -19,6 +39,20 @@ describe('/api/sync-to-sheet POST', () => {
   beforeEach(async () => {
     vi.resetModules();
     vi.stubGlobal('fetch', vi.fn());
+    mockRequireAuth.mockReset();
+    mockTakeRateLimit.mockReset();
+    mockUserGet.mockReset();
+    mockRequireAuth.mockResolvedValue({ ok: true, uid: 'test-user' });
+    mockTakeRateLimit.mockReturnValue({
+      allowed: true,
+      remaining: 20,
+      resetAt: Date.now() + 60000,
+      retryAfterSec: 0,
+    });
+    mockUserGet.mockResolvedValue({
+      exists: true,
+      data: () => ({ userType: 'user', roomNumber: '5' }),
+    });
     process.env.RECEPTION_SCRIPT_URL = FAKE_URL;
     const mod = await import('../../sync-to-sheet/route.js');
     POST = mod.POST;
@@ -40,6 +74,14 @@ describe('/api/sync-to-sheet POST', () => {
     expect(body.message).toContain('not configured');
   });
 
+  it('rejects unauthenticated requests', async () => {
+    mockRequireAuth.mockResolvedValue({ ok: false, status: 401, error: 'Missing bearer token' });
+    const res = await POST(makeRequest({ roomNumber: '5', newStatus: 'Home' }));
+    expect(res.status).toBe(401);
+    const body = await res.json();
+    expect(body.message).toBe('Missing bearer token');
+  });
+
   it('returns 400 when roomNumber is missing', async () => {
     const res = await POST(makeRequest({ newStatus: 'Home' }));
     expect(res.status).toBe(400);
@@ -52,6 +94,24 @@ describe('/api/sync-to-sheet POST', () => {
     expect(res.status).toBe(400);
     const body = await res.json();
     expect(body.message).toBe('Invalid status');
+  });
+
+  it('returns 403 when non-admin updates different room', async () => {
+    const res = await POST(makeRequest({ roomNumber: '9', newStatus: 'Out' }));
+    expect(res.status).toBe(403);
+    const body = await res.json();
+    expect(body.message).toBe('Forbidden room access');
+  });
+
+  it('returns 429 when rate-limited', async () => {
+    mockTakeRateLimit.mockReturnValue({
+      allowed: false,
+      remaining: 0,
+      resetAt: Date.now() + 1000,
+      retryAfterSec: 1,
+    });
+    const res = await POST(makeRequest({ roomNumber: '5', newStatus: 'Out' }));
+    expect(res.status).toBe(429);
   });
 
   it('returns 404 when room not found in sheet', async () => {
@@ -87,6 +147,28 @@ describe('/api/sync-to-sheet POST', () => {
     expect(postCall[1].method).toBe('POST');
     const postBody = JSON.parse(postCall[1].body);
     expect(postBody).toEqual({ id: 'row-5', status: 'Out' });
+  });
+
+  it('allows admin to update any provided room number', async () => {
+    mockRequireAuth.mockResolvedValue({ ok: true, uid: 'admin-user' });
+    mockUserGet.mockResolvedValue({
+      exists: true,
+      data: () => ({ userType: 'admin', roomNumber: '1' }),
+    });
+    fetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve([{ room: '999', id: 'row-999', status: 'Home' }]),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ status: 'success' }),
+      });
+
+    const res = await POST(makeRequest({ roomNumber: '999', newStatus: 'Out' }));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.success).toBe(true);
   });
 
   it('returns 500 when GET to sheet fails', async () => {

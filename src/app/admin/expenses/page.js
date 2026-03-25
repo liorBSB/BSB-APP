@@ -110,6 +110,7 @@ export default function AdminExpensesPage() {
   const [approvingRefundId, setApprovingRefundId] = useState(null);
   const [approvingRefundData, setApprovingRefundData] = useState(null);
   const [editRefundStatus, setEditRefundStatus] = useState('approved');
+  const [refundActionLoading, setRefundActionLoading] = useState(false);
 
   // Export modal state
   const [exportModalOpen, setExportModalOpen] = useState(false);
@@ -526,6 +527,8 @@ export default function AdminExpensesPage() {
   };
 
   const confirmApproveRefund = async (receiptPhotoUrl, receiptResults) => {
+    if (refundActionLoading) return;
+    setRefundActionLoading(true);
     try {
       await updateDoc(doc(db, "refundRequests", approvingRefundId), {
         status: 'approved',
@@ -540,10 +543,14 @@ export default function AdminExpensesPage() {
       setApprovingRefundData(null);
     } catch (error) {
       console.error('Error approving refund:', error);
+    } finally {
+      setRefundActionLoading(false);
     }
   };
 
   const handleStatusChange = async (newStatus, receiptPhotoUrl, receiptResults) => {
+    if (refundActionLoading) return;
+    setRefundActionLoading(true);
     try {
       const updateData = {
         status: newStatus,
@@ -570,9 +577,10 @@ export default function AdminExpensesPage() {
       setApproveModalOpen(false);
       setApprovingRefundId(null);
       setApprovingRefundData(null);
-      setReceiptPhoto(null);
     } catch (error) {
       console.error('Error changing refund status:', error);
+    } finally {
+      setRefundActionLoading(false);
     }
   };
 
@@ -2036,7 +2044,6 @@ export default function AdminExpensesPage() {
               <h3 className="text-2xl font-bold text-gray-800">{t('refunds.edit_modal_title')}</h3>
               <button onClick={() => {
                 setApproveModalOpen(false);
-                setReceiptPhoto(null);
               }} className="text-gray-600 hover:text-gray-800 text-2xl transition-colors">✕</button>
             </div>
             
@@ -2055,6 +2062,7 @@ export default function AdminExpensesPage() {
                   <button
                     onClick={() => setEditRefundStatus('approved')}
                     className="flex-1 py-3 text-lg font-bold transition-colors"
+                    disabled={refundActionLoading}
                     style={{
                       background: editRefundStatus === 'approved' ? colors.primaryGreen : 'transparent',
                       color: editRefundStatus === 'approved' ? 'white' : colors.primaryGreen
@@ -2065,6 +2073,7 @@ export default function AdminExpensesPage() {
                   <button
                     onClick={() => setEditRefundStatus('denied')}
                     className="flex-1 py-3 text-lg font-bold transition-colors"
+                    disabled={refundActionLoading}
                     style={{
                       background: editRefundStatus === 'denied' ? colors.red : 'transparent',
                       color: editRefundStatus === 'denied' ? 'white' : colors.red
@@ -2091,6 +2100,7 @@ export default function AdminExpensesPage() {
             <div className="flex gap-3 pt-5 border-t border-gray-200 mt-4">
               <button
                 onClick={async () => {
+                  if (refundActionLoading) return;
                   let receiptResults;
                   try {
                     receiptResults = await refundReceiptPhotoRef.current?.upload() || [];
@@ -2110,16 +2120,18 @@ export default function AdminExpensesPage() {
                 }}
                 className="flex-1 px-6 py-4 rounded-xl font-bold text-white text-xl"
                 style={{ background: colors.primaryGreen }}
+                disabled={refundActionLoading}
               >
                 {t('refunds.save_changes')}
               </button>
               <button
                 onClick={() => {
+                  if (refundActionLoading) return;
                   setApproveModalOpen(false);
-                  setReceiptPhoto(null);
                 }}
                 className="flex-1 px-6 py-4 rounded-xl font-bold text-xl border-2"
                 style={{ borderColor: colors.gray400, color: colors.muted }}
+                disabled={refundActionLoading}
               >
                 {t('refunds.cancel')}
               </button>

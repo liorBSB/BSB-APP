@@ -72,4 +72,28 @@ describe('receptionSync', () => {
       body: JSON.stringify({ roomNumber: '5', newStatus: 'Home' }),
     });
   });
+
+  it('handles rapid repeated sync calls without throwing', async () => {
+    fetch.mockResolvedValue({
+      json: () => Promise.resolve({ success: true }),
+    });
+
+    const results = await Promise.all([
+      syncStatusToReceptionSheet('5', 'Home'),
+      syncStatusToReceptionSheet('5', 'Out'),
+      syncStatusToReceptionSheet('5', 'In base'),
+    ]);
+
+    expect(results).toHaveLength(3);
+    expect(fetch).toHaveBeenCalledTimes(3);
+  });
+
+  it('falls back to Home when reception API returns invalid status payload', async () => {
+    fetch.mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ status: 'Unknown' }),
+    });
+
+    expect(await fetchStatusFromSheet('5')).toBe('Home');
+  });
 });

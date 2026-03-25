@@ -2,6 +2,7 @@
 
 import '@/i18n';
 import { useState, useEffect, useRef, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { adminWipeUserData, getActiveUsers, markUserAsLeft, updateUserData, getPendingDepartureRequests, dismissDepartureRequest, deleteDepartureRequest } from '@/lib/database';
 import { auth, db } from '@/lib/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
@@ -25,12 +26,16 @@ const STATUS_COLORS = {
 
 export default function SoldierManagement() {
   const { t, i18n } = useTranslation('admin');
+  const lang = (i18n.language || '').toLowerCase();
+  const domDir = typeof document !== 'undefined' ? document.documentElement.dir : '';
+  const isRTL = domDir === 'rtl' || i18n.dir?.(i18n.language) === 'rtl' || lang.startsWith('he') || lang.startsWith('iw');
   const STATUS_LABELS = useMemo(() => ({
     Home: t('home'),
     Out: t('away'),
     'In base': t('in_base'),
     Abroad: t('abroad'),
   }), [t, i18n.language]);
+  const detailOrNA = (v) => (v != null && String(v).trim() !== '' ? v : t('detail_not_specified'));
   const [soldiers, setSoldiers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedSoldier, setSelectedSoldier] = useState(null);
@@ -57,6 +62,8 @@ export default function SoldierManagement() {
   const [deleteAccountCountdown, setDeleteAccountCountdown] = useState(5);
   const [deleteAccountDelayTimer, setDeleteAccountDelayTimer] = useState(null);
   const [showSaveConfirmation, setShowSaveConfirmation] = useState(false);
+  const [openInlineStatusSoldierId, setOpenInlineStatusSoldierId] = useState(null);
+  const [inlineStatusMenuPosition, setInlineStatusMenuPosition] = useState(null);
   const [departureRequests, setDepartureRequests] = useState([]);
   const [departureProcessingId, setDepartureProcessingId] = useState(null);
   const [selectedSoldierSheetEmail, setSelectedSoldierSheetEmail] = useState('');
@@ -128,6 +135,40 @@ export default function SoldierManagement() {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [showGenderDropdown, showStatusDropdown, showFamilyDropdown]);
+
+  useEffect(() => {
+    const handleInlineStatusOutsideClick = (event) => {
+      if (!openInlineStatusSoldierId) return;
+      const target = event.target;
+      const isTrigger = target.closest('[data-inline-status-trigger]');
+      const isContent = target.closest('[data-inline-status-content]');
+      if (!isTrigger && !isContent) {
+        setOpenInlineStatusSoldierId(null);
+        setInlineStatusMenuPosition(null);
+      }
+    };
+
+    document.addEventListener('mousedown', handleInlineStatusOutsideClick);
+    return () => {
+      document.removeEventListener('mousedown', handleInlineStatusOutsideClick);
+    };
+  }, [openInlineStatusSoldierId]);
+
+  useEffect(() => {
+    if (!openInlineStatusSoldierId) return undefined;
+
+    const closeInlineMenu = () => {
+      setOpenInlineStatusSoldierId(null);
+      setInlineStatusMenuPosition(null);
+    };
+
+    window.addEventListener('scroll', closeInlineMenu, true);
+    window.addEventListener('resize', closeInlineMenu);
+    return () => {
+      window.removeEventListener('scroll', closeInlineMenu, true);
+      window.removeEventListener('resize', closeInlineMenu);
+    };
+  }, [openInlineStatusSoldierId]);
 
   useEffect(() => {
     if (!isAnyModalOpen) return undefined;
@@ -277,7 +318,7 @@ export default function SoldierManagement() {
       const targetName = String(soldier?.fullName || '').trim();
 
       const mappedCandidates = candidates
-        .map((candidate) => mapSoldierData(candidate?.raw || candidate))
+        .map((candidate) => mapSoldierData(candidate))
         .filter(Boolean);
 
       const matched =
@@ -667,6 +708,8 @@ export default function SoldierManagement() {
       syncStatusToReceptionSheet(soldier.roomNumber, newStatus).catch(() => {});
       setSoldiers(prev => prev.map(s => s.id === soldier.id ? { ...s, status: newStatus } : s));
       setSearchResults(prev => prev.map(s => s.id === soldier.id ? { ...s, status: newStatus } : s));
+      setOpenInlineStatusSoldierId(null);
+      setInlineStatusMenuPosition(null);
     } catch (err) {
       console.error('Failed to update status:', err);
     }
@@ -678,7 +721,11 @@ export default function SoldierManagement() {
     const colorClass = STATUS_COLORS[currentStatus] || 'bg-gray-100 text-gray-700';
     
     return (
-      <div key={soldier.id} className="rounded-2xl p-3 phone-sm:p-4 mb-3 phone-sm:mb-4 shadow-sm" style={{ background: colors.sectionBg, color: colors.white }}>
+      <div
+        key={soldier.id}
+        className={`relative overflow-visible rounded-2xl p-3 phone-sm:p-4 mb-3 phone-sm:mb-4 shadow-sm ${openInlineStatusSoldierId === soldier.id ? 'z-30' : 'z-0'}`}
+        style={{ background: colors.sectionBg, color: colors.white }}
+      >
         <div className="flex items-start gap-3">
           <div className="w-10 h-10 phone-sm:w-12 phone-sm:h-12 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: colors.gold }}>
             <span className="text-lg phone-sm:text-xl" style={{ color: colors.black }}>👤</span>
@@ -704,15 +751,48 @@ export default function SoldierManagement() {
                     {STATUS_LABELS[currentStatus] || currentStatus}
                   </span>
                 ) : (
-                  <select
-                    value={currentStatus}
-                    onChange={(e) => handleInlineStatusChange(soldier, e.target.value)}
-                    className={`px-2 py-1.5 rounded-full text-xs font-semibold cursor-pointer border-0 focus:outline-none focus:ring-2 focus:ring-white/50 ${colorClass}`}
-                  >
-                    {STATUS_OPTIONS.map((opt) => (
-                      <option key={opt} value={opt}>{STATUS_LABELS[opt]}</option>
-                    ))}
-                  </select>
+                  <div className="relative">
+                    <button
+                      type="button"
+                      data-inline-status-trigger
+                      onClick={(event) => {
+                        if (openInlineStatusSoldierId === soldier.id) {
+                          setOpenInlineStatusSoldierId(null);
+                          setInlineStatusMenuPosition(null);
+                          return;
+                        }
+                        const rect = event.currentTarget.getBoundingClientRect();
+                        setInlineStatusMenuPosition({
+                          top: rect.bottom + 6,
+                          left: rect.left,
+                          right: window.innerWidth - rect.right,
+                          width: rect.width,
+                        });
+                        setOpenInlineStatusSoldierId(soldier.id);
+                      }}
+                      className={`min-h-11 rounded-full text-sm font-semibold cursor-pointer border border-white/25 focus:outline-none focus:ring-2 focus:ring-white/50 shadow-sm transition-colors inline-flex items-center gap-2 ${isRTL ? 'pr-3 pl-4' : 'pl-4 pr-3'} ${colorClass}`}
+                      aria-haspopup="listbox"
+                      aria-expanded={openInlineStatusSoldierId === soldier.id}
+                      dir={isRTL ? 'rtl' : 'ltr'}
+                    >
+                      {isRTL ? (
+                        <>
+                          <span className="text-xs opacity-80" style={{ color: colors.black }} aria-hidden="true">
+                            {openInlineStatusSoldierId === soldier.id ? '▲' : '▼'}
+                          </span>
+                          <span>{STATUS_LABELS[currentStatus] || currentStatus}</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>{STATUS_LABELS[currentStatus] || currentStatus}</span>
+                          <span className="text-xs opacity-80" style={{ color: colors.black }} aria-hidden="true">
+                            {openInlineStatusSoldierId === soldier.id ? '▲' : '▼'}
+                          </span>
+                        </>
+                      )}
+                    </button>
+
+                  </div>
                 )}
 
                 <button
@@ -737,7 +817,7 @@ export default function SoldierManagement() {
   };
 
   return (
-    <div className="space-y-4 p-3 phone-sm:p-4 phone-md:p-6 max-w-full overflow-hidden">
+    <div className="space-y-4 p-3 phone-sm:p-4 phone-md:p-6 max-w-full overflow-x-hidden overflow-y-visible">
       {/* Header */}
       <div className="flex flex-col phone-sm:flex-row phone-sm:items-center phone-sm:justify-between gap-2">
         <h2 className="text-xl phone-sm:text-2xl font-bold text-gray-800">{t('soldier_management')}</h2>
@@ -917,18 +997,76 @@ export default function SoldierManagement() {
       )}
 
       {/* Soldier Details Modal */}
+      {openInlineStatusSoldierId && inlineStatusMenuPosition && createPortal(
+        <div
+          data-inline-status-content
+          className="fixed z-[120] rounded-3xl overflow-hidden shadow-2xl border"
+          style={{
+            top: inlineStatusMenuPosition.top,
+            [isRTL ? 'right' : 'left']: isRTL ? inlineStatusMenuPosition.right : inlineStatusMenuPosition.left,
+            width: Math.max(inlineStatusMenuPosition.width, 152),
+            background: colors.white,
+            borderColor: `${colors.primaryGreen}33`,
+          }}
+          role="listbox"
+          dir={isRTL ? 'rtl' : 'ltr'}
+        >
+          {STATUS_OPTIONS.map((opt) => {
+            const isActive = opt === normalizeStatus(
+              soldiers.find((s) => s.id === openInlineStatusSoldierId)?.status ||
+              searchResults.find((s) => s.id === openInlineStatusSoldierId)?.status
+            );
+            const targetSoldier =
+              soldiers.find((s) => s.id === openInlineStatusSoldierId) ||
+              searchResults.find((s) => s.id === openInlineStatusSoldierId);
+            if (!targetSoldier) return null;
+
+            return (
+              <button
+                key={opt}
+                type="button"
+                onClick={() => handleInlineStatusChange(targetSoldier, opt)}
+                className="w-full px-4 py-3 text-base font-semibold transition-colors flex items-center justify-between"
+                style={{
+                  background: isActive ? colors.primaryGreen : 'transparent',
+                  color: isActive ? colors.white : colors.black,
+                  textAlign: isRTL ? 'right' : 'left',
+                  direction: isRTL ? 'rtl' : 'ltr',
+                  flexDirection: isRTL ? 'row-reverse' : 'row',
+                }}
+                onMouseEnter={(e) => {
+                  if (!isActive) e.currentTarget.style.background = `${colors.white}1f`;
+                }}
+                onMouseLeave={(e) => {
+                  if (!isActive) e.currentTarget.style.background = 'transparent';
+                }}
+              >
+                <span className="whitespace-nowrap">{STATUS_LABELS[opt]}</span>
+                {isActive && (
+                  <span style={{ color: colors.gold }} aria-hidden="true">✓</span>
+                )}
+              </button>
+            );
+          })}
+        </div>,
+        document.body
+      )}
+
+      {/* Soldier Details Modal */}
       {showSoldierDetails && selectedSoldier && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[90] p-2 phone-sm:p-4">
           <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[85vh] phone-sm:max-h-[90vh] overflow-hidden">
             {/* Header */}
             <div className="p-4 phone-sm:p-6" style={{ background: colors.primaryGreen, color: colors.white }}>
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg phone-sm:text-xl font-bold truncate pr-2">
+              <div className={`flex items-center justify-between gap-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
+                <h3 className={`text-lg phone-sm:text-xl font-bold truncate flex-1 text-start ${isRTL ? 'ps-2' : 'pe-2'}`} dir="auto">
                   {t('soldier_details_title', { name: selectedSoldier.fullName })}
                 </h3>
                 <button
+                  type="button"
                   onClick={() => setShowSoldierDetails(false)}
-                  className="text-white hover:text-gray-200 text-2xl flex-shrink-0"
+                  className="text-white hover:text-gray-200 text-2xl flex-shrink-0 leading-none"
+                  aria-label={t('close')}
                 >
                   ×
                 </button>
@@ -936,7 +1074,10 @@ export default function SoldierManagement() {
             </div>
 
             {/* Content */}
-            <div className="p-4 phone-sm:p-6 overflow-y-auto max-h-[calc(85vh-120px)] phone-sm:max-h-[calc(90vh-140px)] [overscroll-behavior:contain] [-webkit-overflow-scrolling:touch]">
+            <div
+              className="p-4 phone-sm:p-6 overflow-y-auto max-h-[calc(85vh-120px)] phone-sm:max-h-[calc(90vh-140px)] [overscroll-behavior:contain] [-webkit-overflow-scrolling:touch]"
+              dir={isRTL ? 'rtl' : 'ltr'}
+            >
               <div className="space-y-6">
                 {/* Photo */}
                 <div className="flex justify-center">
@@ -973,35 +1114,35 @@ export default function SoldierManagement() {
 
                 {/* Basic Info */}
                 <div className="space-y-4">
-                  <h4 className="text-base phone-sm:text-lg font-semibold text-gray-800 border-b pb-2">Basic Information</h4>
-                  <div className="space-y-3 text-sm text-gray-600">
-                    <div><span className="font-medium">Full Name:</span> {selectedSoldier.fullName}</div>
-                    <div><span className="font-medium">Email:</span> {selectedSoldierSheetEmail || selectedSoldier.email || 'Not specified'}</div>
-                    <div><span className="font-medium">Phone:</span> {selectedSoldier.phone || 'Not specified'}</div>
-                    <div><span className="font-medium">Room:</span> {selectedSoldier.roomNumber || 'Not specified'}</div>
+                  <h4 className="text-base phone-sm:text-lg font-semibold text-gray-800 border-b pb-2 text-start">{t('detail_section_basic')}</h4>
+                  <div className="space-y-3 text-sm text-gray-600 text-start">
+                    <div dir="auto"><span className="font-medium text-gray-800">{t('detail_label_full_name')}</span> <span className="break-words">{detailOrNA(selectedSoldier.fullName)}</span></div>
+                    <div><span className="font-medium text-gray-800">{t('detail_label_email')}</span> <span className="break-all" dir="ltr">{detailOrNA(selectedSoldierSheetEmail || selectedSoldier.email)}</span></div>
+                    <div><span className="font-medium text-gray-800">{t('detail_label_phone')}</span> <span dir="ltr">{detailOrNA(selectedSoldier.phone)}</span></div>
+                    <div dir="auto"><span className="font-medium text-gray-800">{t('detail_label_room')}</span> <span>{detailOrNA(selectedSoldier.roomNumber)}</span></div>
                   </div>
                 </div>
 
                 {/* Military Info */}
                 <div className="space-y-4">
-                  <h4 className="text-base phone-sm:text-lg font-semibold text-gray-800 border-b pb-2">Military Section</h4>
-                  <div className="space-y-3 text-sm text-gray-600">
-                    <div><span className="font-medium">Personal Number:</span> {selectedSoldier.personalNumber || 'Not specified'}</div>
-                    <div><span className="font-medium">Unit:</span> {selectedSoldier.unit || 'Not specified'}</div>
-                    <div><span className="font-medium">Battalion:</span> {selectedSoldier.battalion || 'Not specified'}</div>
-                    <div><span className="font-medium">Mashakit Tash Name:</span> {selectedSoldier.mashakitTash || 'Not specified'}</div>
-                    <div><span className="font-medium">Mashakit Tash Number:</span> {selectedSoldier.mashakitPhone || 'Not specified'}</div>
-                    <div><span className="font-medium">Officer Name:</span> {selectedSoldier.officerName || 'Not specified'}</div>
-                    <div><span className="font-medium">Officer Number:</span> {selectedSoldier.officerPhone || 'Not specified'}</div>
+                  <h4 className="text-base phone-sm:text-lg font-semibold text-gray-800 border-b pb-2 text-start">{t('detail_section_military')}</h4>
+                  <div className="space-y-3 text-sm text-gray-600 text-start">
+                    <div><span className="font-medium text-gray-800">{t('detail_label_personal_number')}</span> <span dir="ltr">{detailOrNA(selectedSoldier.personalNumber)}</span></div>
+                    <div dir="auto"><span className="font-medium text-gray-800">{t('detail_label_unit')}</span> <span>{detailOrNA(selectedSoldier.unit)}</span></div>
+                    <div><span className="font-medium text-gray-800">{t('detail_label_battalion')}</span> <span dir="ltr">{detailOrNA(selectedSoldier.battalion)}</span></div>
+                    <div dir="auto"><span className="font-medium text-gray-800">{t('detail_label_mashakit_tash')}</span> <span>{detailOrNA(selectedSoldier.mashakitTash)}</span></div>
+                    <div><span className="font-medium text-gray-800">{t('detail_label_mashakit_phone')}</span> <span dir="ltr">{detailOrNA(selectedSoldier.mashakitPhone)}</span></div>
+                    <div dir="auto"><span className="font-medium text-gray-800">{t('detail_label_officer_name')}</span> <span>{detailOrNA(selectedSoldier.officerName)}</span></div>
+                    <div><span className="font-medium text-gray-800">{t('detail_label_officer_phone')}</span> <span dir="ltr">{detailOrNA(selectedSoldier.officerPhone)}</span></div>
                   </div>
                 </div>
 
                 {/* Emergency Contact */}
                 <div className="space-y-4">
-                  <h4 className="text-base phone-sm:text-lg font-semibold text-gray-800 border-b pb-2">Emergency Contact</h4>
-                  <div className="space-y-3 text-sm text-gray-600">
-                    <div><span className="font-medium">Emergency Contact:</span> {selectedSoldier.emergencyContactName || 'Not specified'}</div>
-                    <div><span className="font-medium">Emergency Phone:</span> {selectedSoldier.emergencyContactPhone || 'Not specified'}</div>
+                  <h4 className="text-base phone-sm:text-lg font-semibold text-gray-800 border-b pb-2 text-start">{t('detail_section_emergency')}</h4>
+                  <div className="space-y-3 text-sm text-gray-600 text-start">
+                    <div dir="auto"><span className="font-medium text-gray-800">{t('detail_label_emergency_name')}</span> <span>{detailOrNA(selectedSoldier.emergencyContactName)}</span></div>
+                    <div><span className="font-medium text-gray-800">{t('detail_label_emergency_phone')}</span> <span dir="ltr">{detailOrNA(selectedSoldier.emergencyContactPhone)}</span></div>
                   </div>
                 </div>
               </div>
@@ -1011,16 +1152,19 @@ export default function SoldierManagement() {
                 <div className="flex flex-col gap-2 phone-sm:gap-3">
                   {SOLDIER_EDIT_ENABLED && (
                     <button
+                      type="button"
                       onClick={() => handleOpenEditModal(selectedSoldier)}
-                      className="px-4 phone-sm:px-6 py-3 rounded-xl font-semibold transition-all duration-200 hover:scale-105 text-sm phone-sm:text-base"
+                      className="px-4 phone-sm:px-6 py-3 rounded-xl font-semibold transition-all duration-200 hover:scale-105 text-sm phone-sm:text-base flex items-center justify-center gap-2"
                       style={{ 
                         background: 'transparent', 
                         color: colors.gold,
                         border: `2px solid ${colors.gold}`,
-                        boxShadow: '0 4px 12px rgba(237, 195, 129, 0.1)'
+                        boxShadow: '0 4px 12px rgba(237, 195, 129, 0.1)',
+                        flexDirection: isRTL ? 'row-reverse' : 'row',
                       }}
                     >
-                      ✏️ {t('edit_soldier')}
+                      <span aria-hidden>✏️</span>
+                      <span>{t('edit_soldier')}</span>
                     </button>
                   )}
                   <button
@@ -1036,17 +1180,20 @@ export default function SoldierManagement() {
                     {t('close')}
                   </button>
                   <button
+                    type="button"
                     onClick={() => openDeleteAccountModal(selectedSoldier)}
                     disabled={processingId === selectedSoldier.id}
-                    className="px-4 phone-sm:px-6 py-3 rounded-xl font-semibold transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed text-sm phone-sm:text-base"
+                    className="px-4 phone-sm:px-6 py-3 rounded-xl font-semibold transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed text-sm phone-sm:text-base flex items-center justify-center gap-2"
                     style={{ 
                       background: 'transparent', 
                       color: '#dc2626',
                       border: '2px solid #dc2626',
-                      boxShadow: '0 4px 12px rgba(220, 38, 38, 0.1)'
+                      boxShadow: '0 4px 12px rgba(220, 38, 38, 0.1)',
+                      flexDirection: isRTL ? 'row-reverse' : 'row',
                     }}
                   >
-                    🗑️ {t('admin_delete_account')}
+                    <span aria-hidden>🗑️</span>
+                    <span>{t('admin_delete_account')}</span>
                   </button>
                   <button
                     onClick={() => showDeleteConfirmationDialog(selectedSoldier)}

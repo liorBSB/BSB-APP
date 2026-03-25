@@ -49,6 +49,8 @@ export default function HomePage() {
   const [showAllEvents, setShowAllEvents] = useState(false);
   const [showAllSurveys, setShowAllSurveys] = useState(false);
   const [showAllMessages, setShowAllMessages] = useState(false);
+  const [isSavingStatus, setIsSavingStatus] = useState(false);
+  const [isSavingEventResponse, setIsSavingEventResponse] = useState(false);
   const isRTL = i18n.language?.startsWith('he');
   const dateLocale = isRTL ? 'he-IL' : 'en-US';
 
@@ -176,18 +178,27 @@ export default function HomePage() {
   }, [userData?.status]);
 
   const handleStatusToggle = async (newStatus) => {
+    if (isSavingStatus || newStatus === status) return;
+    setIsSavingStatus(true);
     setStatus(newStatus);
     const uid = auth.currentUser?.uid;
     if (uid) {
       const userRef = doc(db, 'users', uid);
-      await updateDoc(userRef, { status: newStatus });
-      syncStatusToReceptionSheet(userData?.roomNumber, newStatus).catch(() => {});
+      try {
+        await updateDoc(userRef, { status: newStatus });
+        syncStatusToReceptionSheet(userData?.roomNumber, newStatus).catch(() => {});
+      } finally {
+        setIsSavingStatus(false);
+      }
+      return;
     }
+    setIsSavingStatus(false);
   };
 
 
   const handleEventResponse = async (response) => {
-    if (!selectedEvent || !auth.currentUser) return;
+    if (!selectedEvent || !auth.currentUser || isSavingEventResponse) return;
+    setIsSavingEventResponse(true);
     
     try {
       const eventRef = doc(db, 'events', selectedEvent.id);
@@ -235,6 +246,7 @@ export default function HomePage() {
       setTimeout(() => {
         setModalOpen(false);
         setEventResponse(null);
+        setIsSavingEventResponse(false);
       }, 2000);
     } catch (error) {
       console.error('Error saving event response:', error);
@@ -243,6 +255,7 @@ export default function HomePage() {
       setTimeout(() => {
         setModalOpen(false);
         setEventResponse(null);
+        setIsSavingEventResponse(false);
       }, 2000);
     }
   };
@@ -330,6 +343,7 @@ export default function HomePage() {
             <button
               className={`flex flex-col items-center focus:outline-none`}
               onClick={() => handleStatusToggle('Home')}
+              disabled={isSavingStatus}
             >
               <div className={`w-12 h-12 flex items-center justify-center rounded-full transition-all duration-200`}
                 style={{ background: status === 'Home' ? colors.primaryGreen : colors.white, boxShadow: status === 'Home' ? '0 2px 8px rgba(7,99,50,0.15)' : 'none' }}>
@@ -343,6 +357,7 @@ export default function HomePage() {
             <button
               className={`flex flex-col items-center focus:outline-none`}
               onClick={() => handleStatusToggle('Out')}
+              disabled={isSavingStatus}
             >
               <div className={`w-12 h-12 flex items-center justify-center rounded-full transition-all duration-200`}
                 style={{ background: status === 'Out' ? colors.primaryGreen : colors.white, boxShadow: status === 'Out' ? '0 2px 8px rgba(7,99,50,0.15)' : 'none' }}>
@@ -362,6 +377,7 @@ export default function HomePage() {
             <button
               className={`flex flex-col items-center focus:outline-none`}
               onClick={() => handleStatusToggle('In base')}
+              disabled={isSavingStatus}
             >
               <div className={`w-12 h-12 flex items-center justify-center rounded-full transition-all duration-200`}
                 style={{ background: status === 'In base' ? colors.primaryGreen : colors.white, boxShadow: status === 'In base' ? '0 2px 8px rgba(7,99,50,0.15)' : 'none' }}>
@@ -376,6 +392,7 @@ export default function HomePage() {
             <button
               className={`flex flex-col items-center focus:outline-none`}
               onClick={() => handleStatusToggle('Abroad')}
+              disabled={isSavingStatus}
             >
               <div className={`w-12 h-12 flex items-center justify-center rounded-full transition-all duration-200`}
                 style={{ background: status === 'Abroad' ? colors.primaryGreen : colors.white, boxShadow: status === 'Abroad' ? '0 2px 8px rgba(7,99,50,0.15)' : 'none' }}>
@@ -689,6 +706,7 @@ export default function HomePage() {
                         className="w-full py-3.5 rounded-2xl font-semibold text-base flex items-center justify-center gap-2 text-white transition-all duration-150 active:scale-[0.97] shadow-sm hover:shadow-md"
                         style={{ backgroundColor: bg, flexDirection: isRTL ? 'row-reverse' : 'row' }}
                         onClick={() => handleEventResponse(key)}
+                        disabled={isSavingEventResponse}
                       >
                         <span className="text-lg leading-none">{icon}</span>
                         {label}

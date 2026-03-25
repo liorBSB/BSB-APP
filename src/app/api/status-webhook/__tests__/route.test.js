@@ -1,8 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import crypto from 'node:crypto';
 
 const mockUpdate = vi.fn().mockResolvedValue();
 const mockDoc = { ref: { update: mockUpdate } };
 const mockGet = vi.fn();
+const mockTakeRateLimit = vi.fn();
 
 vi.mock('@/lib/firebaseAdmin', () => ({
   getAdminDb: () => ({
@@ -14,9 +16,23 @@ vi.mock('@/lib/firebaseAdmin', () => ({
   }),
 }));
 
-function makeRequest(body, secret) {
+vi.mock('@/lib/rateLimit', () => ({
+  takeRateLimit: (...args) => mockTakeRateLimit(...args),
+  resolveRateLimitClientId: () => 'test-ip',
+  applyRateLimitHeaders: (response) => response,
+}));
+
+function sign(secret, timestampSec, nonce, body) {
+  return `sha256=${crypto
+    .createHmac('sha256', secret)
+    .update(`${timestampSec}.${nonce}.${JSON.stringify(body)}`)
+    .digest('hex')}`;
+}
+
+function makeRequest(body, secret, extraHeaders = {}) {
   const headers = { 'Content-Type': 'application/json' };
   if (secret) headers['x-webhook-secret'] = secret;
+  Object.assign(headers, extraHeaders);
   return new Request('http://localhost/api/status-webhook', {
     method: 'POST',
     headers,
@@ -32,6 +48,13 @@ describe('/api/status-webhook POST', () => {
     process.env.STATUS_WEBHOOK_SECRET = 'test-secret-123';
     mockUpdate.mockClear();
     mockGet.mockClear();
+    mockTakeRateLimit.mockReset();
+    mockTakeRateLimit.mockReturnValue({
+      allowed: true,
+      remaining: 100,
+      resetAt: Date.now() + 60000,
+      retryAfterSec: 0,
+    });
 
     const mod = await import('../../status-webhook/route.js');
     POST = mod.POST;
@@ -61,11 +84,64 @@ describe('/api/status-webhook POST', () => {
     expect(res.status).toBe(401);
   });
 
+  it('returns 429 when rate limit is exceeded', async () => {
+    mockTakeRateLimit.mockReturnValue({
+      allowed: false,
+      remaining: 0,
+      resetAt: Date.now() + 1000,
+      retryAfterSec: 1,
+    });
+
+    const res = await POST(makeRequest({ room: '5', status: 'Home' }, 'test-secret-123'));
+    expect(res.status).toBe(429);
+    const body = await res.json();
+    expect(body.error).toBe('Too many requests');
+  });
+
   it('returns 400 when room is missing', async () => {
     const res = await POST(makeRequest({ status: 'Home' }, 'test-secret-123'));
     expect(res.status).toBe(400);
     const body = await res.json();
     expect(body.error).toBe('Missing room or status');
+  });
+
+  it('accepts signed webhook request', async () => {
+    mockGet.mockResolvedValue({ empty: false, docs: [mockDoc] });
+    const body = { room: '5', status: 'Home' };
+    const timestampSec = Math.floor(Date.now() / 1000);
+    const nonce = 'nonce-1';
+    const signature = sign('test-secret-123', timestampSec, nonce, body);
+
+    const res = await POST(
+      makeRequest(body, null, {
+        'x-webhook-timestamp': String(timestampSec),
+        'x-webhook-nonce': nonce,
+        'x-webhook-signature': signature,
+      }),
+    );
+    expect(res.status).toBe(200);
+    expect(mockUpdate).toHaveBeenCalledOnce();
+  });
+
+  it('rejects replayed signed webhook request', async () => {
+    mockGet.mockResolvedValue({ empty: false, docs: [mockDoc] });
+    const body = { room: '5', status: 'Home' };
+    const timestampSec = Math.floor(Date.now() / 1000);
+    const nonce = 'nonce-replay';
+    const signature = sign('test-secret-123', timestampSec, nonce, body);
+
+    const req = makeRequest(body, null, {
+      'x-webhook-timestamp': String(timestampSec),
+      'x-webhook-nonce': nonce,
+      'x-webhook-signature': signature,
+    });
+    const first = await POST(req.clone());
+    const second = await POST(req.clone());
+
+    expect(first.status).toBe(200);
+    expect(second.status).toBe(401);
+    const body2 = await second.json();
+    expect(body2.error).toBe('Replay rejected');
   });
 
   it('returns 400 when status is missing', async () => {

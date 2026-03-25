@@ -30,7 +30,7 @@ export const searchSoldiersByName = async (searchTerm) => {
   const data = await response.json();
   if (data.error) throw new Error(data.error || 'Search failed');
   if (Array.isArray(data.soldiers)) {
-    return data.soldiers.map((s) => s.raw || s);
+    return data.soldiers;
   }
 
   return [];
@@ -40,6 +40,13 @@ export const searchSoldiersByName = async (searchTerm) => {
 
 export const mapSoldierData = (sheetData) => {
   if (!sheetData) return null;
+  if (
+    sheetData.fullName !== undefined ||
+    sheetData.firstName !== undefined ||
+    sheetData.idNumber !== undefined
+  ) {
+    return sheetData;
+  }
   return sheetRowToApp(sheetData);
 };
 
