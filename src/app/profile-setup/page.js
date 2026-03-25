@@ -217,16 +217,28 @@ export default function ProfileSetup() {
     </main>
   );
 
+  const isRTL = i18n.language?.startsWith('he');
+
   return (
     <main className="min-h-screen flex items-center justify-center font-body px-4 pb-8 bg-gradient-to-br from-blue-200/60 to-green-100/60">
       <div
         className="w-full max-w-md mx-auto 
           bg-white rounded-2xl shadow-lg p-6 phone-lg:p-8"
       >
-        <h2 style={{ fontWeight: 700, fontSize: '2.5rem', textAlign: 'center', marginBottom: '2.8rem', color: colors.text }}>{t('completeProfile')}</h2>
+        <h2
+          style={{ fontWeight: 700, fontSize: '2.5rem', textAlign: 'center', marginBottom: '2.8rem', color: colors.text }}
+          dir={isRTL ? 'rtl' : 'ltr'}
+        >
+          {t('completeProfile')}
+        </h2>
         <form onSubmit={handleSave}>
           <div style={{ marginBottom: '2.2rem' }}>
-            <label style={{ display: 'block', color: colors.muted, fontWeight: 600, marginBottom: 12, fontSize: 18 }}>{t('search_name')}</label>
+            <label
+              style={{ display: 'block', color: colors.muted, fontWeight: 600, marginBottom: 12, fontSize: 18 }}
+              dir={isRTL ? 'rtl' : 'ltr'}
+            >
+              {t('search_name')}
+            </label>
             <SoldierNameSearch
               onSoldierSelect={handleSoldierSelect}
               placeholder={t('search_placeholder')}
@@ -244,16 +256,30 @@ export default function ProfileSetup() {
                 position: 'relative',
                 boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
               }}>
-                <div style={{ textAlign: 'right', fontSize: '1rem' }}>
-                  <div style={{ fontWeight: 700, marginBottom: '0.75rem', color: colors.text, fontSize: '1.1rem', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.5rem' }}>
-                    <span>{selectedSoldier.fullName}</span>
+                <div style={{ textAlign: 'start', fontSize: '1rem' }} dir={isRTL ? 'rtl' : 'ltr'}>
+                  <div
+                    style={{
+                      fontWeight: 700,
+                      marginBottom: '0.75rem',
+                      color: colors.text,
+                      fontSize: '1.1rem',
+                      display: 'flex',
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'flex-start',
+                      gap: '0.5rem',
+                      minWidth: 0,
+                    }}
+                    dir={isRTL ? 'rtl' : 'ltr'}
+                  >
+                    <span className="min-w-0 truncate">{selectedSoldier.fullName}</span>
                     {selectedSoldier.idNumber != null && (
-                      <span style={{ fontSize: '0.8rem', color: colors.muted, fontWeight: 400 }} dir="ltr">
+                      <span style={{ fontSize: '0.8rem', color: colors.muted, fontWeight: 400, flexShrink: 0 }} dir="ltr">
                         (ת.ז ...{String(selectedSoldier.idNumber).slice(-4)})
                       </span>
                     )}
                   </div>
-                  <div style={{ color: colors.muted, fontSize: '0.95rem', lineHeight: '1.4' }}>
+                  <div style={{ color: colors.muted, fontSize: '0.95rem', lineHeight: '1.4', textAlign: 'start' }}>
                     <div>חדר: {selectedSoldier.roomNumber}</div>
                   </div>
                 </div>

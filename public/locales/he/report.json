@@ -37,5 +37,30 @@
   "methods": {
     "bit": "💳 ביט",
     "cash": "💰 מזומן"
-  }
-} 
+  },
+  "admin_reports_title": "דיווחים",
+  "admin_reports_subtitle": "צפייה וניהול כל הדוחות שנשלחו",
+  "feedback_must_be_logged_in": "יש להתחבר כדי להמשיך",
+  "report_website_problem": "דיווח על באג באתר",
+  "email_subject": "נושא",
+  "email_subject_placeholder": "מה התקלה?",
+  "email_body": "תיאור",
+  "email_body_placeholder": "תארו את הבעיה בפירוט...",
+  "send_feedback": "שלח דוח",
+  "feedback_sent": "הדוח נשלח בהצלחה!",
+  "feedback_error": "שליחת הדוח נכשלה. נסו שוב.",
+  "feedback_subject_required": "נא להזין נושא",
+  "feedback_body_required": "נא לתאר את הבעיה",
+  "attach_screenshots": "צילומי מסך (אופציונלי)",
+  "add_screenshots": "הוסף צילומי מסך",
+  "uploading_screenshots": "מעלה...",
+  "screenshots_count": "{{count}} צילום/י מסך מצורפים",
+  "confirm_feedback_title": "אישור הדוח",
+  "confirm_send": "אשר ושלח",
+  "confirm_refund_title": "אישור הבקשה",
+  "receipt_attached": "תמונת קבלה",
+  "go_back": "חזור",
+  "confirm_submit": "אשר ושלח",
+  "comingSoonTitle": "בקרוב",
+  "comingSoonSubtitle": "הפיצ'ר בפיתוח ויהיה זמין בקרוב."
+}

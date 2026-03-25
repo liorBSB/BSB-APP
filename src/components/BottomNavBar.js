@@ -1,6 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { useRouter, usePathname } from 'next/navigation';
-import i18n from '@/i18n';
+import { useRouter } from 'next/navigation';
 
 const icons = {
   report: (
@@ -17,7 +16,6 @@ const icons = {
 export default function BottomNavBar({ active }) {
   const { t } = useTranslation('home');
   const router = useRouter();
-  const pathname = usePathname();
   const tabs = [
     { key: 'report', label: t('report'), href: '/report', icon: icons.report },
     { key: 'home', label: t('home'), href: '/home', icon: icons.home },

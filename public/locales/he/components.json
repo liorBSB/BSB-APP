@@ -2,34 +2,75 @@
   "edit_field_modal": {
     "edit": "ערוך",
     "save": "שמור",
-    "cancel": "ביטול"
+    "cancel": "ביטול",
+    "close_aria": "סגור"
   },
   "add_item_modal": {
     "add_new": "הוסף חדש",
+    "add_event_title": "הוספת אירוע",
+    "add_survey_title": "הוספת סקר",
     "title": "כותרת",
     "body": "תוכן",
+    "link_label": "קישור",
+    "link_placeholder": "https://example.com",
+    "due_date": "תאריך יעד",
     "start_time": "שעת התחלה",
     "end_time": "שעת סיום",
+    "saving": "שומרים...",
+    "add": "הוסף",
     "save": "שמור",
-    "cancel": "ביטול"
+    "cancel": "ביטול",
+    "err_end_future": "שעת הסיום חייבת להיות בעתיד",
+    "err_end_after_start": "שעת הסיום חייבת להיות אחרי שעת ההתחלה"
   },
   "date_picker_modal": {
     "choose_date": "בחר תאריך",
     "from": "מ",
     "to": "עד",
+    "from_prefix": "מ:",
+    "to_prefix": "עד:",
     "select": "בחר",
+    "select_range": "בחר טווח",
+    "empty_range": "—",
     "cancel": "ביטול"
   },
+  "calendar_months_full": ["ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני", "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר"],
+  "calendar_months_short": ["ינו׳", "פבר׳", "מרץ", "אפר׳", "מאי", "יונ׳", "יול׳", "אוג׳", "ספט׳", "אוק׳", "נוב׳", "דצמ׳"],
+  "calendar_weekdays": ["א", "ב", "ג", "ד", "ה", "ו", "ש"],
+  "calendar_select_date": "בחר תאריך",
+  "calendar_select_datetime": "בחר תאריך ושעה",
+  "calendar_today": "היום",
+  "calendar_cancel": "ביטול",
+  "calendar_confirm": "אישור",
+  "time_hour": "שעה",
+  "time_min": "דק׳",
   "bottom_nav_bar": {
     "home": "בית",
     "report": "דיווח",
     "settings": "הגדרות"
   },
+  "changeLang": "החלפת שפה",
   "photo_upload": {
     "take_photo": "צלם תמונה",
     "choose_from_gallery": "בחר מהגלריה",
     "remove_photo": "הסר תמונה",
     "photo_uploaded": "התמונה הועלתה בהצלחה",
-    "upload_failed": "העלאה נכשלה"
+    "upload_failed": "העלאה נכשלה",
+    "starting_camera": "מפעיל מצלמה...",
+    "uploading": "מעלה...",
+    "retake": "צלם שוב",
+    "use_photo": "השתמש בתמונה",
+    "flip_camera": "הפוך מצלמה",
+    "camera_not_supported": "המצלמה אינה נתמכת במכשיר זה.",
+    "camera_access_denied": "הגישה למצלמה נדחתה. אפשרו הרשאות מצלמה.",
+    "no_camera_found": "לא נמצאה מצלמה במכשיר זה.",
+    "camera_not_ready": "המצלמה עדיין לא מוכנה. המתינו רגע.",
+    "camera_error": "שגיאת מצלמה: {{message}}",
+    "file_too_large": "הקובץ גדול מדי (מקסימום {{max}}MB)",
+    "select_image_file": "נא לבחור קובץ תמונה",
+    "login_required": "יש להתחבר כדי להעלות תמונות",
+    "capture_failed": "צילום התמונה נכשל. נסו שוב.",
+    "upload_instructions": "צלמו או העלו תמונה • גודל מקסימלי: {{max}}MB",
+    "upload_instructions_multi": "{{count}}/{{limit}} תמונות • עד {{max}}MB לכל אחת"
   }
 }

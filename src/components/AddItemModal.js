@@ -1,10 +1,15 @@
+'use client';
+
 import React, { useState, useEffect } from 'react';
+import '@/i18n';
+import { useTranslation } from 'react-i18next';
 import colors from '../app/colors';
 import { StyledDateTimeInput } from '@/components/StyledDateInput';
 
 const emptyForm = { title: '', body: '', startTime: '', endTime: '', link: '' };
 
 export default function AddItemModal({ open, onClose, onSave, type = 'event', loading = false }) {
+  const { t } = useTranslation('components');
   const [form, setForm] = useState(emptyForm);
   const [dateError, setDateError] = useState('');
 
@@ -15,19 +20,21 @@ export default function AddItemModal({ open, onClose, onSave, type = 'event', lo
   const validate = (f) => {
     if (type === 'survey') {
       if (f.endTime && new Date(f.endTime) <= new Date()) {
-        return 'End time must be in the future';
+        return t('add_item_modal.err_end_future');
       }
     } else {
       if (f.startTime && f.endTime && new Date(f.endTime) <= new Date(f.startTime)) {
-        return 'End time must be after start time';
+        return t('add_item_modal.err_end_after_start');
       }
     }
     return '';
   };
 
   const handleChange = (e) => {
+    const name = e.target.name;
+    const val = e.target.value;
     setForm(f => {
-      const updated = { ...f, [e.target.name]: e.target.value };
+      const updated = { ...f, [name]: val };
       setDateError(validate(updated));
       return updated;
     });
@@ -40,15 +47,17 @@ export default function AddItemModal({ open, onClose, onSave, type = 'event', lo
     onSave(form);
   };
 
+  const modalTitle = type === 'survey' ? t('add_item_modal.add_survey_title') : t('add_item_modal.add_event_title');
+
   if (!open) return null;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg p-6 shadow-lg w-full max-w-xs mx-4">
-        <h2 className="text-xl font-bold mb-4">Add New {type.charAt(0).toUpperCase() + type.slice(1)}</h2>
+        <h2 className="text-xl font-bold mb-4">{modalTitle}</h2>
         <form onSubmit={handleSubmit}>
           <div className="mb-4">
-            <label className="block text-gray-700 font-semibold mb-2">Title</label>
+            <label className="block text-gray-700 font-semibold mb-2">{t('add_item_modal.title')}</label>
             <input
               type="text"
               name="title"
@@ -59,7 +68,7 @@ export default function AddItemModal({ open, onClose, onSave, type = 'event', lo
             />
           </div>
           <div className="mb-4">
-            <label className="block text-gray-700 font-semibold mb-2">Body</label>
+            <label className="block text-gray-700 font-semibold mb-2">{t('add_item_modal.body')}</label>
             <textarea
               name="body"
               value={form.body}
@@ -71,13 +80,13 @@ export default function AddItemModal({ open, onClose, onSave, type = 'event', lo
           </div>
           {type === 'survey' && (
             <div className="mb-4">
-              <label className="block text-gray-700 font-semibold mb-2">Link <span className="text-red-500">*</span></label>
+              <label className="block text-gray-700 font-semibold mb-2">{t('add_item_modal.link_label')} <span className="text-red-500">*</span></label>
               <input
                 type="text"
                 name="link"
                 value={form.link}
                 onChange={handleChange}
-                placeholder="https://example.com"
+                placeholder={t('add_item_modal.link_placeholder')}
                 className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-primaryGreen"
                 required
               />
@@ -85,7 +94,7 @@ export default function AddItemModal({ open, onClose, onSave, type = 'event', lo
           )}
           {type !== 'survey' && (
             <div className="mb-4">
-              <label className="block text-gray-700 font-semibold mb-2">Start Time</label>
+              <label className="block text-gray-700 font-semibold mb-2">{t('add_item_modal.start_time')}</label>
               <StyledDateTimeInput
                 name="startTime"
                 value={form.startTime}
@@ -96,7 +105,7 @@ export default function AddItemModal({ open, onClose, onSave, type = 'event', lo
           )}
           <div className="mb-6">
             <label className="block text-gray-700 font-semibold mb-2">
-              {type === 'survey' ? 'Due Date' : 'End Time'}
+              {type === 'survey' ? t('add_item_modal.due_date') : t('add_item_modal.end_time')}
             </label>
             <StyledDateTimeInput
               name="endTime"
@@ -115,7 +124,7 @@ export default function AddItemModal({ open, onClose, onSave, type = 'event', lo
               style={{ background: colors.gold }}
               disabled={loading || !!dateError}
             >
-              {loading ? 'Saving...' : 'Add'}
+              {loading ? t('add_item_modal.saving') : t('add_item_modal.add')}
             </button>
             <button
               type="button"
@@ -124,11 +133,11 @@ export default function AddItemModal({ open, onClose, onSave, type = 'event', lo
               style={{ borderColor: colors.primaryGreen, color: colors.primaryGreen }}
               disabled={loading}
             >
-              Cancel
+              {t('add_item_modal.cancel')}
             </button>
           </div>
         </form>
       </div>
     </div>
   );
-} 
+}

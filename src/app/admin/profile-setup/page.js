@@ -1,4 +1,5 @@
 "use client";
+import '@/i18n';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
@@ -10,7 +11,8 @@ import { resetUserToPreSelection } from '@/lib/database';
 
 export default function AdminProfileSetupPage() {
   const router = useRouter();
-  const { t } = useTranslation('profilesetup');
+  const { t, i18n } = useTranslation('profilesetup');
+  const isRTL = i18n.language?.startsWith('he');
   const isReady = useAuthRedirect();
   const [formData, setFormData] = useState({
     firstName: '',
@@ -98,10 +100,10 @@ export default function AdminProfileSetupPage() {
 
   return (
     <main className="min-h-screen flex items-center justify-center font-body px-4 phone-lg:px-0" style={{ background: colors.white }}>
-      <div className="w-full max-w-xs phone-md:max-w-sm phone-lg:max-w-md mx-auto 
-        bg-transparent rounded-none shadow-none p-0
-        phone-lg:bg-white phone-lg:rounded-[2.5rem] phone-lg:shadow-lg phone-lg:p-[3.5rem_2.2rem]">
-        <h2 style={{ fontWeight: 700, fontSize: '2.5rem', textAlign: 'center', marginBottom: '2.8rem' }}>{t('completeProfile')}</h2>
+      <div className="w-full max-w-xs phone-md:max-w-sm phone-lg:max-w-md mx-auto
+        bg-white rounded-[2.5rem] shadow-lg p-[2.25rem_1.25rem]
+        phone-lg:p-[3.5rem_2.2rem]">
+        <h2 dir={isRTL ? 'rtl' : 'ltr'} style={{ fontWeight: 700, fontSize: '2.5rem', textAlign: 'center', marginBottom: '2.8rem' }}>{t('completeProfile')}</h2>
         <form onSubmit={handleSubmit} style={{ width: '100%' }}>
           <div style={{ marginBottom: '2.2rem' }}>
             <label style={{ display: 'block', color: colors.muted, fontWeight: 600, marginBottom: 2, fontSize: 18 }}>{t('admin_first_name')}</label>

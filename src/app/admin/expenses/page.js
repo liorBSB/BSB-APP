@@ -26,6 +26,7 @@ import { StyledDateInput, StyledDateTimeInput } from "@/components/StyledDateInp
 import colors from "@/app/colors";
 import '@/i18n';
 import i18n from '@/i18n';
+import { useTranslation } from 'react-i18next';
 import { generateExpensesPDF, generateRefundsPDF } from '@/lib/pdfGenerator';
 import HouseLoader from '@/components/HouseLoader';
 
@@ -36,22 +37,35 @@ const getUserName = async (uid) => {
     const userSnap = await getDoc(userRef);
     if (userSnap.exists()) {
       const userData = userSnap.data();
-      return `${userData.firstName || ''} ${userData.lastName || ''}`.trim() || 'Unknown User';
+      return `${userData.firstName || ''} ${userData.lastName || ''}`.trim() || i18n.t('unknown_user', { ns: 'expenses' });
     }
-    return 'Unknown User';
+    return i18n.t('unknown_user', { ns: 'expenses' });
   } catch (error) {
     console.error('Error getting user name:', error);
-    return 'Unknown User';
+    return i18n.t('unknown_user', { ns: 'expenses' });
   }
 };
 
-
 const CATEGORIES = ["Food","Equipment","Maintenance","Transport","Utilities","Other"];
 const REIMBURSEMENT_METHODS = ["Credit Card","Bank Transfer","Cash","Other"];
+const REIMBURSEMENT_SLUG = {
+  "Credit Card": "credit_card",
+  "Bank Transfer": "bank_transfer",
+  "Cash": "cash",
+  "Other": "other",
+};
 
 export default function AdminExpensesPage() {
+  const { t } = useTranslation('expenses');
   const router = useRouter();
   const isRTL = i18n.language === 'he';
+
+  const labelCategory = (c) => (c ? t(`categories.${c}`) : '');
+  const labelMethod = (m) => {
+    const slug = REIMBURSEMENT_SLUG[m];
+    return slug ? t(`reimbursement_methods.${slug}`) : (m || t('card.na'));
+  };
+  const refundStatusLabel = (s) => t(`refunds.status_labels.${s}`, { defaultValue: s || '' });
   const [userDoc, setUserDoc] = useState(null);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
 
@@ -137,6 +151,7 @@ export default function AdminExpensesPage() {
   // Save confirmation popup state
   const [savedExpenseSummary, setSavedExpenseSummary] = useState(null);
   const isAnyOverlayOpen =
+    datePickerOpen ||
     reportOpen ||
     Boolean(editingExpense) ||
     deleteConfirmOpen ||
@@ -205,12 +220,12 @@ export default function AdminExpensesPage() {
   }, [router]);
 
   const validate = () => {
-    if (!form.title.trim()) return "Title is required";
-    if (!form.amount || isNaN(Number(form.amount))) return "Valid amount is required";
-    if (!form.category) return "Category is required";
-    if (form.category === "Other" && !form.categoryOther.trim()) return "Please specify the other category";
-    if (!form.reimbursementMethod) return "Reimbursement method is required";
-    if (!form.expenseDate) return "Expense date is required";
+    if (!form.title.trim()) return t('validation.title_required');
+    if (!form.amount || isNaN(Number(form.amount))) return t('validation.amount_required');
+    if (!form.category) return t('validation.category_required');
+    if (form.category === "Other" && !form.categoryOther.trim()) return t('validation.category_other_required');
+    if (!form.reimbursementMethod) return t('validation.reimbursement_required');
+    if (!form.expenseDate) return t('validation.date_required');
     return "";
   };
 
@@ -293,7 +308,7 @@ export default function AdminExpensesPage() {
       for (const path of photosToDelete) {
         deleteStorageFile(path).catch(console.error);
       }
-      setSuccess("Expense deleted successfully");
+      setSuccess(t('success.expense_deleted'));
       setDeleteConfirmOpen(false);
       setExpenseToDelete(null);
       
@@ -312,7 +327,7 @@ export default function AdminExpensesPage() {
       
     } catch (error) {
       console.error("Error deleting expense:", error);
-      setError("Failed to delete expense");
+      setError(t('errors.delete_failed'));
     }
   };
 
@@ -337,7 +352,7 @@ export default function AdminExpensesPage() {
       try {
         photoResults = await expensePhotoRef.current?.upload() || [];
       } catch {
-        showError("Photo upload failed");
+        showError(t('errors.photo_upload'));
         setSaving(false);
         return;
       }
@@ -368,7 +383,7 @@ export default function AdminExpensesPage() {
         }
       }
       
-      showSuccess("Expense updated successfully");
+      showSuccess(t('success.expense_updated'));
       setEditingExpense(null);
       resetForm();
       
@@ -391,7 +406,7 @@ export default function AdminExpensesPage() {
       
     } catch (error) {
       console.error("Error updating expense:", error);
-      showError("Failed to update expense");
+      showError(t('errors.update_failed'));
     } finally {
       setSaving(false);
     }
@@ -410,7 +425,7 @@ export default function AdminExpensesPage() {
       setSaving(true);
       const user = auth.currentUser; 
       if (!user) { 
-        showError("Please sign in again"); 
+        showError(t('errors.sign_in_again')); 
         return; 
       }
 
@@ -418,7 +433,7 @@ export default function AdminExpensesPage() {
       try {
         photoResults = await expensePhotoRef.current?.upload() || [];
       } catch {
-        showError("Photo upload failed");
+        showError(t('errors.photo_upload'));
         setSaving(false);
         return;
       }
@@ -465,11 +480,11 @@ export default function AdminExpensesPage() {
     } catch (e) {
       console.error("Error saving expense:", e);
       if (e.code === 'permission-denied') {
-        showError("Permission denied. Please check your access rights.");
+        showError(t('errors.permission_denied'));
       } else if (e.code === 'unavailable') {
-        showError("Service temporarily unavailable. Please try again.");
+        showError(t('errors.service_unavailable'));
       } else {
-        showError(e?.message || "Failed to save expense. Please try again.");
+        showError(e?.message || t('errors.save_failed'));
       }
     } finally { 
       setSaving(false); 
@@ -619,7 +634,7 @@ export default function AdminExpensesPage() {
 
   const fetchReportData = async () => {
     if (reportFilters.dateRange === "custom" && (!reportFilters.customFrom || !reportFilters.customTo)) {
-      setError("Please select both From and To dates.");
+      setError(t('errors.custom_dates_required'));
       return;
     }
 
@@ -641,7 +656,7 @@ export default function AdminExpensesPage() {
         if (data.ownerUid) {
           expense.createdByName = await getUserName(data.ownerUid);
         } else {
-          expense.createdByName = 'Unknown User';
+          expense.createdByName = i18n.t('unknown_user', { ns: 'expenses' });
         }
         
         return expense;
@@ -713,7 +728,7 @@ export default function AdminExpensesPage() {
       setShowSearchResults(true);
     } catch (error) {
       console.error("Error fetching report data:", error);
-      setError("Failed to search expenses. Please try again.");
+      setError(t('errors.search_failed'));
     } finally {
       setReportLoading(false);
     }
@@ -746,7 +761,7 @@ export default function AdminExpensesPage() {
     if (isGeneratingPDF) return;
 
     setIsGeneratingPDF(true);
-    setPdfProgressText(i18n.t('pdf_generating', { ns: 'admin' }));
+    setPdfProgressText(t('pdf_generating'));
 
     try {
       await generateExpensesPDF(reportItems, {
@@ -754,12 +769,12 @@ export default function AdminExpensesPage() {
         customFrom: reportFilters.customFrom,
         customTo: reportFilters.customTo,
         onProgress: (current, total) => {
-          setPdfProgressText(`Loading image ${current}/${total}...`);
+          setPdfProgressText(t('pdf_loading_image', { current, total }));
         },
       });
-      setSuccess(i18n.t('pdf_success', { ns: 'admin' }));
+      setSuccess(t('pdf_success'));
     } catch (err) {
-      setError(i18n.t('pdf_error', { ns: 'admin' }));
+      setError(t('pdf_error'));
       console.error('PDF generation error:', err);
     } finally {
       setIsGeneratingPDF(false);
@@ -814,7 +829,7 @@ export default function AdminExpensesPage() {
         >
           {(expense.photos?.length > 0 || expense.photoUrl) ? (
             <>
-              <img src={expense.photos?.[0]?.url || expense.photoUrl} alt="Receipt" className="w-full h-full object-cover" style={{ minHeight: 90 }} />
+              <img src={expense.photos?.[0]?.url || expense.photoUrl} alt={t('card.receipt_alt')} className="w-full h-full object-cover" style={{ minHeight: 90 }} />
               {expense.photos?.length > 1 && (
                 <span className="absolute bottom-1 right-1 text-[10px] font-bold text-white px-1.5 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(0,0,0,0.6)' }}>
                   +{expense.photos.length - 1}
@@ -834,12 +849,12 @@ export default function AdminExpensesPage() {
           </div>
 
           <div className="flex items-center gap-2 flex-wrap" style={{ flexDirection: isRTL ? 'row-reverse' : 'row' }}>
-            <span className="text-xs font-semibold px-2 py-0.5 rounded-full text-white" style={{ background: colors.primaryGreen }}>{expense.category}</span>
-            <span className="text-xs font-medium" style={{ color: colors.muted }}>💳 {expense.reimbursementMethod || 'N/A'}</span>
+            <span className="text-xs font-semibold px-2 py-0.5 rounded-full text-white" style={{ background: colors.primaryGreen }}>{labelCategory(expense.category)}</span>
+            <span className="text-xs font-medium" style={{ color: colors.muted }}>💳 {labelMethod(expense.reimbursementMethod)}</span>
           </div>
 
           <p className="text-xs font-medium" style={{ color: colors.muted }}>
-            📅 {expense.expenseDate?.toDate?.()?.toLocaleDateString?.() || 'No date'}
+            📅 {expense.expenseDate?.toDate?.()?.toLocaleDateString?.() || t('refunds.no_date')}
           </p>
 
           {/* Actions row */}
@@ -849,14 +864,14 @@ export default function AdminExpensesPage() {
               className="px-3 py-1.5 border-2 font-bold text-xs rounded-lg transition-colors duration-200 active:scale-95 touch-manipulation"
               style={{ borderColor: colors.primaryGreen, color: colors.primaryGreen }}
             >
-              Edit
+              {t('card.edit')}
             </button>
             <button
               onClick={() => handleDeleteExpense(expense)}
               className="px-3 py-1.5 border-2 font-bold text-xs rounded-lg transition-colors duration-200 active:scale-95 touch-manipulation"
               style={{ borderColor: colors.red, color: colors.red }}
             >
-              Delete
+              {t('card.delete')}
             </button>
           </div>
         </div>
@@ -879,16 +894,16 @@ export default function AdminExpensesPage() {
   }
 
   return (
-    <main dir={isRTL ? 'rtl' : 'ltr'} className="min-h-screen bg-gradient-to-br from-blue-200/60 to-green-100/60 font-body flex flex-col items-center pt-6 pb-32 px-4">
+    <main className="min-h-screen bg-gradient-to-br from-blue-200/60 to-green-100/60 font-body flex flex-col items-center pt-6 pb-32 px-4">
       <div className="w-full max-w-md">
         <div className="mb-6 rounded-2xl p-6 shadow-xl" style={{ background: "rgba(0,0,0,0.22)" }}>
-          <h2 className="text-white font-extrabold text-2xl mb-4">Add Expense</h2>
+          <h2 className="text-white font-extrabold text-2xl mb-4">{t('form.add_expense')}</h2>
           {error && <div className="mb-3 text-red-600 text-sm bg-white rounded px-3 py-2">{error}</div>}
           {success && <div className="mb-3 text-green-700 text-sm bg-white rounded px-3 py-2">{success}</div>}
           <div className="grid grid-cols-1 gap-4">
             <input 
               className="w-full px-4 py-3 rounded-xl border text-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200" 
-              placeholder="Title" 
+              placeholder={t('form.title_placeholder')} 
               value={form.title} 
               onChange={(e)=>setForm(f=>({...f,title:e.target.value}))}
               autoComplete="off"
@@ -896,7 +911,7 @@ export default function AdminExpensesPage() {
             />
             <input 
               className="w-full px-4 py-3 rounded-xl border text-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200" 
-              placeholder="Amount (₪)" 
+              placeholder={t('form.amount_placeholder')} 
               type="text"
               inputMode="decimal" 
               value={form.amount} 
@@ -908,41 +923,33 @@ export default function AdminExpensesPage() {
               }}
               autoComplete="off"
             />
-            <div className="grid grid-cols-2 gap-3">
-              {isAnyOverlayOpen ? (
-                <div className="w-full px-4 py-3 rounded-xl border text-lg flex items-center" style={{ background: colors.surface, borderColor: colors.gray400 }}>
-                  {form.category}
-                </div>
-              ) : (
+            {!isAnyOverlayOpen && (
+              <div className="grid grid-cols-2 gap-3">
                 <select 
                   className="w-full px-4 py-3 rounded-xl border text-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200" 
                   value={form.category} 
                   onChange={(e)=>setForm(f=>({...f,category:e.target.value}))}
                 >
-                  {CATEGORIES.map(c=> <option key={c} value={c}>{c}</option>)}
+                  {CATEGORIES.map(c=> <option key={c} value={c}>{labelCategory(c)}</option>)}
                 </select>
-              )}
-              {form.category === "Other" && (
-                <input 
-                  className="w-full px-4 py-3 rounded-xl border text-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200" 
-                  placeholder="Other category" 
-                  value={form.categoryOther} 
-                  onChange={(e)=>setForm(f=>({...f,categoryOther:e.target.value}))}
-                  autoComplete="off"
-                />
-              )}
-            </div>
-            {isAnyOverlayOpen ? (
-              <div className="w-full px-4 py-3 rounded-xl border text-lg flex items-center" style={{ background: colors.surface, borderColor: colors.gray400 }}>
-                {form.reimbursementMethod}
+                {form.category === "Other" && (
+                  <input 
+                    className="w-full px-4 py-3 rounded-xl border text-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200" 
+                    placeholder={t('form.other_category_placeholder')} 
+                    value={form.categoryOther} 
+                    onChange={(e)=>setForm(f=>({...f,categoryOther:e.target.value}))}
+                    autoComplete="off"
+                  />
+                )}
               </div>
-            ) : (
+            )}
+            {!isAnyOverlayOpen && (
               <select 
                 className="w-full px-4 py-3 rounded-xl border text-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200" 
                 value={form.reimbursementMethod} 
                 onChange={(e)=>setForm(f=>({...f,reimbursementMethod:e.target.value}))}
               >
-                {REIMBURSEMENT_METHODS.map(m=> <option key={m} value={m}>{m}</option>)}
+                {REIMBURSEMENT_METHODS.map(m=> <option key={m} value={m}>{labelMethod(m)}</option>)}
               </select>
             )}
             <div>
@@ -952,23 +959,23 @@ export default function AdminExpensesPage() {
                   className="px-4 py-2 rounded-full text-sm font-semibold text-white transition-all duration-200 active:scale-95 touch-manipulation" 
                   style={{ background: colors.gold }}
                 >
-                  Today
+                  {t('form.today')}
                 </button>
                 <button 
                   onClick={()=>setDatePickerOpen(true)} 
                   className="px-4 py-2 rounded-full text-sm font-semibold border transition-all duration-200 active:scale-95 touch-manipulation" 
                   style={{ borderColor: colors.primaryGreen, color: colors.primaryGreen }}
                 >
-                  Other date
+                  {t('form.other_date')}
                 </button>
               </div>
               {form.expenseDate && (
-                <div className="mt-2 text-white text-sm">Selected: {new Date(form.expenseDate).toLocaleDateString()}</div>
+                <div className="mt-2 text-white text-sm">{t('form.selected')}: {new Date(form.expenseDate).toLocaleDateString()}</div>
               )}
             </div>
             <textarea 
               className="w-full px-4 py-3 rounded-xl border text-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200 resize-none" 
-              placeholder={i18n.t('notes_hebrew_only', { ns: 'admin' })}
+              placeholder={t('form.notes_placeholder')}
               value={form.notes} 
               onChange={(e)=>setForm(f=>({...f,notes:e.target.value.replace(/[a-zA-Z]/g,'')}))}
               rows={3}
@@ -978,7 +985,7 @@ export default function AdminExpensesPage() {
             
             {/* Photo Upload Section */}
             <div className="bg-white/10 rounded-xl p-4">
-              <h3 className="text-white font-semibold mb-3 text-center">Receipt Photo</h3>
+              <h3 className="text-white font-semibold mb-3 text-center">{t('form.receipt_photo')}</h3>
               <PhotoUpload
                 ref={expensePhotoRef}
                 key="new-expense"
@@ -996,10 +1003,10 @@ export default function AdminExpensesPage() {
           {saving ? (
             <span className="flex items-center justify-center gap-2">
               <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-              Saving...
+              {t('form.saving')}
             </span>
           ) : (
-            "Save Expense"
+            t('form.save_expense')
           )}
         </button>
         
@@ -1009,7 +1016,7 @@ export default function AdminExpensesPage() {
           className="w-full mt-3 px-4 py-3 rounded-xl text-white font-semibold text-lg transition-all duration-200 active:scale-95 touch-manipulation" 
           style={{ background: colors.primaryGreen }}
         >
-          View Expenses
+          {t('form.view_expenses')}
         </button>
           </div>
         </div>
@@ -1020,23 +1027,23 @@ export default function AdminExpensesPage() {
         <div className="mb-3 rounded-2xl p-5 shadow-xl" style={{ background: "rgba(0,0,0,0.22)" }}>
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
-              <h3 className="text-white font-extrabold text-xl">Refund Requests</h3>
+              <h3 className="text-white font-extrabold text-xl">{t('refunds.title')}</h3>
               {refundRequests.filter(r => r.status === 'waiting').length > 3 && (
                 <button 
                   onClick={() => setAllRefundsOpen(true)}
                   className="px-3 py-1 rounded-full border text-sm text-white border-white/30 hover:bg-white/10"
                 >
-                  See All ({refundRequests.filter(r => r.status === 'waiting').length})
+                  {t('refunds.see_all', { count: refundRequests.filter(r => r.status === 'waiting').length })}
                 </button>
               )}
             </div>
-            <button onClick={fetchRefundRequests} className="px-3 py-1 rounded-full border text-sm text-white border-white/30 hover:bg-white/10">Refresh</button>
+            <button onClick={fetchRefundRequests} className="px-3 py-1 rounded-full border text-sm text-white border-white/30 hover:bg-white/10">{t('refunds.refresh')}</button>
           </div>
           
           {refundLoading ? (
-            <div className="text-center py-4 text-white/70 text-lg">Loading refund requests...</div>
+            <div className="text-center py-4 text-white/70 text-lg">{t('refunds.loading')}</div>
           ) : refundRequests.filter(r => r.status === 'waiting').length === 0 ? (
-            <div className="text-center py-4 text-white/70 text-lg">No pending refund requests</div>
+            <div className="text-center py-4 text-white/70 text-lg">{t('refunds.none_pending')}</div>
           ) : (
             <div className="space-y-3">
               {/* Show only waiting requests (max 3) */}
@@ -1049,13 +1056,13 @@ export default function AdminExpensesPage() {
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
                           <h5 className="font-bold text-xl mb-2" style={{ color: colors.primaryGreen }}>{request.title}</h5>
-                          <p className="text-gray-700 text-lg font-semibold mb-1">Amount: ₪{request.amount}</p>
-                          <p className="text-gray-600 text-base font-medium mb-1">Method: {request.repaymentMethod}</p>
-                          <p className="text-gray-600 text-base font-medium mb-1">From: {request.ownerName} (Room {request.ownerRoomNumber})</p>
-                          <p className="text-gray-500 text-base">Date: {request.expenseDate?.toDate?.()?.toLocaleDateString?.() || 'No date'}</p>
+                          <p className="text-gray-700 text-lg font-semibold mb-1">{t('refunds.amount', { amount: request.amount })}</p>
+                          <p className="text-gray-600 text-base font-medium mb-1">{t('refunds.method', { method: request.repaymentMethod })}</p>
+                          <p className="text-gray-600 text-base font-medium mb-1">{t('refunds.from_room', { name: request.ownerName, roomLabel: t('refunds.room_label', { number: request.ownerRoomNumber }) })}</p>
+                          <p className="text-gray-500 text-base">{t('refunds.date', { date: request.expenseDate?.toDate?.()?.toLocaleDateString?.() || t('refunds.no_date') })}</p>
                         </div>
                         <span className="px-3 py-1 rounded-full text-sm font-bold flex-shrink-0" style={{ background: colors.gold, color: 'white' }}>
-                          Waiting
+                          {t('refunds.status_waiting')}
                         </span>
                       </div>
                       
@@ -1068,7 +1075,7 @@ export default function AdminExpensesPage() {
                             color: 'white'
                           }}
                         >
-                          Approve
+                          {t('refunds.approve')}
                         </button>
                         <button
                           onClick={() => handleDenyRefund(request.id)}
@@ -1078,7 +1085,7 @@ export default function AdminExpensesPage() {
                             color: 'white'
                           }}
                         >
-                          Deny
+                          {t('refunds.deny')}
                         </button>
                       </div>
                     </div>
@@ -1094,7 +1101,7 @@ export default function AdminExpensesPage() {
               className="w-full px-6 py-3 rounded-full text-white font-bold text-lg"
               style={{ background: colors.gold }}
             >
-              Show Past Requests
+              {t('refunds.show_past')}
             </button>
           </div>
         </div>
@@ -1106,7 +1113,7 @@ export default function AdminExpensesPage() {
           <div className="rounded-2xl w-full h-full sm:h-auto sm:max-h-[90vh] mx-0 sm:mx-4 p-3 sm:p-5 flex flex-col overflow-hidden" style={{ background: colors.surface }}>
             <div className="overflow-y-auto flex-1">
               <div className="flex items-center justify-between mb-4 border-b pb-3" style={{ borderColor: colors.gray400 }}>
-                <h3 className="text-xl sm:text-2xl font-bold" style={{ color: colors.text }}>View Expenses</h3>
+                <h3 className="text-xl sm:text-2xl font-bold" style={{ color: colors.text }}>{t('report.view_title')}</h3>
                 <button onClick={handleCloseReportModal} className="text-xl sm:text-2xl font-bold transition-colors duration-200" style={{ color: colors.muted }} onMouseEnter={(e) => e.target.style.color = colors.text} onMouseLeave={(e) => e.target.style.color = colors.muted }>✕</button>
               </div>
             
@@ -1140,27 +1147,27 @@ export default function AdminExpensesPage() {
                       e.target.style.color = 'black';
                     }}
                   >
-                    Sort Expenses / Create Reports
+                    {t('report.sort_reports')}
                   </button>
                 </div>
 
-                <h4 className="text-base sm:text-lg font-semibold mb-3 flex-shrink-0" style={{ color: colors.text }}>Recent Expenses</h4>
+                <h4 className="text-base sm:text-lg font-semibold mb-3 flex-shrink-0" style={{ color: colors.text }}>{t('report.recent')}</h4>
                 
                 <div className="mb-3 flex-shrink-0">
                   <input
                     type="text"
                     value={previewSearch}
                     onChange={(e) => setPreviewSearch(e.target.value)}
-                    placeholder="Search expense by name..."
+                    placeholder={t('report.search_placeholder')}
                     className="w-full px-4 py-3 rounded-xl border text-base focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200"
                   />
                 </div>
 
                 <div className="space-y-3 flex-1 overflow-y-auto min-h-0">
                   {loadingList ? (
-                    <div className="text-center py-4" style={{ color: colors.muted }}>Loading expenses...</div>
+                    <div className="text-center py-4" style={{ color: colors.muted }}>{t('report.loading_list')}</div>
                   ) : filteredPreview.length === 0 ? (
-                    <div className="text-center py-4" style={{ color: colors.muted }}>No expenses found</div>
+                    <div className="text-center py-4" style={{ color: colors.muted }}>{t('report.none_found')}</div>
                   ) : (
                     <>
                       {filteredPreview.slice(0, expandedId === 'recent' ? filteredPreview.length : 3).map(expense => renderExpenseCard(expense))}
@@ -1184,7 +1191,7 @@ export default function AdminExpensesPage() {
                               e.target.style.color = colors.primaryGreen;
                             }}
                           >
-                            {expandedId === 'recent' ? 'Show Less' : `Show ${filteredPreview.length - 3} More`}
+                            {expandedId === 'recent' ? t('report.show_less') : t('report.show_more', { count: filteredPreview.length - 3 })}
                           </button>
                         </div>
                       )}
@@ -1213,7 +1220,7 @@ export default function AdminExpensesPage() {
                   }}
                   className="mb-3 w-10 h-10 flex items-center justify-center rounded-full border-2 transition-colors duration-200 active:scale-95 touch-manipulation"
                   style={{ borderColor: colors.primaryGreen, color: colors.primaryGreen }}
-                  title="Back to search"
+                  title={t('report.back_title')}
                 >
                   <span className="text-xl font-bold" style={{ transform: isRTL ? 'scaleX(-1)' : 'none', display: 'inline-block' }}>←</span>
                 </button>
@@ -1222,15 +1229,15 @@ export default function AdminExpensesPage() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 flex-shrink-0">
                   <div className="p-4 rounded-lg text-center" style={{ background: colors.background }}>
                     <div className="text-2xl font-bold" style={{ color: colors.primaryGreen }}>{reportItems.length}</div>
-                    <div className="text-sm" style={{ color: colors.muted }}>Total Expenses</div>
+                    <div className="text-sm" style={{ color: colors.muted }}>{t('report.total_count')}</div>
                   </div>
                   <div className="p-4 rounded-lg text-center" style={{ background: colors.background }}>
                     <div className="text-2xl font-bold" style={{ color: colors.gold }}>{amountFormatted(getTotalAmount(reportItems))}</div>
-                    <div className="text-sm" style={{ color: colors.muted }}>Total Amount</div>
+                    <div className="text-sm" style={{ color: colors.muted }}>{t('report.total_amount')}</div>
                   </div>
                   <div className="p-4 rounded-lg text-center" style={{ background: colors.background }}>
                     <div className="text-2xl font-bold" style={{ color: colors.primaryGreen }}>{Object.keys(getPaymentMethodBreakdown(reportItems)).length}</div>
-                    <div className="text-sm" style={{ color: colors.muted }}>Payment Methods</div>
+                    <div className="text-sm" style={{ color: colors.muted }}>{t('report.payment_methods_count')}</div>
                   </div>
                 </div>
                 
@@ -1253,7 +1260,7 @@ export default function AdminExpensesPage() {
                       e.target.style.color = colors.primaryGreen;
                     }}
                   >
-                    {isGeneratingPDF ? '⏳ Generating PDF...' : '📄 Export to PDF'}
+                    {isGeneratingPDF ? `⏳ ${t('report.generating_pdf')}` : `📄 ${t('report.export_pdf')}`}
                   </button>
                   <button 
                     onClick={exportToExcel}
@@ -1268,19 +1275,19 @@ export default function AdminExpensesPage() {
                       e.target.style.color = colors.gold;
                     }}
                   >
-                    📊 Export to Excel
+                    📊 {t('report.export_excel')}
                   </button>
                 </div>
                 
                 {/* Category Breakdown */}
                 <div className="mb-6">
-                  <h4 className="text-lg font-semibold mb-3" style={{ color: colors.text }}>Category Breakdown</h4>
+                  <h4 className="text-lg font-semibold mb-3" style={{ color: colors.text }}>{t('report.category_breakdown')}</h4>
                   <div className="space-y-2">
                     {Object.entries(getCategoryBreakdown(reportItems))
                       .sort(([,a], [,b]) => b - a)
                       .map(([category, amount]) => (
                         <div key={category} className="flex justify-between items-center p-3 rounded-lg" style={{ background: colors.background }}>
-                          <span className="font-medium" style={{ color: colors.text }}>{category}</span>
+                          <span className="font-medium" style={{ color: colors.text }}>{labelCategory(category)}</span>
                           <span className="font-bold" style={{ color: colors.text }}>{amountFormatted(amount)}</span>
                         </div>
                       ))}
@@ -1289,13 +1296,13 @@ export default function AdminExpensesPage() {
                 
                 {/* Payment Method Breakdown */}
                 <div className="mb-6">
-                  <h4 className="text-lg font-semibold mb-3" style={{ color: colors.text }}>Payment Method Breakdown</h4>
+                  <h4 className="text-lg font-semibold mb-3" style={{ color: colors.text }}>{t('report.payment_breakdown')}</h4>
                   <div className="space-y-2">
                     {Object.entries(getPaymentMethodBreakdown(reportItems))
                       .sort(([,a], [,b]) => b - a)
                       .map(([method, amount]) => (
                         <div key={method} className="flex justify-between items-center p-3 rounded-lg" style={{ background: colors.background }}>
-                          <span className="font-medium" style={{ color: colors.text }}>{method}</span>
+                          <span className="font-medium" style={{ color: colors.text }}>{labelMethod(method)}</span>
                           <span className="font-bold" style={{ color: colors.text }}>{amountFormatted(amount)}</span>
                         </div>
                       ))}
@@ -1304,7 +1311,7 @@ export default function AdminExpensesPage() {
                 
                 {/* Detailed List */}
                 <div>
-                  <h4 className="text-lg font-semibold mb-3" style={{ color: colors.text }}>Expense Details</h4>
+                  <h4 className="text-lg font-semibold mb-3" style={{ color: colors.text }}>{t('report.details')}</h4>
                   <div className="space-y-3">
                     {reportItems.map(expense => renderExpenseCard(expense))}
                   </div>
@@ -1316,8 +1323,8 @@ export default function AdminExpensesPage() {
             {showSearchResults && reportItems.length === 0 && !reportLoading && (
               <div className="text-center py-8" style={{ color: colors.muted }}>
                 {!reportFilters.dateRange && !reportFilters.category 
-                  ? "No expenses found. Try adding some expenses first."
-                  : "No expenses match your current filters. Try adjusting the criteria."
+                  ? t('report.no_results_empty')
+                  : t('report.no_results_filters')
                 }
               </div>
             )}
@@ -1333,7 +1340,7 @@ export default function AdminExpensesPage() {
         <div className="fixed inset-0 z-[120] bg-black/50 flex items-center justify-center p-3 sm:p-4">
           <div className="w-full max-w-lg rounded-2xl p-4 sm:p-5 max-h-[90vh] overflow-y-auto" style={{ background: colors.surface }}>
             <div className="flex items-center justify-between mb-4">
-              <h4 className="text-lg sm:text-xl font-bold" style={{ color: colors.text }}>Choose Search Filters</h4>
+              <h4 className="text-lg sm:text-xl font-bold" style={{ color: colors.text }}>{t('report.filters_title')}</h4>
               <button
                 onClick={() => {
                   setReportFilterModalOpen(false);
@@ -1351,7 +1358,7 @@ export default function AdminExpensesPage() {
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-semibold mb-2" style={{ color: colors.text }}>
-                  Time Range
+                  {t('report.time_range')}
                 </label>
                 <button
                   type="button"
@@ -1368,13 +1375,13 @@ export default function AdminExpensesPage() {
                   }}
                 >
                   <span>
-                    {reportFilters.dateRange === 'lastDay' && 'Last Day'}
-                    {reportFilters.dateRange === 'lastWeek' && 'Last Week'}
-                    {reportFilters.dateRange === 'lastMonth' && 'Last Month'}
-                    {reportFilters.dateRange === 'last3Months' && 'Last 3 Months'}
-                    {reportFilters.dateRange === 'lastYear' && 'Last Year'}
-                    {reportFilters.dateRange === 'custom' && 'Custom Range'}
-                    {!reportFilters.dateRange && 'Select time range'}
+                    {reportFilters.dateRange === 'lastDay' && t('report.last_day')}
+                    {reportFilters.dateRange === 'lastWeek' && t('report.last_week')}
+                    {reportFilters.dateRange === 'lastMonth' && t('report.last_month')}
+                    {reportFilters.dateRange === 'last3Months' && t('report.last_3_months')}
+                    {reportFilters.dateRange === 'lastYear' && t('report.last_year')}
+                    {reportFilters.dateRange === 'custom' && t('report.custom_range')}
+                    {!reportFilters.dateRange && t('report.select_time_range')}
                   </span>
                   <span className="text-lg">{showTimeRangeOptions ? '▲' : '▼'}</span>
                 </button>
@@ -1382,12 +1389,12 @@ export default function AdminExpensesPage() {
                 {showTimeRangeOptions && (
                   <div className="mt-2 grid grid-cols-2 gap-2 p-2 rounded-xl border" style={{ borderColor: colors.gray400, background: colors.background }}>
                     {[
-                      { value: 'lastDay', label: 'Last Day' },
-                      { value: 'lastWeek', label: 'Last Week' },
-                      { value: 'lastMonth', label: 'Last Month' },
-                      { value: 'last3Months', label: 'Last 3 Months' },
-                      { value: 'lastYear', label: 'Last Year' },
-                      { value: 'custom', label: 'Custom Range' },
+                      { value: 'lastDay', label: t('report.last_day') },
+                      { value: 'lastWeek', label: t('report.last_week') },
+                      { value: 'lastMonth', label: t('report.last_month') },
+                      { value: 'last3Months', label: t('report.last_3_months') },
+                      { value: 'lastYear', label: t('report.last_year') },
+                      { value: 'custom', label: t('report.custom_range') },
                     ].map((option) => (
                       <button
                         key={option.value}
@@ -1420,14 +1427,14 @@ export default function AdminExpensesPage() {
               {reportFilters.dateRange === 'custom' && (
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-sm font-medium mb-1" style={{ color: colors.text }}>From</label>
+                    <label className="block text-sm font-medium mb-1" style={{ color: colors.text }}>{t('report.from')}</label>
                     <StyledDateInput
                       value={reportFilters.customFrom}
                       onChange={(e) => setReportFilters(prev => ({ ...prev, customFrom: e.target.value }))}
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium mb-1" style={{ color: colors.text }}>To</label>
+                    <label className="block text-sm font-medium mb-1" style={{ color: colors.text }}>{t('report.to')}</label>
                     <StyledDateInput
                       value={reportFilters.customTo}
                       onChange={(e) => setReportFilters(prev => ({ ...prev, customTo: e.target.value }))}
@@ -1438,7 +1445,7 @@ export default function AdminExpensesPage() {
 
               <div>
                 <label className="block text-sm font-semibold mb-2" style={{ color: colors.text }}>
-                  Category (optional)
+                  {t('report.category_optional')}
                 </label>
                 <button
                   type="button"
@@ -1454,7 +1461,7 @@ export default function AdminExpensesPage() {
                     background: reportFilters.category ? '#e5e7eb' : colors.white
                   }}
                 >
-                  <span>{reportFilters.category || 'Select category'}</span>
+                  <span>{reportFilters.category ? labelCategory(reportFilters.category) : t('report.select_category')}</span>
                   <span className="text-lg">{showCategoryOptions ? '▲' : '▼'}</span>
                 </button>
                 {showCategoryOptions && (
@@ -1475,7 +1482,7 @@ export default function AdminExpensesPage() {
                           color: reportFilters.category === category ? 'white' : colors.primaryGreen
                         }}
                       >
-                        {category}
+                        {labelCategory(category)}
                       </button>
                     ))}
                   </div>
@@ -1484,7 +1491,7 @@ export default function AdminExpensesPage() {
 
               <div>
                 <label className="block text-sm font-semibold mb-2" style={{ color: colors.text }}>
-                  Payment Method (optional)
+                  {t('report.payment_optional')}
                 </label>
                 <button
                   type="button"
@@ -1500,7 +1507,7 @@ export default function AdminExpensesPage() {
                     background: reportFilters.paymentMethod ? '#e5e7eb' : colors.white
                   }}
                 >
-                  <span>{reportFilters.paymentMethod || 'Select payment method'}</span>
+                  <span>{reportFilters.paymentMethod ? labelMethod(reportFilters.paymentMethod) : t('report.select_payment_method')}</span>
                   <span className="text-lg">{showPaymentMethodOptions ? '▲' : '▼'}</span>
                 </button>
                 {showPaymentMethodOptions && (
@@ -1521,7 +1528,7 @@ export default function AdminExpensesPage() {
                           color: reportFilters.paymentMethod === method ? 'white' : colors.primaryGreen
                         }}
                       >
-                        {method}
+                        {labelMethod(method)}
                       </button>
                     ))}
                   </div>
@@ -1530,13 +1537,13 @@ export default function AdminExpensesPage() {
 
               <div>
                 <label className="block text-sm font-semibold mb-2" style={{ color: colors.text }}>
-                  Expense Name (optional)
+                  {t('report.title_optional')}
                 </label>
                 <input
                   type="text"
                   value={reportFilters.titleQuery}
                   onChange={(e) => setReportFilters((prev) => ({ ...prev, titleQuery: e.target.value }))}
-                  placeholder="Type expense name"
+                  placeholder={t('report.title_query_placeholder')}
                   className="w-full px-3 py-3 rounded-xl border text-base"
                 />
               </div>
@@ -1559,7 +1566,7 @@ export default function AdminExpensesPage() {
                   className="w-full py-3 rounded-xl border-2 font-semibold"
                   style={{ borderColor: colors.gold, color: colors.gold }}
                 >
-                  Clear
+                  {t('report.clear')}
                 </button>
                 <button
                   onClick={fetchReportData}
@@ -1567,7 +1574,7 @@ export default function AdminExpensesPage() {
                   className="w-full py-3 rounded-xl font-semibold text-white disabled:opacity-60"
                   style={{ background: colors.primaryGreen }}
                 >
-                  {reportLoading ? 'Searching...' : 'Search Expenses'}
+                  {reportLoading ? t('report.searching') : t('report.search_btn')}
                 </button>
               </div>
             </div>
@@ -1581,8 +1588,8 @@ export default function AdminExpensesPage() {
           <div className="bg-white rounded-2xl w-full h-full sm:h-auto sm:max-w-4xl sm:max-h-[90vh] flex flex-col">
             <div className="flex items-center justify-between p-3 sm:p-4 border-b">
               <h3 className="text-lg sm:text-xl font-bold text-gray-800">
-                Receipt: {selectedPhoto.title}
-                {selectedPhoto.photos.length > 1 && ` (${selectedPhoto.index + 1}/${selectedPhoto.photos.length})`}
+                {t('photo_viewer.title', { title: selectedPhoto.title })}
+                {selectedPhoto.photos.length > 1 && t('photo_viewer.counter', { current: selectedPhoto.index + 1, total: selectedPhoto.photos.length })}
               </h3>
               <button 
                 onClick={() => setPhotoViewerOpen(false)}
@@ -1602,7 +1609,7 @@ export default function AdminExpensesPage() {
               )}
               <img
                 src={selectedPhoto.photos[selectedPhoto.index]?.url}
-                alt="Receipt"
+                alt={t('photo_viewer.receipt_alt')}
                 className="w-full h-auto max-h-full object-contain"
               />
               {selectedPhoto.photos.length > 1 && selectedPhoto.index < selectedPhoto.photos.length - 1 && (
@@ -1637,7 +1644,7 @@ export default function AdminExpensesPage() {
             {/* Header */}
             <div className="p-4 text-center" style={{ background: colors.primaryGreen }}>
               <div className="text-3xl mb-1">✅</div>
-              <h3 className="text-xl font-bold text-white">Expense Saved</h3>
+              <h3 className="text-xl font-bold text-white">{t('saved_dialog.title')}</h3>
             </div>
 
             {/* Summary content */}
@@ -1645,7 +1652,7 @@ export default function AdminExpensesPage() {
               {savedExpenseSummary.photos?.length > 0 && (
                 <div className="flex justify-center gap-2 flex-wrap">
                   {savedExpenseSummary.photos.map((p, idx) => (
-                    <img key={idx} src={p.url} alt="Receipt" className="w-20 h-20 object-cover rounded-lg border" style={{ borderColor: colors.gray400 }} />
+                    <img key={idx} src={p.url} alt={t('card.receipt_alt')} className="w-20 h-20 object-cover rounded-lg border" style={{ borderColor: colors.gray400 }} />
                   ))}
                 </div>
               )}
@@ -1657,17 +1664,17 @@ export default function AdminExpensesPage() {
 
               <div className="space-y-2 text-sm" style={{ color: colors.muted }}>
                 <div className="flex justify-between items-center">
-                  <span>Category</span>
+                  <span>{t('saved_dialog.category')}</span>
                   <span className="font-semibold px-2 py-0.5 rounded-full text-white text-xs" style={{ background: colors.primaryGreen }}>
-                    {savedExpenseSummary.category === 'Other' ? savedExpenseSummary.categoryOther : savedExpenseSummary.category}
+                    {savedExpenseSummary.category === 'Other' ? savedExpenseSummary.categoryOther : labelCategory(savedExpenseSummary.category)}
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span>Payment</span>
-                  <span className="font-medium" style={{ color: colors.text }}>💳 {savedExpenseSummary.reimbursementMethod}</span>
+                  <span>{t('saved_dialog.payment')}</span>
+                  <span className="font-medium" style={{ color: colors.text }}>💳 {labelMethod(savedExpenseSummary.reimbursementMethod)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>Date</span>
+                  <span>{t('saved_dialog.date')}</span>
                   <span className="font-medium" style={{ color: colors.text }}>📅 {savedExpenseSummary.expenseDate?.toLocaleDateString?.() || new Date(savedExpenseSummary.expenseDate).toLocaleDateString()}</span>
                 </div>
                 {savedExpenseSummary.notes && (
@@ -1683,7 +1690,7 @@ export default function AdminExpensesPage() {
                 className="w-full py-3 rounded-xl text-white font-bold text-base active:scale-95 touch-manipulation transition-transform"
                 style={{ background: colors.primaryGreen }}
               >
-                Approve
+                {t('saved_dialog.done')}
               </button>
               <button
                 onClick={() => {
@@ -1697,14 +1704,14 @@ export default function AdminExpensesPage() {
                 className="w-full py-3 rounded-xl font-bold text-base border-2 active:scale-95 touch-manipulation transition-transform"
                 style={{ borderColor: colors.gold, color: colors.gold }}
               >
-                Edit
+                {t('saved_dialog.edit')}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      <DatePickerModal open={datePickerOpen} mode="single" title="Choose expense date" onClose={()=>setDatePickerOpen(false)} onSelect={({date})=>{ setForm(f=>({...f,expenseDate:date})); setDatePickerOpen(false); }} />
+      <DatePickerModal open={datePickerOpen} mode="single" title={t('date_picker_title')} onClose={()=>setDatePickerOpen(false)} onSelect={({date})=>{ setForm(f=>({...f,expenseDate:date})); setDatePickerOpen(false); }} />
 
       {/* Edit Expense Modal */}
       {editingExpense && (
@@ -1712,40 +1719,40 @@ export default function AdminExpensesPage() {
           <div className="rounded-2xl w-full h-full sm:h-auto sm:max-w-2xl mx-0 sm:mx-4 flex flex-col" style={{ background: colors.surface, maxHeight: '90vh' }}>
             {/* Header - Fixed */}
             <div className="flex items-center justify-between p-3 sm:p-5 pb-4 border-b" style={{ borderColor: colors.gray400 }}>
-              <h3 className="text-xl sm:text-2xl font-bold" style={{ color: colors.text }}>Edit Expense</h3>
+              <h3 className="text-xl sm:text-2xl font-bold" style={{ color: colors.text }}>{t('edit_modal.title')}</h3>
               <button onClick={handleCloseEditModal} className="text-xl sm:text-2xl font-bold transition-colors duration-200" style={{ color: colors.muted }} onMouseEnter={(e) => e.target.style.color = colors.text} onMouseLeave={(e) => e.target.style.color = colors.muted }>✕</button>
             </div>
             
             {/* Scrollable Content */}
             <div className="flex-1 overflow-y-auto p-3 sm:p-5 pt-0">
               <div className="grid grid-cols-1 gap-3 sm:gap-4">
-                <input className="w-full px-3 sm:px-4 py-3 rounded-xl border text-base sm:text-lg" placeholder="Title" value={form.title} onChange={(e)=>setForm(f=>({...f,title:e.target.value}))} />
-                <input className="w-full px-3 sm:px-4 py-3 rounded-xl border text-base sm:text-lg" placeholder="Amount (₪)" type="text" inputMode="decimal" value={form.amount} onChange={(e) => { const val = e.target.value; if (val === '' || /^\d*\.?\d*$/.test(val)) { setForm(f => ({ ...f, amount: val })); } }} />
+                <input className="w-full px-3 sm:px-4 py-3 rounded-xl border text-base sm:text-lg" placeholder={t('form.title_placeholder')} value={form.title} onChange={(e)=>setForm(f=>({...f,title:e.target.value}))} />
+                <input className="w-full px-3 sm:px-4 py-3 rounded-xl border text-base sm:text-lg" placeholder={t('form.amount_placeholder')} type="text" inputMode="decimal" value={form.amount} onChange={(e) => { const val = e.target.value; if (val === '' || /^\d*\.?\d*$/.test(val)) { setForm(f => ({ ...f, amount: val })); } }} />
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <select className="w-full px-3 sm:px-4 py-3 rounded-xl border text-base sm:text-lg" value={form.category} onChange={(e)=>setForm(f=>({...f,category:e.target.value}))}>
-                    {CATEGORIES.map(c=> <option key={c} value={c}>{c}</option>)}
+                    {CATEGORIES.map(c=> <option key={c} value={c}>{labelCategory(c)}</option>)}
                   </select>
                   {form.category === "Other" && (
-                    <input className="w-full px-3 sm:px-4 py-3 rounded-xl border text-base sm:text-lg" placeholder="Other category" value={form.categoryOther} onChange={(e)=>setForm(f=>({...f,categoryOther:e.target.value}))} />
+                    <input className="w-full px-3 sm:px-4 py-3 rounded-xl border text-base sm:text-lg" placeholder={t('form.other_category_placeholder')} value={form.categoryOther} onChange={(e)=>setForm(f=>({...f,categoryOther:e.target.value}))} />
                   )}
                 </div>
                 <select className="w-full px-3 sm:px-4 py-3 rounded-xl border text-base sm:text-lg" value={form.reimbursementMethod} onChange={(e)=>setForm(f=>({...f,reimbursementMethod:e.target.value}))}>
-                  {REIMBURSEMENT_METHODS.map(m=> <option key={m} value={m}>{m}</option>)}
+                  {REIMBURSEMENT_METHODS.map(m=> <option key={m} value={m}>{labelMethod(m)}</option>)}
                 </select>
                 <div>
                   <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center">
-                    <button onClick={()=>setForm(f=>({...f,expenseDate:new Date().toISOString().slice(0,10)}))} className="w-full sm:w-auto px-4 py-2 rounded-full text-sm font-semibold text-white" style={{ background: colors.gold }}>Today</button>
-                    <button onClick={()=>setDatePickerOpen(true)} className="w-full sm:w-auto px-4 py-2 rounded-full text-sm font-semibold border" style={{ borderColor: colors.primaryGreen, color: colors.primaryGreen }}>Other date</button>
+                    <button onClick={()=>setForm(f=>({...f,expenseDate:new Date().toISOString().slice(0,10)}))} className="w-full sm:w-auto px-4 py-2 rounded-full text-sm font-semibold text-white" style={{ background: colors.gold }}>{t('form.today')}</button>
+                    <button onClick={()=>setDatePickerOpen(true)} className="w-full sm:w-auto px-4 py-2 rounded-full text-sm font-semibold border" style={{ borderColor: colors.primaryGreen, color: colors.primaryGreen }}>{t('form.other_date')}</button>
                   </div>
                   {form.expenseDate && (
-                    <div className="mt-2 text-sm" style={{ color: colors.text }}>Selected: {new Date(form.expenseDate).toLocaleDateString()}</div>
+                    <div className="mt-2 text-sm" style={{ color: colors.text }}>{t('form.selected')}: {new Date(form.expenseDate).toLocaleDateString()}</div>
                   )}
                 </div>
-                <textarea className="w-full px-3 sm:px-4 py-3 rounded-xl border text-base sm:text-lg" placeholder={i18n.t('notes_hebrew_only', { ns: 'admin' })} value={form.notes} onChange={(e)=>setForm(f=>({...f,notes:e.target.value.replace(/[a-zA-Z]/g,'')}))} dir="rtl" />
+                <textarea className="w-full px-3 sm:px-4 py-3 rounded-xl border text-base sm:text-lg" placeholder={t('form.notes_placeholder')} value={form.notes} onChange={(e)=>setForm(f=>({...f,notes:e.target.value.replace(/[a-zA-Z]/g,'')}))} dir="rtl" />
                 
                 {/* Photo Upload Section */}
                 <div className="rounded-xl p-3 sm:p-4" style={{ background: colors.background }}>
-                  <h3 className="font-semibold mb-3 text-center" style={{ color: colors.text }}>Receipt Photo</h3>
+                  <h3 className="font-semibold mb-3 text-center" style={{ color: colors.text }}>{t('form.receipt_photo')}</h3>
                   <PhotoUpload
                     ref={expensePhotoRef}
                     key={`edit-${editingExpense?.id}`}
@@ -1760,10 +1767,10 @@ export default function AdminExpensesPage() {
             {/* Footer - Fixed */}
             <div className="flex flex-col sm:flex-row justify-end gap-3 p-3 sm:p-5 pt-4 border-t" style={{ borderColor: colors.gray400 }}>
               <button onClick={handleUpdateExpense} disabled={saving} className="w-full sm:w-auto px-4 sm:px-6 py-3 rounded-lg font-semibold text-white" style={{ background: colors.primaryGreen }}>
-                {saving ? 'Updating...' : 'Update Expense'}
+                {saving ? t('edit_modal.updating') : t('edit_modal.update')}
               </button>
               <button onClick={handleCloseEditModal} className="w-full sm:w-auto px-4 sm:px-6 py-3 rounded-lg font-semibold text-white" style={{ background: colors.red }}>
-                Cancel
+                {t('edit_modal.cancel')}
               </button>
             </div>
           </div>
@@ -1774,15 +1781,15 @@ export default function AdminExpensesPage() {
       {deleteConfirmOpen && expenseToDelete && (
         <div className="fixed inset-0 z-[58] bg-black/50 flex items-center justify-center p-2 sm:p-4">
           <div className="bg-white rounded-2xl w-full max-w-md mx-2 sm:mx-0 p-4 sm:p-6 text-center">
-            <h3 className="text-lg sm:text-xl font-bold text-gray-800 mb-3 sm:mb-4">Confirm Deletion</h3>
-            <p className="text-sm sm:text-base text-gray-700 mb-3 sm:mb-4">Are you sure you want to delete this expense?</p>
-            <p className="text-red-600 font-semibold mb-4 text-sm sm:text-base">This action cannot be undone.</p>
+            <h3 className="text-lg sm:text-xl font-bold text-gray-800 mb-3 sm:mb-4">{t('delete_modal.title')}</h3>
+            <p className="text-sm sm:text-base text-gray-700 mb-3 sm:mb-4">{t('delete_modal.message')}</p>
+            <p className="text-red-600 font-semibold mb-4 text-sm sm:text-base">{t('delete_modal.warning')}</p>
             <div className="flex flex-col sm:flex-row justify-center gap-3">
               <button onClick={confirmDeleteExpense} className="w-full sm:w-auto px-4 sm:px-6 py-3 rounded-lg font-semibold text-white" style={{ background: colors.red }}>
-                Delete
+                {t('delete_modal.delete')}
               </button>
               <button onClick={() => setDeleteConfirmOpen(false)} className="w-full sm:w-auto px-4 sm:px-6 py-3 rounded-lg font-semibold text-white" style={{ background: colors.primaryGreen }}>
-                Cancel
+                {t('delete_modal.cancel')}
               </button>
             </div>
           </div>
@@ -1794,20 +1801,20 @@ export default function AdminExpensesPage() {
         <div className="fixed inset-0 z-[60] bg-black/50 flex items-center justify-center p-2 sm:p-4">
           <div className="bg-white rounded-2xl w-full h-full sm:h-auto sm:max-w-4xl mx-0 sm:mx-4 p-3 sm:p-5 max-h-[90vh] flex flex-col">
             <div className="flex items-center justify-between mb-4 border-b pb-3">
-              <h3 className="text-xl sm:text-2xl font-bold text-gray-800">All Refund Requests</h3>
+              <h3 className="text-xl sm:text-2xl font-bold text-gray-800">{t('refunds.all_title')}</h3>
               <button onClick={() => setAllRefundsOpen(false)} className="text-gray-600 text-2xl">✕</button>
             </div>
             
             {/* Sort controls */}
             <div className="flex items-center gap-3 mb-4">
-              <label className="text-sm font-medium text-gray-700">Sort by:</label>
+              <label className="text-sm font-medium text-gray-700">{t('refunds.sort_by')}</label>
               <select 
                 value={refundSortOrder} 
                 onChange={(e) => setRefundSortOrder(e.target.value)}
                 className="px-3 py-2 border rounded-lg text-sm"
               >
-                <option value="latest">Latest First</option>
-                <option value="earliest">Earliest First</option>
+                <option value="latest">{t('refunds.latest_first')}</option>
+                <option value="earliest">{t('refunds.earliest_first')}</option>
               </select>
             </div>
             
@@ -1825,17 +1832,17 @@ export default function AdminExpensesPage() {
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex-1">
                           <h5 className="font-bold text-lg mb-2" style={{ color: colors.primaryGreen }}>{request.title}</h5>
-                          <p className="text-gray-700 text-base font-semibold mb-1">Amount: ₪{request.amount}</p>
-                          <p className="text-gray-600 text-sm font-medium mb-1">Method: {request.repaymentMethod}</p>
-                          <p className="text-gray-600 text-sm font-medium mb-1">From: {request.ownerName} (Room {request.ownerRoomNumber})</p>
-                          <p className="text-gray-500 text-sm">Date: {request.expenseDate?.toDate?.()?.toLocaleDateString?.() || 'No date'}</p>
+                          <p className="text-gray-700 text-base font-semibold mb-1">{t('refunds.amount', { amount: request.amount })}</p>
+                          <p className="text-gray-600 text-sm font-medium mb-1">{t('refunds.method', { method: request.repaymentMethod })}</p>
+                          <p className="text-gray-600 text-sm font-medium mb-1">{t('refunds.from_room', { name: request.ownerName, roomLabel: t('refunds.room_label', { number: request.ownerRoomNumber }) })}</p>
+                          <p className="text-gray-500 text-sm">{t('refunds.date', { date: request.expenseDate?.toDate?.()?.toLocaleDateString?.() || t('refunds.no_date') })}</p>
                         </div>
                         <span className={`px-3 py-1 rounded-full text-xs font-semibold flex-shrink-0 ${
                           request.status === 'waiting' ? 'bg-yellow-100 text-yellow-800' : 
                           request.status === 'approved' ? 'bg-green-100 text-green-800' : 
                           'bg-red-100 text-red-800'
                         }`}>
-                          {request.status}
+                          {refundStatusLabel(request.status)}
                         </span>
                       </div>
                       {request.status === 'waiting' && (
@@ -1845,14 +1852,14 @@ export default function AdminExpensesPage() {
                             className="flex-1 px-3 py-2 rounded-lg text-sm font-semibold text-white"
                             style={{ background: colors.primaryGreen }}
                           >
-                            ✅ Approve
+                            ✅ {t('refunds.approve_btn')}
                           </button>
                           <button
                             onClick={() => handleDenyRefund(request.id)}
                             className="flex-1 px-3 py-2 rounded-lg text-sm font-semibold text-white"
                             style={{ background: colors.red }}
                           >
-                            ❌ Deny
+                            ❌ {t('refunds.deny_btn')}
                           </button>
                         </div>
                       )}
@@ -1867,7 +1874,7 @@ export default function AdminExpensesPage() {
                 className="px-6 py-2 rounded-lg font-semibold text-white"
                 style={{ background: colors.gold }}
               >
-                Close
+                {t('refunds.close')}
               </button>
             </div>
           </div>
@@ -1880,7 +1887,7 @@ export default function AdminExpensesPage() {
           <div className="bg-white rounded-2xl w-full h-full sm:h-auto sm:max-w-4xl mx-0 sm:mx-4 p-3 sm:p-5 max-h-[90vh] flex flex-col">
             <div className="overflow-y-auto flex-1">
               <div className="flex items-center justify-between mb-4 border-b pb-3">
-                <h3 className="text-xl sm:text-2xl font-bold text-gray-800">Past Refund Requests</h3>
+                <h3 className="text-xl sm:text-2xl font-bold text-gray-800">{t('refunds.past_title')}</h3>
                 <button onClick={() => setPastRefundsOpen(false)} className="text-gray-600 text-2xl">✕</button>
               </div>
               
@@ -1890,19 +1897,19 @@ export default function AdminExpensesPage() {
                   <div className="text-2xl font-bold text-green-600">
                     {refundRequests.filter(r => r.status === 'approved').length}
                   </div>
-                  <div className="text-sm text-gray-600">Approved</div>
+                  <div className="text-sm text-gray-600">{t('refunds.stat_approved')}</div>
                 </div>
                 <div className="text-center">
                   <div className="text-2xl font-bold text-red-600">
                     {refundRequests.filter(r => r.status === 'denied').length}
                   </div>
-                  <div className="text-sm text-gray-600">Denied</div>
+                  <div className="text-sm text-gray-600">{t('refunds.stat_denied')}</div>
                 </div>
                 <div className="text-center">
                   <div className="text-2xl font-bold text-blue-600">
                     {refundRequests.filter(r => r.status === 'waiting').length}
                   </div>
-                  <div className="text-sm text-gray-600">Pending</div>
+                  <div className="text-sm text-gray-600">{t('refunds.stat_pending')}</div>
                 </div>
               </div>
               
@@ -1921,19 +1928,25 @@ export default function AdminExpensesPage() {
                   style={{ background: isGeneratingPDF ? colors.gold : colors.primaryGreen }}
                   disabled={isGeneratingPDF}
                 >
-                  {isGeneratingPDF ? '⏳ Generating PDF...' : '📊 Export as PDF'}
+                  {isGeneratingPDF ? `⏳ ${t('refunds.generating_pdf_short')}` : `📊 ${t('refunds.export_pdf')}`}
                 </button>
               </div>
               
               {/* Search */}
               <div className="mb-4">
-                <input
-                  type="text"
-                  placeholder="Search by name or title..."
-                  value={refundSearchTerm}
-                  onChange={(e) => setRefundSearchTerm(e.target.value)}
-                  className="w-full px-4 py-3 border rounded-lg text-lg"
-                />
+                <div
+                  className="rounded-xl border-2 p-1 shadow-sm"
+                  style={{ borderColor: colors.primaryGreen, background: `${colors.primaryGreen}12` }}
+                >
+                  <input
+                    type="text"
+                    placeholder={t('refunds.search_placeholder')}
+                    value={refundSearchTerm}
+                    onChange={(e) => setRefundSearchTerm(e.target.value)}
+                    className="w-full px-4 py-3 rounded-lg text-lg border-0 outline-none"
+                    style={{ background: colors.white, color: colors.text }}
+                  />
+                </div>
               </div>
               
               {/* Past refunds list */}
@@ -1957,27 +1970,27 @@ export default function AdminExpensesPage() {
                         <div className="flex items-start justify-between gap-3">
                           <div className="flex-1">
                             <h5 className="font-extrabold text-2xl mb-3" style={{ color: colors.primaryGreen }}>{request.title}</h5>
-                            <p className="text-gray-700 text-xl font-semibold mb-2">Amount: ₪{request.amount}</p>
-                            <p className="text-gray-600 text-lg font-medium mb-1">Method: {request.repaymentMethod}</p>
-                            <p className="text-gray-600 text-lg font-medium mb-1">From: {request.ownerName} (Room {request.ownerRoomNumber})</p>
-                            <p className="text-gray-500 text-lg mb-1">Date: {request.expenseDate?.toDate?.()?.toLocaleDateString?.() || 'No date'}</p>
+                            <p className="text-gray-700 text-xl font-semibold mb-2">{t('refunds.amount', { amount: request.amount })}</p>
+                            <p className="text-gray-600 text-lg font-medium mb-1">{t('refunds.method', { method: request.repaymentMethod })}</p>
+                            <p className="text-gray-600 text-lg font-medium mb-1">{t('refunds.from_room', { name: request.ownerName, roomLabel: t('refunds.room_label', { number: request.ownerRoomNumber }) })}</p>
+                            <p className="text-gray-500 text-lg mb-1">{t('refunds.date', { date: request.expenseDate?.toDate?.()?.toLocaleDateString?.() || t('refunds.no_date') })}</p>
                             {request.status === 'approved' && request.receiptPhotoUrl && (
                               <button
                                 onClick={() => {
-                                  setSelectedPhoto({ url: request.receiptPhotoUrl, title: `Receipt for ${request.title}` });
+                                  setSelectedPhoto({ photos: [{ url: request.receiptPhotoUrl }], title: t('refunds.receipt_for', { title: request.title }), index: 0 });
                                   setPhotoViewerOpen(true);
                                 }}
                                 className="text-lg font-semibold underline mt-2"
                                 style={{ color: colors.primaryGreen }}
                               >
-                                📷 Show Receipt
+                                📷 {t('refunds.show_receipt')}
                               </button>
                             )}
                           </div>
                           <span className={`px-3 py-1.5 rounded-full text-sm font-bold flex-shrink-0 ${
                             request.status === 'approved' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                           }`}>
-                            {request.status}
+                            {refundStatusLabel(request.status)}
                           </span>
                         </div>
                         <button
@@ -1994,7 +2007,7 @@ export default function AdminExpensesPage() {
                             background: 'transparent'
                           }}
                         >
-                          ✏️ Edit
+                          ✏️ {t('refunds.edit')}
                         </button>
                       </div>
                     </div>
@@ -2007,7 +2020,7 @@ export default function AdminExpensesPage() {
                   className="px-6 py-2 rounded-lg font-semibold text-white"
                   style={{ background: colors.gold }}
                 >
-                  Close
+                  {t('refunds.close')}
                 </button>
               </div>
             </div>
@@ -2020,7 +2033,7 @@ export default function AdminExpensesPage() {
         <div className="fixed inset-0 z-[60] bg-black/50 flex items-center justify-center p-2 sm:p-4">
           <div className="bg-white rounded-2xl w-full h-full sm:h-auto sm:max-w-md mx-0 sm:mx-4 p-4 sm:p-6 max-h-[90vh] flex flex-col">
             <div className="flex items-center justify-between mb-5 border-b pb-4 border-gray-200">
-              <h3 className="text-2xl font-bold text-gray-800">Edit Refund Request</h3>
+              <h3 className="text-2xl font-bold text-gray-800">{t('refunds.edit_modal_title')}</h3>
               <button onClick={() => {
                 setApproveModalOpen(false);
                 setReceiptPhoto(null);
@@ -2030,14 +2043,14 @@ export default function AdminExpensesPage() {
             <div className="flex-1 overflow-y-auto space-y-5">
               <div className="bg-gray-50 rounded-xl p-5">
                 <h4 className="font-bold text-2xl mb-3" style={{ color: colors.primaryGreen }}>{approvingRefundData.title}</h4>
-                <p className="text-gray-700 text-xl font-semibold mb-2">Amount: ₪{approvingRefundData.amount}</p>
-                <p className="text-gray-600 text-lg font-medium mb-2">From: {approvingRefundData.ownerName} (Room {approvingRefundData.ownerRoomNumber})</p>
-                <p className="text-gray-500 text-lg">Date: {approvingRefundData.expenseDate?.toDate?.()?.toLocaleDateString?.() || 'No date'}</p>
+                <p className="text-gray-700 text-xl font-semibold mb-2">{t('refunds.amount', { amount: approvingRefundData.amount })}</p>
+                <p className="text-gray-600 text-lg font-medium mb-2">{t('refunds.from_room', { name: approvingRefundData.ownerName, roomLabel: t('refunds.room_label', { number: approvingRefundData.ownerRoomNumber }) })}</p>
+                <p className="text-gray-500 text-lg">{t('refunds.date', { date: approvingRefundData.expenseDate?.toDate?.()?.toLocaleDateString?.() || t('refunds.no_date') })}</p>
               </div>
 
               {/* Status Toggle */}
               <div>
-                <label className="block text-lg font-bold mb-3 text-gray-800">Status</label>
+                <label className="block text-lg font-bold mb-3 text-gray-800">{t('refunds.status_label')}</label>
                 <div className="flex rounded-xl overflow-hidden border-2 border-gray-200">
                   <button
                     onClick={() => setEditRefundStatus('approved')}
@@ -2047,7 +2060,7 @@ export default function AdminExpensesPage() {
                       color: editRefundStatus === 'approved' ? 'white' : colors.primaryGreen
                     }}
                   >
-                    Approved
+                    {t('refunds.status_toggle_approved')}
                   </button>
                   <button
                     onClick={() => setEditRefundStatus('denied')}
@@ -2057,13 +2070,13 @@ export default function AdminExpensesPage() {
                       color: editRefundStatus === 'denied' ? 'white' : colors.red
                     }}
                   >
-                    Denied
+                    {t('refunds.status_toggle_denied')}
                   </button>
                 </div>
               </div>
               
               <div>
-                <label className="block text-lg font-bold mb-3 text-gray-800">Receipt Photo</label>
+                <label className="block text-lg font-bold mb-3 text-gray-800">{t('refunds.receipt_photo_label')}</label>
                 
                 <PhotoUpload
                   ref={refundReceiptPhotoRef}
@@ -2098,7 +2111,7 @@ export default function AdminExpensesPage() {
                 className="flex-1 px-6 py-4 rounded-xl font-bold text-white text-xl"
                 style={{ background: colors.primaryGreen }}
               >
-                Save Changes
+                {t('refunds.save_changes')}
               </button>
               <button
                 onClick={() => {
@@ -2108,7 +2121,7 @@ export default function AdminExpensesPage() {
                 className="flex-1 px-6 py-4 rounded-xl font-bold text-xl border-2"
                 style={{ borderColor: colors.gray400, color: colors.muted }}
               >
-                Cancel
+                {t('refunds.cancel')}
               </button>
             </div>
           </div>
@@ -2120,8 +2133,8 @@ export default function AdminExpensesPage() {
         <div className="fixed inset-0 z-[70] bg-black/50 flex items-center justify-center p-2 sm:p-4">
           <div className="bg-white rounded-2xl w-full max-w-md mx-4 p-5">
             <div className="text-center mb-6">
-              <h3 className="text-xl font-bold text-gray-800 mb-2">Export Refund Requests</h3>
-              <p className="text-gray-600">Choose the date range for your PDF export</p>
+              <h3 className="text-xl font-bold text-gray-800 mb-2">{t('refunds.export_modal_title')}</h3>
+              <p className="text-gray-600">{t('refunds.export_modal_subtitle')}</p>
             </div>
             
             <div className="space-y-4 mb-6">
@@ -2134,7 +2147,7 @@ export default function AdminExpensesPage() {
                   onChange={(e) => setExportDateRange(e.target.value)}
                   className="text-blue-600"
                 />
-                <span className="text-gray-700 font-medium">Past Day</span>
+                <span className="text-gray-700 font-medium">{t('refunds.past_day')}</span>
               </label>
               
               <label className="flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
@@ -2146,7 +2159,7 @@ export default function AdminExpensesPage() {
                   onChange={(e) => setExportDateRange(e.target.value)}
                   className="text-blue-600"
                 />
-                <span className="text-gray-700 font-medium">Past Week</span>
+                <span className="text-gray-700 font-medium">{t('refunds.past_week')}</span>
               </label>
               
               <label className="flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
@@ -2158,7 +2171,7 @@ export default function AdminExpensesPage() {
                   onChange={(e) => setExportDateRange(e.target.value)}
                   className="text-blue-600"
                 />
-                <span className="text-gray-700 font-medium">Past Month</span>
+                <span className="text-gray-700 font-medium">{t('refunds.past_month')}</span>
               </label>
               
               <label className="flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
@@ -2170,7 +2183,7 @@ export default function AdminExpensesPage() {
                   onChange={(e) => setExportDateRange(e.target.value)}
                   className="text-blue-600"
                 />
-                <span className="text-gray-700 font-medium">Custom Dates</span>
+                <span className="text-gray-700 font-medium">{t('refunds.custom_dates')}</span>
               </label>
             </div>
             
@@ -2178,14 +2191,14 @@ export default function AdminExpensesPage() {
             {exportDateRange === 'custom' && (
               <div className="mb-6 p-4 bg-gray-50 rounded-lg space-y-3">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">From Date</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('refunds.from_date')}</label>
                   <StyledDateTimeInput
                     value={exportCustomFrom || ''}
                     onChange={(e) => setExportCustomFrom(e.target.value)}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">To Date</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('refunds.to_date')}</label>
                   <StyledDateTimeInput
                     value={exportCustomTo || ''}
                     onChange={(e) => setExportCustomTo(e.target.value)}
@@ -2200,14 +2213,14 @@ export default function AdminExpensesPage() {
                 className="flex-1 px-4 py-3 rounded-lg font-semibold text-white"
                 style={{ background: colors.gold }}
               >
-                Cancel
+                {t('refunds.cancel')}
               </button>
               <button
                 onClick={async () => {
                   if (isGeneratingPDF) return;
 
                   setIsGeneratingPDF(true);
-                  setPdfProgressText(i18n.t('pdf_generating', { ns: 'admin' }));
+                  setPdfProgressText(t('pdf_generating'));
 
                   try {
                     let filteredRequests = [...refundRequests];
@@ -2238,13 +2251,13 @@ export default function AdminExpensesPage() {
                       customFrom: exportCustomFrom,
                       customTo: exportCustomTo,
                       onProgress: (current, total) => {
-                        setPdfProgressText(`Loading image ${current}/${total}...`);
+                        setPdfProgressText(t('pdf_loading_image', { current, total }));
                       },
                     });
-                    setSuccess(i18n.t('pdf_success', { ns: 'admin' }));
+                    setSuccess(t('pdf_success'));
                     setExportModalOpen(false);
                   } catch (err) {
-                    setError(i18n.t('pdf_error', { ns: 'admin' }));
+                    setError(t('pdf_error'));
                     console.error('PDF generation error:', err);
                   } finally {
                     setIsGeneratingPDF(false);
@@ -2255,7 +2268,7 @@ export default function AdminExpensesPage() {
                 style={{ background: isGeneratingPDF ? colors.gold : colors.primaryGreen }}
                 disabled={isGeneratingPDF}
               >
-                {isGeneratingPDF ? 'Generating PDF...' : 'Export PDF'}
+                {isGeneratingPDF ? t('refunds.generating_pdf_short') : t('refunds.export_pdf_btn')}
               </button>
             </div>
           </div>
@@ -2265,7 +2278,7 @@ export default function AdminExpensesPage() {
       {isGeneratingPDF && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm">
           <div className="bg-white rounded-2xl p-8 shadow-xl flex flex-col items-center gap-2 min-w-[220px]">
-            <HouseLoader size={70} text={pdfProgressText || i18n.t('pdf_generating', { ns: 'admin' })} />
+            <HouseLoader size={70} text={pdfProgressText || t('pdf_generating')} />
           </div>
         </div>
       )}

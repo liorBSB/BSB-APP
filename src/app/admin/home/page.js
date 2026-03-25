@@ -22,7 +22,15 @@ import { StyledDateTimeInput } from '@/components/StyledDateInput';
 
 export default function AdminHomePage() {
   const router = useRouter();
-  const { t } = useTranslation('admin');
+  const { t, i18n } = useTranslation('admin');
+  const { t: tc } = useTranslation('components');
+  const dateLocale = i18n.language?.startsWith('he') ? 'he-IL' : 'en-US';
+  const formatEventTs = (ts) => {
+    const d = new Date(ts.seconds ? ts.seconds * 1000 : ts);
+    const date = d.toLocaleDateString(dateLocale, { weekday: 'short', month: 'short', day: 'numeric' });
+    const time = d.toLocaleTimeString(dateLocale, { hour: '2-digit', minute: '2-digit', hour12: false });
+    return `${date}, ${time}`;
+  };
   const [events, setEvents] = useState([]);
   const [surveys, setSurveys] = useState([]);
   const [messages, setMessages] = useState([]);
@@ -130,7 +138,7 @@ export default function AdminHomePage() {
       await fetchData();
     } catch (error) {
       console.error('Error approving request:', error);
-      alert(t('approval_error', 'Failed to process request. Please try again.'));
+      alert(t('approval_error'));
     } finally {
       setProcessingApproval(false);
     }
@@ -143,7 +151,7 @@ export default function AdminHomePage() {
       await fetchData();
     } catch (error) {
       console.error('Error rejecting request:', error);
-      alert(t('approval_error', 'Failed to process request. Please try again.'));
+      alert(t('approval_error'));
     } finally {
       setProcessingApproval(false);
     }
@@ -198,7 +206,7 @@ export default function AdminHomePage() {
   if (isCheckingProfile) {
     return (
       <main className="min-h-screen bg-gradient-to-br from-blue-200/60 to-green-100/60 font-body flex items-center justify-center">
-        <div className="text-center text-muted">{t('loading', 'Loading...')}</div>
+        <div className="text-center text-muted">{t('loading')}</div>
       </main>
     );
   }
@@ -230,7 +238,7 @@ export default function AdminHomePage() {
       fetchData();
     } catch (error) {
       setAddLoading(false);
-      alert('Failed to add item');
+      alert(t('admin_add_item_failed'));
     }
   };
 
@@ -260,7 +268,7 @@ export default function AdminHomePage() {
     if (form.startTime && form.endTime) {
       const s = form.startTime.seconds ? new Date(form.startTime.seconds * 1000) : new Date(form.startTime);
       const e = form.endTime.seconds ? new Date(form.endTime.seconds * 1000) : new Date(form.endTime);
-      if (e <= s) { alert('End time must be after start time'); return; }
+      if (e <= s) { alert(t('admin_end_time_after_start')); return; }
     }
     const collectionName = type === 'event' ? 'events' : type === 'survey' ? 'surveys' : 'messages';
     const updateData = { ...form };
@@ -274,7 +282,7 @@ export default function AdminHomePage() {
       if (type === 'message') setMessages(messages => messages.map(ms => ms.id === item.id ? { ...ms, ...updateData } : ms));
       setEditModal({ open: false, type: '', item: null, form: {} });
     } catch (error) {
-      alert('Failed to update');
+      alert(t('admin_update_item_failed'));
     }
   };
 
@@ -291,7 +299,7 @@ export default function AdminHomePage() {
           style={{ border: `1px solid ${colors.gold}` }}
         >
           <h1 className="text-xl font-bold text-text">
-            {t('welcome', 'Welcome')}, {adminData?.firstName && adminData?.lastName ? `${adminData.firstName} ${adminData.lastName}` : ''}
+            {t('welcome')}, {adminData?.firstName && adminData?.lastName ? `${adminData.firstName} ${adminData.lastName}` : ''}
           </h1>
           <p className="text-sm text-muted">
             {adminData?.jobTitle || ''}
@@ -315,10 +323,10 @@ export default function AdminHomePage() {
                 {soldierStats.home}
               </div>
               <div className="text-sm font-bold text-center leading-tight mb-1" style={{ color: colors.primaryGreen }}>
-                {t('soldiers_home', 'Soldiers Home')}
+                {t('soldiers_home')}
               </div>
               <div className="text-xs text-center" style={{ color: colors.primaryGreen, opacity: 0.8 }}>
-                of {soldierStats.total} total
+                {t('soldiers_home_of_total', { total: soldierStats.total })}
               </div>
             </div>
           </button>
@@ -339,7 +347,7 @@ export default function AdminHomePage() {
                 {refundRequestsCount}
               </div>
               <div className="text-sm font-bold text-center leading-tight" style={{ color: colors.primaryGreen }}>
-                {t('refund_requests', 'Refund Requests')}
+                {t('refund_requests')}
               </div>
             </div>
           </button>
@@ -360,7 +368,7 @@ export default function AdminHomePage() {
                 {pendingProblemsCount}
               </div>
               <div className="text-sm font-bold text-center leading-tight" style={{ color: colors.primaryGreen }}>
-                {t('pending_problems', 'Pending Problems')}
+                {t('pending_problems')}
               </div>
             </div>
           </button>
@@ -372,21 +380,21 @@ export default function AdminHomePage() {
         <div className="mb-8 rounded-xl overflow-hidden" style={thinGoldWrap}>
           <div className="flex items-center px-4 py-3 shadow-sm select-none" style={{ background: colors.sectionBg, color: colors.white }}>
             <span className="font-semibold text-lg flex-1" style={{ color: colors.white, textAlign: 'start' }}>
-              {t('events', 'Events')}
+              {t('events')}
             </span>
             <button
               onClick={() => openAddModal('event')}
               className="px-3 py-1 rounded-lg font-semibold transition focus:outline-none"
               style={{ color: colors.primaryGreen, background: 'none', boxShadow: 'none' }}
             >
-+ {t('add_event', 'Add Event')}
++ {t('add_event')}
             </button>
           </div>
           <div className="p-5" style={{ background: 'rgba(0,0,0,0.18)' }}>
             {loading ? (
-              <div className="text-center text-muted py-3">{t('loading', 'Loading...')}</div>
+              <div className="text-center text-muted py-3">{t('loading')}</div>
             ) : events.length === 0 ? (
-              <div className="text-center text-muted py-3">{t('no_events', 'No upcoming events')}</div>
+              <div className="text-center text-muted py-3">{t('no_events')}</div>
             ) : (<>
               {(openEvents ? events : events.slice(0, 1)).map(event => (
                 <div key={event.id} className="relative mb-5 bg-blue-50 rounded-xl shadow-md p-6">
@@ -395,14 +403,8 @@ export default function AdminHomePage() {
                       <div className="font-bold text-xl text-[#076332] mb-3 leading-tight line-clamp-2">{event.title}</div>
                       {event.body && <div className="text-base font-medium text-gray-700 mb-4 leading-relaxed line-clamp-2">{event.body}</div>}
                       {(event.startTime || event.endTime) && (() => {
-                        const fmt = (ts) => {
-                          const d = new Date(ts.seconds ? ts.seconds * 1000 : ts);
-                          const date = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-                          const time = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
-                          return `${date}, ${time}`;
-                        };
-                        const s = event.startTime ? fmt(event.startTime) : null;
-                        const e = event.endTime ? fmt(event.endTime) : null;
+                        const s = event.startTime ? formatEventTs(event.startTime) : null;
+                        const e = event.endTime ? formatEventTs(event.endTime) : null;
                         return (
                           <div className="text-sm font-medium mt-1" style={{ color: colors.muted }}>
                             {s}{e && ' → '}{e}
@@ -416,7 +418,7 @@ export default function AdminHomePage() {
                         className="px-3 py-1.5 rounded-xl font-semibold text-xs transition-all duration-150 active:scale-95"
                         style={{ backgroundColor: colors.gold, color: '#fff' }}
                       >
-                        {t('responses', 'Responses')}
+                        {t('responses')}
                       </button>
                       <button onClick={() => handleEditClick('event', event)} className="p-2 rounded-full hover:bg-gray-100">
                         <PencilIcon />
@@ -431,7 +433,7 @@ export default function AdminHomePage() {
                   style={{ color: colors.gold }}
                   onClick={() => setOpenEvents(prev => !prev)}
                 >
-                  {openEvents ? t('show_less', 'Show Less') : t('see_more', { defaultValue: 'See More ({{count}})', count: events.length - 1 })}
+                  {openEvents ? t('show_less') : t('see_more', { count: events.length - 1 })}
                 </button>
               )}
             </>)}
@@ -442,21 +444,21 @@ export default function AdminHomePage() {
         <div className="mb-8 rounded-xl overflow-hidden" style={thinGoldWrap}>
           <div className="flex items-center px-4 py-3 shadow-sm select-none" style={{ background: colors.sectionBg, color: colors.white }}>
             <span className="font-semibold text-lg flex-1" style={{ color: colors.white, textAlign: 'start' }}>
-              {t('surveys', 'Surveys')}
+              {t('surveys')}
             </span>
             <button
               onClick={() => openAddModal('survey')}
               className="px-3 py-1 rounded-lg font-semibold transition focus:outline-none"
               style={{ color: colors.primaryGreen, background: 'none', boxShadow: 'none' }}
             >
-+ {t('add_survey', 'Add Survey')}
++ {t('add_survey')}
             </button>
           </div>
           <div className="p-5" style={{ background: 'rgba(0,0,0,0.18)' }}>
             {loading ? (
-              <div className="text-center text-muted py-3">{t('loading', 'Loading...')}</div>
+              <div className="text-center text-muted py-3">{t('loading')}</div>
             ) : surveys.length === 0 ? (
-              <div className="text-center text-muted py-3">{t('no_surveys', 'No surveys to fill')}</div>
+              <div className="text-center text-muted py-3">{t('no_surveys')}</div>
             ) : (<>
               {(openSurveys ? surveys : surveys.slice(0, 1)).map(survey => (
                 <div key={survey.id} className="relative mb-5 bg-blue-50 rounded-xl shadow-md p-6">
@@ -466,10 +468,12 @@ export default function AdminHomePage() {
                       {survey.body && <div className="text-base font-medium text-gray-700 mb-4 leading-relaxed line-clamp-2">{survey.body}</div>}
                       {survey.endTime && (
                         <div className="text-sm font-semibold text-gray-600 mb-1">
-                          Due Date: {new Date(survey.endTime.seconds ? survey.endTime.seconds * 1000 : survey.endTime).toLocaleDateString('en-US', { 
-                            weekday: 'short', 
-                            month: 'short', 
-                            day: 'numeric'
+                          {t('survey_due_date', {
+                            date: new Date(survey.endTime.seconds ? survey.endTime.seconds * 1000 : survey.endTime).toLocaleDateString(dateLocale, {
+                              weekday: 'short',
+                              month: 'short',
+                              day: 'numeric',
+                            }),
                           })}
                         </div>
                       )}
@@ -486,7 +490,7 @@ export default function AdminHomePage() {
                   style={{ color: colors.gold }}
                   onClick={() => setOpenSurveys(prev => !prev)}
                 >
-                  {openSurveys ? t('show_less', 'Show Less') : t('see_more', { defaultValue: 'See More ({{count}})', count: surveys.length - 1 })}
+                  {openSurveys ? t('show_less') : t('see_more', { count: surveys.length - 1 })}
                 </button>
               )}
             </>)}
@@ -497,21 +501,21 @@ export default function AdminHomePage() {
         <div className="mb-8 rounded-xl overflow-hidden" style={thinGoldWrap}>
           <div className="flex items-center px-4 py-3 shadow-sm select-none" style={{ background: colors.sectionBg, color: colors.white }}>
             <span className="font-semibold text-lg flex-1" style={{ color: colors.white, textAlign: 'start' }}>
-              {t('messages', 'Messages')}
+              {t('messages')}
             </span>
             <button
               onClick={() => openAddModal('message')}
               className="px-3 py-1 rounded-lg font-semibold transition focus:outline-none"
               style={{ color: colors.primaryGreen, background: 'none', boxShadow: 'none' }}
             >
-+ {t('add_message', 'Add Message')}
++ {t('add_message')}
             </button>
           </div>
           <div className="p-5" style={{ background: 'rgba(0,0,0,0.18)' }}>
             {loading ? (
-              <div className="text-center text-muted py-3">{t('loading', 'Loading...')}</div>
+              <div className="text-center text-muted py-3">{t('loading')}</div>
             ) : messages.length === 0 ? (
-              <div className="text-center text-muted py-3">{t('no_messages', 'No important messages')}</div>
+              <div className="text-center text-muted py-3">{t('no_messages')}</div>
             ) : (<>
               {(openMessages ? messages : messages.slice(0, 1)).map(message => (
                 <div key={message.id} className="relative mb-5 bg-blue-50 rounded-xl shadow-md p-6">
@@ -520,14 +524,8 @@ export default function AdminHomePage() {
                       <div className="font-bold text-xl text-[#076332] mb-3 leading-tight line-clamp-2">{message.title}</div>
                       {message.body && <div className="text-base font-medium text-gray-700 mb-4 leading-relaxed line-clamp-2">{message.body}</div>}
                       {(message.startTime || message.endTime) && (() => {
-                        const fmt = (ts) => {
-                          const d = new Date(ts.seconds ? ts.seconds * 1000 : ts);
-                          const date = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-                          const time = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
-                          return `${date}, ${time}`;
-                        };
-                        const s = message.startTime ? fmt(message.startTime) : null;
-                        const e = message.endTime ? fmt(message.endTime) : null;
+                        const s = message.startTime ? formatEventTs(message.startTime) : null;
+                        const e = message.endTime ? formatEventTs(message.endTime) : null;
                         return (
                           <div className="text-sm font-medium mt-1" style={{ color: colors.muted }}>
                             {s}{e && ' → '}{e}
@@ -547,7 +545,7 @@ export default function AdminHomePage() {
                   style={{ color: colors.gold }}
                   onClick={() => setOpenMessages(prev => !prev)}
                 >
-                  {openMessages ? t('show_less', 'Show Less') : t('see_more', { defaultValue: 'See More ({{count}})', count: messages.length - 1 })}
+                  {openMessages ? t('show_less') : t('see_more', { count: messages.length - 1 })}
                 </button>
               )}
             </>)}
@@ -562,17 +560,17 @@ export default function AdminHomePage() {
               onClick={() => setOpenApprovalRequests((prev) => !prev)}
               style={{ color: colors.white, textAlign: 'start' }}
             >
-              {t('approval_requests', 'Approval Requests')}
+              {t('approval_requests')}
             </button>
             <div className="text-sm text-white/80">
-              {approvalRequests.length} pending
+              {t('approval_pending_badge', { count: approvalRequests.length })}
             </div>
           </div>
           <div className="p-5" style={{ background: 'rgba(0,0,0,0.18)' }}>
             {loading ? (
-              <div className="text-center text-muted py-3">{t('loading', 'Loading...')}</div>
+              <div className="text-center text-muted py-3">{t('loading')}</div>
             ) : approvalRequests.length === 0 ? (
-              <div className="text-center text-muted py-3">{t('no_pending_approvals', 'No pending approval requests')}</div>
+              <div className="text-center text-muted py-3">{t('no_pending_approvals')}</div>
             ) : openApprovalRequests ? (
               approvalRequests.map(request => (
                 <div key={request.id} className="relative mb-5 bg-blue-50 rounded-xl shadow-md p-6">
@@ -584,10 +582,12 @@ export default function AdminHomePage() {
                           <div className="font-bold text-xl text-[#076332] mb-2">{request.userName}</div>
                           <div className="text-base font-medium text-gray-700 mb-2">{request.userEmail}</div>
                           {request.jobTitle && (
-                            <div className="text-base font-medium text-gray-700 mb-2">Job: {request.jobTitle}</div>
+                            <div className="text-base font-medium text-gray-700 mb-2">{t('approval_job_label', { job: request.jobTitle })}</div>
                           )}
                           <div className="text-sm font-semibold" style={{ color: '#fff', background: '#076332', borderRadius: 6, padding: '4px 10px', display: 'inline-block' }}>
-                            Requested: {request.createdAt?.toDate?.()?.toLocaleDateString() || 'Unknown date'}
+                            {t('approval_requested_label', {
+                              date: request.createdAt?.toDate?.()?.toLocaleDateString(dateLocale) || t('approval_unknown_date'),
+                            })}
                           </div>
                         </div>
                       </div>
@@ -598,7 +598,7 @@ export default function AdminHomePage() {
                           className="flex-1 px-3 py-2 rounded-lg text-white font-semibold disabled:opacity-50"
                           style={{ background: colors.primaryGreen }}
                         >
-                          {processingApproval ? t('processing', 'Processing...') : t('approve', 'Approve')}
+                          {processingApproval ? t('processing') : t('approve')}
                         </button>
                         <button
                           onClick={() => handleReject(request.id, request.userId)}
@@ -606,7 +606,7 @@ export default function AdminHomePage() {
                           className="flex-1 px-3 py-2 rounded-lg border-2 font-semibold disabled:opacity-50"
                           style={{ borderColor: colors.primaryGreen, color: colors.primaryGreen }}
                         >
-                          {processingApproval ? t('processing', 'Processing...') : t('reject', 'Reject')}
+                          {processingApproval ? t('processing') : t('reject')}
                         </button>
                       </div>
                     </div>
@@ -624,10 +624,12 @@ export default function AdminHomePage() {
                           <div className="font-bold text-xl text-[#076332] mb-2">{approvalRequests[0].userName}</div>
                           <div className="text-base font-medium text-gray-700 mb-2">{approvalRequests[0].userEmail}</div>
                           {approvalRequests[0].jobTitle && (
-                            <div className="text-base font-medium text-gray-700 mb-2">Job: {approvalRequests[0].jobTitle}</div>
+                            <div className="text-base font-medium text-gray-700 mb-2">{t('approval_job_label', { job: approvalRequests[0].jobTitle })}</div>
                           )}
                           <div className="text-sm font-semibold" style={{ color: '#fff', background: '#076332', borderRadius: 6, padding: '4px 10px', display: 'inline-block' }}>
-                            Requested: {approvalRequests[0].createdAt?.toDate?.()?.toLocaleDateString() || 'Unknown date'}
+                            {t('approval_requested_label', {
+                              date: approvalRequests[0].createdAt?.toDate?.()?.toLocaleDateString(dateLocale) || t('approval_unknown_date'),
+                            })}
                           </div>
                         </div>
                       </div>
@@ -638,7 +640,7 @@ export default function AdminHomePage() {
                           className="flex-1 px-3 py-2 rounded-lg text-white font-semibold disabled:opacity-50"
                           style={{ background: colors.primaryGreen }}
                         >
-                          {processingApproval ? t('processing', 'Processing...') : t('approve', 'Approve')}
+                          {processingApproval ? t('processing') : t('approve')}
                         </button>
                         <button
                           onClick={() => handleReject(approvalRequests[0].id, approvalRequests[0].userId)}
@@ -646,7 +648,7 @@ export default function AdminHomePage() {
                           className="flex-1 px-3 py-2 rounded-lg border-2 font-semibold disabled:opacity-50"
                           style={{ borderColor: colors.primaryGreen, color: colors.primaryGreen }}
                         >
-                          {processingApproval ? t('processing', 'Processing...') : t('reject', 'Reject')}
+                          {processingApproval ? t('processing') : t('reject')}
                         </button>
                       </div>
                     </div>
@@ -686,9 +688,9 @@ export default function AdminHomePage() {
       {/* Response List Modal */}
       {responseListModal.open && (() => {
         const sections = [
-          { key: 'coming', label: t('coming', 'Coming'), data: responseListModal.event?.coming, color: colors.primaryGreen, bg: 'rgba(7,99,50,0.08)', icon: '✓' },
-          { key: 'maybe', label: t('maybe', 'Maybe'), data: responseListModal.event?.maybe, color: colors.gold, bg: 'rgba(237,195,129,0.15)', icon: '?' },
-          { key: 'notComing', label: t('not_coming', 'Not Coming'), data: responseListModal.event?.notComing, color: colors.red, bg: 'rgba(255,82,82,0.08)', icon: '✕' },
+          { key: 'coming', label: t('coming'), data: responseListModal.event?.coming, color: colors.primaryGreen, bg: 'rgba(7,99,50,0.08)', icon: '✓' },
+          { key: 'maybe', label: t('maybe'), data: responseListModal.event?.maybe, color: colors.gold, bg: 'rgba(237,195,129,0.15)', icon: '?' },
+          { key: 'notComing', label: t('not_coming'), data: responseListModal.event?.notComing, color: colors.red, bg: 'rgba(255,82,82,0.08)', icon: '✕' },
         ];
         return (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -701,7 +703,7 @@ export default function AdminHomePage() {
                 <div className="flex justify-between items-start">
                   <div>
                     <h2 className="text-xl font-bold" style={{ color: colors.primaryGreen }}>
-                      {t('event_responses', 'Event Responses')}
+                      {t('event_responses')}
                     </h2>
                     <h3 className="text-base font-medium mt-1" style={{ color: colors.text }}>
                       {responseListModal.event?.title}
@@ -749,14 +751,14 @@ export default function AdminHomePage() {
                               >
                                 <span className="font-semibold text-sm" style={{ color: colors.text }}>{person.fullName}</span>
                                 <span className="text-xs font-medium px-2 py-1 rounded-lg" style={{ backgroundColor: color + '12', color }}>
-                                  Room {person.roomNumber}
+                                  {t('response_room_badge', { room: person.roomNumber })}
                                 </span>
                               </div>
                             ))}
                           </div>
                         ) : (
                           <div className="text-center py-3 text-sm" style={{ color: colors.muted }}>
-                            {t('no_responses_yet', 'No responses yet')}
+                            {t('no_responses_yet')}
                           </div>
                         )}
                       </div>
@@ -773,12 +775,14 @@ export default function AdminHomePage() {
       {editModal.open && (
         <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg p-6 shadow-lg w-full max-w-xs">
-            <h2 className="text-xl font-bold mb-4">Edit {editModal.type.charAt(0).toUpperCase() + editModal.type.slice(1)}</h2>
+            <h2 className="text-xl font-bold mb-4">
+              {editModal.type === 'event' ? t('edit_event_title') : editModal.type === 'survey' ? t('edit_survey_title') : t('edit_message_title')}
+            </h2>
             <form onSubmit={(e) => { e.preventDefault(); handleEditSave(); }}>
             
             {/* Title field for all types */}
             <div className="mb-4">
-              <label className="block text-gray-700 font-semibold mb-2">Title</label>
+              <label className="block text-gray-700 font-semibold mb-2">{tc('add_item_modal.title')}</label>
               <input
                 type="text"
                 name="title"
@@ -790,7 +794,7 @@ export default function AdminHomePage() {
 
             {/* Body field for all types */}
             <div className="mb-4">
-              <label className="block text-gray-700 font-semibold mb-2">Body</label>
+              <label className="block text-gray-700 font-semibold mb-2">{tc('add_item_modal.body')}</label>
               <textarea
                 name="body"
                 value={editModal.form.body || ''}
@@ -804,7 +808,7 @@ export default function AdminHomePage() {
             {editModal.type === 'event' && (
               <>
                 <div className="mb-4">
-                  <label className="block text-gray-700 font-semibold mb-2">Start Date</label>
+                  <label className="block text-gray-700 font-semibold mb-2">{tc('add_item_modal.start_time')}</label>
                   <StyledDateTimeInput
                     name="startTime"
                     value={editModal.form.startTime?.seconds ? new Date(editModal.form.startTime.seconds * 1000).toISOString().slice(0, 16) : (editModal.form.startTime ? new Date(editModal.form.startTime).toISOString().slice(0, 16) : '')}
@@ -812,7 +816,7 @@ export default function AdminHomePage() {
                   />
                 </div>
                 <div className="mb-4">
-                  <label className="block text-gray-700 font-semibold mb-2">End Date</label>
+                  <label className="block text-gray-700 font-semibold mb-2">{tc('add_item_modal.end_time')}</label>
                   <StyledDateTimeInput
                     name="endTime"
                     value={editModal.form.endTime?.seconds ? new Date(editModal.form.endTime.seconds * 1000).toISOString().slice(0, 16) : (editModal.form.endTime ? new Date(editModal.form.endTime).toISOString().slice(0, 16) : '')}
@@ -825,7 +829,7 @@ export default function AdminHomePage() {
             {editModal.type === 'survey' && (
               <>
                 <div className="mb-4">
-                  <label className="block text-gray-700 font-semibold mb-2">Due Date</label>
+                  <label className="block text-gray-700 font-semibold mb-2">{tc('add_item_modal.due_date')}</label>
                   <StyledDateTimeInput
                     name="endTime"
                     value={editModal.form.endTime?.seconds ? new Date(editModal.form.endTime.seconds * 1000).toISOString().slice(0, 16) : (editModal.form.endTime ? new Date(editModal.form.endTime).toISOString().slice(0, 16) : '')}
@@ -833,13 +837,13 @@ export default function AdminHomePage() {
                   />
                 </div>
                 <div className="mb-4">
-                  <label className="block text-gray-700 font-semibold mb-2">Link <span className="text-red-500">*</span></label>
+                  <label className="block text-gray-700 font-semibold mb-2">{tc('add_item_modal.link_label')} <span className="text-red-500">*</span></label>
                   <input
                     type="text"
                     name="link"
                     value={editModal.form.link || ''}
                     onChange={handleEditChange}
-                    placeholder="https://example.com"
+                    placeholder={tc('add_item_modal.link_placeholder')}
                     className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-primaryGreen"
                     required
                   />
@@ -850,7 +854,7 @@ export default function AdminHomePage() {
             {editModal.type === 'message' && (
               <>
                 <div className="mb-4">
-                  <label className="block text-gray-700 font-semibold mb-2">Start Date</label>
+                  <label className="block text-gray-700 font-semibold mb-2">{tc('add_item_modal.start_time')}</label>
                   <StyledDateTimeInput
                     name="startTime"
                     value={editModal.form.startTime?.seconds ? new Date(editModal.form.startTime.seconds * 1000).toISOString().slice(0, 16) : (editModal.form.startTime ? new Date(editModal.form.startTime).toISOString().slice(0, 16) : '')}
@@ -858,7 +862,7 @@ export default function AdminHomePage() {
                   />
                 </div>
                 <div className="mb-4">
-                  <label className="block text-gray-700 font-semibold mb-2">End Date</label>
+                  <label className="block text-gray-700 font-semibold mb-2">{tc('add_item_modal.end_time')}</label>
                   <StyledDateTimeInput
                     name="endTime"
                     value={editModal.form.endTime?.seconds ? new Date(editModal.form.endTime.seconds * 1000).toISOString().slice(0, 16) : (editModal.form.endTime ? new Date(editModal.form.endTime).toISOString().slice(0, 16) : '')}
@@ -874,7 +878,7 @@ export default function AdminHomePage() {
                 className="flex-1 px-4 py-2 rounded-lg text-white font-semibold"
                 style={{ background: colors.gold }}
               >
-                Save
+                {tc('add_item_modal.save')}
               </button>
               <button
                 type="button"
@@ -882,7 +886,7 @@ export default function AdminHomePage() {
                 className="flex-1 px-4 py-2 rounded-lg border-2 font-semibold"
                 style={{ borderColor: colors.primaryGreen, color: colors.primaryGreen }}
               >
-                Cancel
+                {tc('add_item_modal.cancel')}
               </button>
             </div>
             </form>

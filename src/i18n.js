@@ -17,6 +17,8 @@ import enAdmin from '../public/locales/en/admin.json';
 import heAdmin from '../public/locales/he/admin.json';
 import enComponents from '../public/locales/en/components.json';
 import heComponents from '../public/locales/he/components.json';
+import enExpenses from '../public/locales/en/expenses.json';
+import heExpenses from '../public/locales/he/expenses.json';
 
 if (!i18n.isInitialized) {
   i18n
@@ -34,6 +36,7 @@ if (!i18n.isInitialized) {
           register: enRegister,
           admin: enAdmin,
           components: enComponents,
+          expenses: enExpenses,
         },
         he: {
           home: heHome,
@@ -44,12 +47,16 @@ if (!i18n.isInitialized) {
           register: heRegister,
           admin: heAdmin,
           components: heComponents,
+          expenses: heExpenses,
         },
       },
-      ns: ['home', 'settings', 'report', 'login', 'profilesetup', 'register', 'admin', 'components'],
+      ns: ['home', 'settings', 'report', 'login', 'profilesetup', 'register', 'admin', 'components', 'expenses'],
       defaultNS: 'home',
       interpolation: {
         escapeValue: false,
+      },
+      react: {
+        useSuspense: false,
       },
     });
 }

@@ -18,7 +18,7 @@ import { StyledDateInput } from '@/components/StyledDateInput';
 import HouseLoader from '@/components/HouseLoader';
 
 export default function SettingsPage() {
-  const { t, i18n } = useTranslation('settings');
+  const { t } = useTranslation('settings');
   const router = useRouter();
   const [fields, setFields] = useState({
     name: '',
@@ -563,7 +563,7 @@ export default function SettingsPage() {
                     {personalIdData.profilePhotoUrl ? t('retake_photo') : t('add_photo')}
                   </button>
                   {!personalIdData.profilePhotoUrl && (
-                    <p className="mt-2 text-xs text-gray-500">
+                    <p className="mt-2 text-xs text-gray-500 max-w-[280px] mx-auto leading-snug" dir="auto">
                       {t('no_profile_photo_helper_text')}
                     </p>
                   )}

@@ -1,3 +1,4 @@
+import '@/i18n';
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useRouter } from 'next/navigation';
@@ -44,7 +45,7 @@ export default function DeleteAccountModal({ open, onClose, onDelete }) {
         <button
           className="absolute top-2 right-3 text-gray-400 text-2xl font-bold hover:text-gray-600 transition-colors"
           onClick={onClose}
-          aria-label="Close"
+          aria-label={t('delete_account_close_aria')}
         >
           ×
         </button>
@@ -66,11 +67,11 @@ export default function DeleteAccountModal({ open, onClose, onDelete }) {
           {!canDelete ? (
             <div className="text-center">
               <div className="text-3xl font-bold text-red-600 mb-2">{countdown}</div>
-              <p className="text-gray-600 text-sm">Please wait before confirming deletion...</p>
+              <p className="text-gray-600 text-sm">{t('delete_account_countdown_hint')}</p>
             </div>
           ) : (
             <div className="text-center">
-              <p className="text-green-600 font-semibold text-sm">You can now confirm deletion</p>
+              <p className="text-green-600 font-semibold text-sm">{t('delete_account_ready_confirm')}</p>
             </div>
           )}
         </div>

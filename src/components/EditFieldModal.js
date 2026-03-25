@@ -1,3 +1,6 @@
+'use client';
+
+import '@/i18n';
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -16,7 +19,7 @@ export default function EditFieldModal({ open, onClose, onSave, label, value }) 
         <button
           className="absolute top-2 right-3 text-gray-400 text-2xl font-bold"
           onClick={onClose}
-          aria-label="Close"
+          aria-label={t('edit_field_modal.close_aria')}
         >
           ×
         </button>

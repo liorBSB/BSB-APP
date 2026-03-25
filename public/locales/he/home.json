@@ -22,6 +22,7 @@
     "noSurveys": "אין סקרים למילוי",
     "fillNow": "מלא עכשיו",
     "due": "תאריך יעד",
+    "due_date_label": "תאריך יעד:",
     "importantMessages": "הודעות חשובות",
     "no_important_messages": "אין הודעות חשובות",
     "report": "דיווח",
@@ -42,6 +43,10 @@
     "saving": "שומר...",
     "notComing": "לא מגיע",
     "cleanRoom": "לנקות את החדר?",
-    "changeSheets": "להחליף את הסדינים?"
+    "changeSheets": "להחליף את הסדינים?",
+    "respond_prompt": "האם תגיע/י לאירוע?",
+    "response_confirmed_coming": "התשובה נשמרה. נתראה שם!",
+    "response_confirmed_maybe": "תודה! נעדכן אותך.",
+    "response_confirmed_not_coming": "תודה שעדכנת."
   }
   

@@ -1,5 +1,7 @@
 'use client';
 
+import '@/i18n';
+import { useTranslation } from 'react-i18next';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { auth, db } from '@/lib/firebase';
@@ -9,6 +11,7 @@ import AdminBottomNavBar from '@/components/AdminBottomNavBar';
 import SoldierManagement from '@/components/SoldierManagement';
 
 export default function AdminSoldiersPage() {
+  const { t } = useTranslation('admin');
   const router = useRouter();
   const [adminData, setAdminData] = useState(null);
   const [isCheckingProfile, setIsCheckingProfile] = useState(true);
@@ -57,7 +60,7 @@ export default function AdminSoldiersPage() {
   if (isCheckingProfile) {
     return (
       <main className="min-h-screen bg-gradient-to-br from-blue-200/60 to-green-100/60 font-body flex items-center justify-center">
-        <div className="text-center text-muted">Loading...</div>
+        <div className="text-center text-muted">{t('loading')}</div>
       </main>
     );
   }

@@ -33,6 +33,9 @@
   "delete_account": "מחק חשבון",
   "delete_account_warning": "האם אתה בטוח שברצונך למחוק את החשבון שלך?",
   "delete_account_description": "פעולה זו אינה ניתנת לביטול. כל הנתונים שלך יימחקו לצמיתות.",
+  "delete_account_countdown_hint": "נא להמתין לפני אישור המחיקה...",
+  "delete_account_ready_confirm": "ניתן לאשר את המחיקה",
+  "delete_account_close_aria": "סגור",
   "confirm_delete": "כן, מחק חשבון",
   "cancel_delete": "ביטול",
   "deleting_account": "מוחק חשבון...",
@@ -44,5 +47,7 @@
   "reauth_required": "נדרשת אימות מחדש",
   "reauth_required_desc": "הנתונים שלך נמחקו, אך החשבון דורש אימות אחרון כדי להשלים את המחיקה.",
   "reauth_required_note": "אנא התנתק והתחבר שוב, ואז נסה למחוק את החשבון שוב.",
-  "go_back_to_start": "חזור להתחלה"
+  "go_back_to_start": "חזור להתחלה",
+  "no_profile_photo_helper_text": "עדיין אין לך תמונת פרופיל. כדאי להוסיף תמונה כדי להשלים את הפרופיל.",
+  "retake_photo": "צלם שוב"
 } 

@@ -1,5 +1,7 @@
 'use client';
 
+import '@/i18n';
+import { useTranslation } from 'react-i18next';
 import { useState, useEffect } from 'react';
 import { searchUsers } from '@/lib/database';
 import { debounce } from 'lodash';
@@ -7,6 +9,7 @@ import colors from '../app/colors';
 import { StyledDateInput } from '@/components/StyledDateInput';
 
 export default function SoldierSearch({ onSelectSoldier, onSearchResults }) {
+  const { t } = useTranslation('admin');
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -40,7 +43,7 @@ export default function SoldierSearch({ onSelectSoldier, onSearchResults }) {
   // Date range search
   const handleDateSearch = async () => {
     if (!startDate || !endDate) {
-      alert('Please select both start and end dates');
+      alert(t('soldier_search_need_both_dates'));
       return;
     }
 
@@ -105,7 +108,7 @@ export default function SoldierSearch({ onSelectSoldier, onSearchResults }) {
             boxShadow: searchType === 'text' ? '0 4px 12px rgba(7, 99, 50, 0.3)' : 'none'
           }}
         >
-          Text Search
+          {t('soldier_search_text')}
         </button>
         <button
           onClick={() => setSearchType('date')}
@@ -121,7 +124,7 @@ export default function SoldierSearch({ onSelectSoldier, onSearchResults }) {
             boxShadow: searchType === 'date' ? '0 4px 12px rgba(7, 99, 50, 0.3)' : 'none'
           }}
         >
-          Date Range
+          {t('soldier_search_date_range')}
         </button>
       </div>
 
@@ -138,7 +141,7 @@ export default function SoldierSearch({ onSelectSoldier, onSearchResults }) {
             type="text"
             value={searchTerm}
             onChange={handleSearchChange}
-            placeholder="Search by name, phone, room, unit, battalion, personal number..."
+            placeholder={t('soldier_search_placeholder')}
             className="w-full pl-4 pr-10 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
           />
           
@@ -158,14 +161,14 @@ export default function SoldierSearch({ onSelectSoldier, onSearchResults }) {
         <div className="mb-4 space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{t('soldier_search_start_date')}</label>
               <StyledDateInput
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{t('soldier_search_end_date')}</label>
               <StyledDateInput
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
@@ -182,7 +185,7 @@ export default function SoldierSearch({ onSelectSoldier, onSearchResults }) {
               boxShadow: '0 4px 12px rgba(7, 99, 50, 0.3)'
             }}
           >
-            {isSearching ? 'Searching...' : 'Search by Date Range'}
+            {isSearching ? t('soldier_searching') : t('soldier_search_by_date_btn')}
           </button>
         </div>
       )}

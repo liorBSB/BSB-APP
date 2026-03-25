@@ -27,6 +27,7 @@
     "loading": "Loading...",
     "noSurveys": "No surveys to fill",
     "due": "Due",
+    "due_date_label": "Due date:",
     "noImportantMessages": "No important messages",
     "until": "Until",
     "name": "Name",
@@ -48,6 +49,10 @@
     "noSurveyLink": "No survey link available yet.",
     "surveyLinkBlocked": "Could not open the link automatically. Copy it below:",
     "copyLink": "Copy",
-    "copied": "Copied!"
+    "copied": "Copied!",
+    "respond_prompt": "Will you be attending?",
+    "response_confirmed_coming": "Your response has been recorded. See you there!",
+    "response_confirmed_maybe": "Thanks! We'll keep you updated.",
+    "response_confirmed_not_coming": "Thanks for letting us know."
 }
   

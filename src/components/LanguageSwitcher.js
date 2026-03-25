@@ -1,8 +1,10 @@
 'use client';
 
+import '@/i18n';
 import { useTranslation } from 'react-i18next';
 import { useEffect } from 'react';
 import colors from '@/app/colors';
+import { setLangCookie } from '@/lib/langCookie';
 
 export default function LanguageSwitcher() {
   const { i18n } = useTranslation('components');
@@ -12,6 +14,7 @@ export default function LanguageSwitcher() {
     if (savedLang && savedLang !== i18n.language && i18n.changeLanguage) {
       try {
         i18n.changeLanguage(savedLang);
+        setLangCookie(savedLang);
         document.documentElement.dir = savedLang === 'he' ? 'rtl' : 'ltr';
       } catch (error) {
         // Silently handle error
@@ -25,6 +28,7 @@ export default function LanguageSwitcher() {
       try {
         i18n.changeLanguage(lang);
         if (typeof window !== 'undefined') localStorage.setItem('lang', lang);
+        setLangCookie(lang);
         document.documentElement.dir = lang === 'he' ? 'rtl' : 'ltr';
       } catch (error) {
         // Silently handle error

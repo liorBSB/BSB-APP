@@ -1,6 +1,8 @@
 "use client";
 
+import '@/i18n';
 import { useRouter } from 'next/navigation';
+import { useTranslation } from 'react-i18next';
 import colors from '../app/colors';
 
 const icons = {
@@ -26,13 +28,14 @@ const icons = {
 
 export default function AdminBottomNavBar({ active }) {
   const router = useRouter();
+  const { t } = useTranslation('admin');
 
   const navItems = [
-    { key: 'report', label: 'Reports', path: '/admin/report', icon: icons.report },
-    { key: 'expenses', label: 'Expenses', path: '/admin/expenses', icon: icons.expenses },
-    { key: 'home', label: 'Home', path: '/admin/home', icon: icons.home },
-    { key: 'soldiers', label: 'Soldiers', path: '/admin/soldiers', icon: icons.soldiers },
-    { key: 'settings', label: 'Settings', path: '/admin/settings', icon: icons.settings },
+    { key: 'report', label: t('nav_reports'), path: '/admin/report', icon: icons.report },
+    { key: 'expenses', label: t('nav_expenses'), path: '/admin/expenses', icon: icons.expenses },
+    { key: 'home', label: t('nav_home'), path: '/admin/home', icon: icons.home },
+    { key: 'soldiers', label: t('nav_soldiers'), path: '/admin/soldiers', icon: icons.soldiers },
+    { key: 'settings', label: t('nav_settings'), path: '/admin/settings', icon: icons.settings },
   ];
 
   return (

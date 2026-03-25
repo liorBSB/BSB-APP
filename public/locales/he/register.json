@@ -24,6 +24,8 @@
   "selection": {
     "title": "בחר סוג משתמש",
     "choose_type": "אנא בחר את סוג המשתמש שלך:",
+    "choose_language": "בחרו שפה",
+    "change_later": "ניתן לשנות שוב בכל עת דרך ההגדרות",
     "do_you": "...אתה",
     "work_here": "עובד/ת כאן",
     "live_here": "גר/ה כאן",

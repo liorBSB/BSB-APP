@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import '@/i18n';
+import { useTranslation } from 'react-i18next';
 import { auth, db } from '@/lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
@@ -15,6 +16,7 @@ import LanguageSwitcher from '@/components/LanguageSwitcher';
 import { cleanupExpiredPhotos } from '@/lib/storageCleanup';
 
 export default function AdminSettingsPage() {
+  const { t } = useTranslation('admin');
   const router = useRouter();
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [fields, setFields] = useState({
@@ -31,6 +33,12 @@ export default function AdminSettingsPage() {
   const [cleanupConfirm, setCleanupConfirm] = useState(false);
   const [cleanupProgress, setCleanupProgress] = useState(null);
   const [cleanupResult, setCleanupResult] = useState(null);
+
+  const fieldLabels = {
+    name: t('full_name'),
+    title: t('job_title'),
+    email: t('email_label'),
+  };
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -69,10 +77,10 @@ export default function AdminSettingsPage() {
         if (field === 'email') updateObj.email = value;
         await updateDoc(userRef, updateObj);
         setFields(prev => ({ ...prev, [field]: value }));
-        setSuccess('Saved successfully!');
+        setSuccess(t('admin_saved_success'));
       }
     } catch (e) {
-      setError('Error saving. Please try again.');
+      setError(t('admin_save_error'));
     }
     setSaving(false);
     setEditField(null);
@@ -90,16 +98,10 @@ export default function AdminSettingsPage() {
       setCleanupResult(result);
     } catch (err) {
       console.error('Cleanup failed:', err);
-      setError('Cleanup failed. Check console for details.');
+      setError(t('admin_cleanup_failed'));
     } finally {
       setCleanupRunning(false);
     }
-  };
-
-  const fieldLabels = {
-    name: 'Full Name',
-    title: 'Job Title',
-    email: 'Email',
   };
 
   if (isCheckingAuth) {
@@ -114,13 +116,13 @@ export default function AdminSettingsPage() {
     <main className="min-h-screen bg-gradient-to-br from-blue-200/60 to-green-100/60 font-body flex flex-col items-center pt-6 pb-32 px-4">
       <div className="w-full max-w-md">
         <div className="w-full max-w-md rounded-2xl px-5 pt-6 pb-4 mb-6 bg-white/10 backdrop-blur-md shadow-sm">
-          <h1 className="text-2xl font-bold text-text">Admin Settings</h1>
-          <p className="text-sm text-muted">Manage your admin profile</p>
+          <h1 className="text-2xl font-bold text-text">{t('admin_settings_title')}</h1>
+          <p className="text-sm text-muted">{t('admin_settings_subtitle')}</p>
         </div>
 
         <div className="w-full max-w-md rounded-2xl p-4 mb-6" style={{ background: colors.sectionBg }}>
           {saving ? (
-            <div className="text-center text-white py-4">Saving...</div>
+            <div className="text-center text-white py-4">{t('admin_profile_saving')}</div>
           ) : (
             <>
               {Object.keys(fields).map((field) => (
@@ -132,7 +134,7 @@ export default function AdminSettingsPage() {
                   <button
                     className="ml-4 p-3 rounded-full hover:bg-[#EDC381]/20"
                     onClick={() => setEditField(field)}
-                    aria-label="Edit"
+                    aria-label={t('admin_edit_aria')}
                   >
                     <svg width="28" height="28" fill="none" stroke="#EDC381" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19.5 3 21l1.5-4L16.5 3.5z"/></svg>
                   </button>
@@ -144,27 +146,30 @@ export default function AdminSettingsPage() {
           )}
         </div>
 
-        {/* Storage Maintenance */}
         <div className="w-full max-w-md rounded-2xl p-4 mb-6" style={{ background: colors.sectionBg }}>
-          <h2 className="text-lg font-bold text-white mb-3">Storage Maintenance</h2>
+          <h2 className="text-lg font-bold text-white mb-3">{t('admin_storage_title')}</h2>
           <p className="text-sm text-white/70 mb-4">
-            Remove old photos past their retention period: problem reports (1 year), receipts/refunds (3 years), profile photos (5 years).
+            {t('admin_storage_desc')}
           </p>
 
           {cleanupRunning && cleanupProgress && (
             <div className="mb-4 p-3 rounded-xl bg-white/10">
               <p className="text-sm text-white/90">
-                Processing <span className="font-semibold">{cleanupProgress.collection}</span>: {cleanupProgress.deleted}/{cleanupProgress.total}
+                {t('admin_cleanup_progress', {
+                  collection: cleanupProgress.collection,
+                  deleted: cleanupProgress.deleted,
+                  total: cleanupProgress.total,
+                })}
               </p>
             </div>
           )}
 
           {cleanupResult && !cleanupRunning && (
             <div className="mb-4 p-3 rounded-xl bg-green-500/20">
-              <p className="text-sm font-semibold text-green-200 mb-1">Cleanup complete</p>
+              <p className="text-sm font-semibold text-green-200 mb-1">{t('admin_cleanup_complete')}</p>
               <ul className="text-xs text-green-200/80 space-y-0.5">
                 {Object.entries(cleanupResult).map(([col, count]) => (
-                  <li key={col}>{col}: {count} photo{count !== 1 ? 's' : ''} removed</li>
+                  <li key={col}>{t('admin_cleanup_row', { collection: col, count })}</li>
                 ))}
               </ul>
             </div>
@@ -176,25 +181,24 @@ export default function AdminSettingsPage() {
             className="w-full py-3 rounded-xl font-semibold text-white transition-all disabled:opacity-60"
             style={{ background: colors.gold }}
           >
-            {cleanupRunning ? 'Cleaning up...' : 'Clean Up Old Photos'}
+            {cleanupRunning ? t('admin_cleanup_running') : t('admin_cleanup_button')}
           </button>
         </div>
 
-        {/* Cleanup confirmation modal */}
         {cleanupConfirm && (
           <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
             <div className="bg-white rounded-2xl w-full max-w-sm p-5">
-              <h3 className="text-lg font-bold text-gray-800 mb-3">Confirm Cleanup</h3>
+              <h3 className="text-lg font-bold text-gray-800 mb-3">{t('admin_confirm_cleanup_title')}</h3>
               <p className="text-sm text-gray-600 mb-2">
-                This will permanently delete old photos from storage:
+                {t('admin_confirm_cleanup_intro')}
               </p>
               <ul className="text-sm text-gray-600 mb-4 space-y-1 list-disc list-inside">
-                <li>Problem report photos older than <strong>1 year</strong></li>
-                <li>Receipt & refund photos older than <strong>3 years</strong></li>
-                <li>Profile photos not updated in <strong>5 years</strong></li>
+                <li>{t('admin_confirm_cleanup_li1')}</li>
+                <li>{t('admin_confirm_cleanup_li2')}</li>
+                <li>{t('admin_confirm_cleanup_li3')}</li>
               </ul>
               <p className="text-xs text-gray-500 mb-4">
-                The Firestore documents will remain; only the photo files will be removed.
+                {t('admin_confirm_cleanup_footer')}
               </p>
               <div className="flex gap-3">
                 <button
@@ -202,14 +206,14 @@ export default function AdminSettingsPage() {
                   className="flex-1 py-2.5 rounded-xl font-semibold border-2 transition-all"
                   style={{ borderColor: colors.gray400, color: colors.text }}
                 >
-                  Cancel
+                  {t('cancel')}
                 </button>
                 <button
                   onClick={runCleanup}
                   className="flex-1 py-2.5 rounded-xl font-semibold text-white transition-all"
                   style={{ background: colors.red }}
                 >
-                  Delete Old Photos
+                  {t('admin_delete_old_photos')}
                 </button>
               </div>
             </div>
@@ -222,18 +226,17 @@ export default function AdminSettingsPage() {
           onClick={() => { auth.signOut(); router.push('/'); }}
           style={{ width: '100%', background: 'transparent', color: colors.primaryGreen, fontWeight: 700, border: `2.5px solid ${colors.primaryGreen}`, borderRadius: 999, padding: '1.2rem 0', fontSize: 22, boxShadow: '0 2px 8px rgba(0,0,0,0.08)', marginTop: 18 }}
         >
-          Log Out
+          {t('admin_logout')}
         </button>
         
-        {/* Delete Account Button */}
         <button
           onClick={() => setShowDeleteModal(true)}
           style={{ 
             width: '100%', 
             background: 'transparent', 
-            color: '#dc2626', 
+            color: colors.red, 
             fontWeight: 700, 
-            border: '2.5px solid #dc2626', 
+            border: `2.5px solid ${colors.red}`, 
             borderRadius: 999, 
             padding: '1.2rem 0', 
             fontSize: 22, 
@@ -241,7 +244,7 @@ export default function AdminSettingsPage() {
             marginTop: 12 
           }}
         >
-          Delete Account
+          {t('admin_delete_account')}
         </button>
       </div>
       <EditFieldModal
@@ -252,7 +255,6 @@ export default function AdminSettingsPage() {
         value={editField ? fields[editField] : ''}
       />
       
-      {/* Delete Account Modal */}
       <DeleteAccountModal
         open={showDeleteModal}
         onClose={() => setShowDeleteModal(false)}
@@ -262,4 +264,4 @@ export default function AdminSettingsPage() {
       <AdminBottomNavBar active="settings" />
     </main>
   );
-} 
+}

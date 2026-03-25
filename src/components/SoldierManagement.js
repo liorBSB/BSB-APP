@@ -1,7 +1,7 @@
 'use client';
 
 import '@/i18n';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { adminWipeUserData, getActiveUsers, markUserAsLeft, updateUserData, getPendingDepartureRequests, dismissDepartureRequest, deleteDepartureRequest } from '@/lib/database';
 import { auth, db } from '@/lib/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
@@ -23,15 +23,14 @@ const STATUS_COLORS = {
   Abroad: 'bg-purple-100 text-purple-700',
 };
 
-const STATUS_LABELS = {
-  Home: 'Home',
-  Out: 'Out',
-  'In base': 'In Base',
-  Abroad: 'Abroad',
-};
-
 export default function SoldierManagement() {
-  const { t } = useTranslation('admin');
+  const { t, i18n } = useTranslation('admin');
+  const STATUS_LABELS = useMemo(() => ({
+    Home: t('home'),
+    Out: t('away'),
+    'In base': t('in_base'),
+    Abroad: t('abroad'),
+  }), [t, i18n.language]);
   const [soldiers, setSoldiers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedSoldier, setSelectedSoldier] = useState(null);
@@ -223,10 +222,10 @@ export default function SoldierManagement() {
       setDepartureRequests(prev => prev.filter(r => r.id !== request.id));
       setSoldiers(prev => prev.filter(s => s.id !== request.userId));
       setSearchResults(prev => prev.filter(s => s.id !== request.userId));
-      alert(`Soldier "${request.soldierName}" has been marked as left and archived.`);
+      alert(t('soldier_marked_left_archived', { name: request.soldierName }));
     } catch (err) {
       console.error('Error marking departed soldier as left:', err);
-      alert('Error marking soldier as left.');
+      alert(t('soldier_mark_left_error'));
     } finally {
       setDepartureProcessingId(null);
     }
@@ -239,7 +238,7 @@ export default function SoldierManagement() {
       setDepartureRequests(prev => prev.filter(r => r.id !== request.id));
     } catch (err) {
       console.error('Error dismissing departure request:', err);
-      alert('Error dismissing request.');
+      alert(t('soldier_dismiss_request_error'));
     } finally {
       setDepartureProcessingId(null);
     }
@@ -382,7 +381,7 @@ export default function SoldierManagement() {
       setShowEditModal(true);
     } catch (error) {
       console.error('Error loading soldier data for edit:', error);
-      setError('Failed to load soldier data for editing');
+      setError(t('soldier_edit_load_error'));
     }
   };
 
@@ -470,7 +469,7 @@ export default function SoldierManagement() {
 
       syncStatusToReceptionSheet(editForm.roomNumber, editForm.status || 'Home').catch(() => {});
 
-      setSuccess('Soldier data updated successfully!');
+      setSuccess(t('soldier_updated'));
       await loadSoldiers();
 
       setTimeout(() => {
@@ -481,7 +480,7 @@ export default function SoldierManagement() {
       
     } catch (error) {
       console.error('Error updating soldier:', error);
-      setError('Failed to update soldier data. Please try again.');
+      setError(t('soldier_update_failed'));
     } finally {
       setSaving(false);
     }
@@ -555,11 +554,11 @@ export default function SoldierManagement() {
       setShowDeleteConfirmation(false);
       setSoldierToDelete(null);
       
-      alert(`✅ Soldier "${soldierToDelete?.fullName || 'Unknown'}" has been successfully marked as left and archived.`);
+      alert(t('soldier_archived_ok', { name: soldierToDelete?.fullName || t('unknown_soldier') }));
       
     } catch (error) {
       console.error('Error marking soldier as left:', error);
-      alert('❌ Error marking soldier as left');
+      alert(t('soldier_archived_error'));
     } finally {
       setProcessingId(null);
     }
@@ -618,11 +617,11 @@ export default function SoldierManagement() {
       setSoldierToDeleteAccount(null);
       setDeleteAccountCountdown(5);
 
-      alert(`✅ Account for "${soldierToDeleteAccount?.fullName || 'Unknown'}" has been permanently deleted.`);
+      alert(t('soldier_account_deleted_ok', { name: soldierToDeleteAccount?.fullName || t('unknown_soldier') }));
 
     } catch (error) {
       console.error('Error deleting soldier account:', error);
-      alert('❌ Error deleting soldier account');
+      alert(t('soldier_delete_account_error'));
     } finally {
       setProcessingId(null);
     }
@@ -689,12 +688,12 @@ export default function SoldierManagement() {
             <div className="flex items-start justify-between gap-2">
               <div className="flex-1 min-w-0">
                 <h3 className="font-semibold text-base phone-sm:text-lg mb-1 truncate" style={{ color: colors.white }}>
-                  {soldier.fullName || 'No Name'}
+                  {soldier.fullName || t('no_name')}
                 </h3>
                 
                 <div className="text-xs phone-sm:text-sm" style={{ color: colors.white, opacity: 0.9 }}>
                   {soldier.roomNumber && (
-                    <div className="truncate mb-1">🏠 Room: {soldier.roomNumber}</div>
+                    <div className="truncate mb-1">🏠 {t('room_line', { room: soldier.roomNumber })}</div>
                   )}
                 </div>
               </div>
@@ -725,9 +724,9 @@ export default function SoldierManagement() {
                     border: `2px solid ${colors.white}`,
                     boxShadow: '0 4px 12px rgba(255, 255, 255, 0.1)'
                   }}
-                  title={SOLDIER_EDIT_ENABLED ? "Edit Soldier" : "View Soldier"}
+                  title={SOLDIER_EDIT_ENABLED ? t('edit_soldier_edit') : t('edit_soldier_view')}
                 >
-                  {SOLDIER_EDIT_ENABLED ? 'Edit' : 'View'}
+                  {SOLDIER_EDIT_ENABLED ? t('edit') : t('view_short')}
                 </button>
               </div>
             </div>
@@ -741,17 +740,12 @@ export default function SoldierManagement() {
     <div className="space-y-4 p-3 phone-sm:p-4 phone-md:p-6 max-w-full overflow-hidden">
       {/* Header */}
       <div className="flex flex-col phone-sm:flex-row phone-sm:items-center phone-sm:justify-between gap-2">
-        <h2 className="text-xl phone-sm:text-2xl font-bold text-gray-800">Soldier Management</h2>
+        <h2 className="text-xl phone-sm:text-2xl font-bold text-gray-800">{t('soldier_management')}</h2>
         <div className="text-xs phone-sm:text-sm text-gray-600">
           {showOnlyHome ? (
-            <span>
-              <span className="font-semibold text-green-600">
-                {getHomeSoldiersCount()} Home
-              </span>
-              <span className="text-gray-400"> / {soldiers.length} Total</span>
-            </span>
+            <span>{t('home_filter_home_total_line', { home: getHomeSoldiersCount(), total: soldiers.length })}</span>
           ) : (
-            `Total Soldiers: ${soldiers.length}`
+            t('total_soldiers_count', { count: soldiers.length })
           )}
         </div>
       </div>
@@ -770,10 +764,10 @@ export default function SoldierManagement() {
               </div>
               <div className="flex-1 min-w-0">
                 <h3 className="font-semibold text-base phone-sm:text-lg truncate" style={{ color: colors.white }}>
-                  {req.soldierName || 'Unknown'}
+                  {req.soldierName || t('unknown_name')}
                 </h3>
                 <div className="text-xs phone-sm:text-sm" style={{ color: colors.white, opacity: 0.7 }}>
-                  {req.roomNumber && <span>Room {req.roomNumber}</span>}
+                  {req.roomNumber && <span>{t('response_room_badge', { room: req.roomNumber })}</span>}
                   {req.roomNumber && detected && <span> · </span>}
                   {detected && <span>{t('detected_on', { date: detected })}</span>}
                 </div>
@@ -785,7 +779,7 @@ export default function SoldierManagement() {
                   className="px-3 py-1.5 rounded-lg text-xs phone-sm:text-sm font-semibold transition-all disabled:opacity-50"
                   style={{ background: colors.red, color: 'white' }}
                 >
-                  {isProcessing ? '...' : t('mark_as_left')}
+                  {isProcessing ? t('processing_short') : t('mark_as_left')}
                 </button>
                 <button
                   onClick={() => handleDepartureDismiss(req)}
@@ -793,7 +787,7 @@ export default function SoldierManagement() {
                   className="px-3 py-1.5 rounded-lg text-xs phone-sm:text-sm font-semibold transition-all disabled:opacity-50"
                   style={{ border: `1px solid ${colors.white}`, color: colors.white, background: 'transparent' }}
                 >
-                  {isProcessing ? '...' : t('dismiss_30_days')}
+                  {isProcessing ? t('processing_short') : t('dismiss_30_days')}
                 </button>
               </div>
             </div>
@@ -819,16 +813,16 @@ export default function SoldierManagement() {
         >
           <span>🏠</span>
           <span className="hidden phone-sm:inline">
-            {showOnlyHome ? 'Show All Soldiers' : 'Show Only Home'}
+            {showOnlyHome ? t('show_all_soldiers') : t('show_only_home')}
           </span>
           <span className="phone-sm:hidden">
-            {showOnlyHome ? 'All' : 'Home'}
+            {showOnlyHome ? t('filter_short_all') : t('filter_short_home')}
           </span>
         </button>
         
         {showOnlyHome && (
           <div className="text-xs phone-sm:text-sm text-gray-600 bg-green-50 px-2 phone-sm:px-3 py-1 rounded-full border border-green-200">
-            {getHomeSoldiersCount()} home
+            {t('home_count_badge', { count: getHomeSoldiersCount() })}
           </div>
         )}
       </div>
@@ -845,7 +839,7 @@ export default function SoldierManagement() {
       {loading ? (
         <div className="text-center py-8">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <div className="text-gray-600">Loading soldiers...</div>
+          <div className="text-gray-600">{t('loading_soldiers')}</div>
         </div>
       ) : (
         <div className="space-y-4 max-w-full">
@@ -854,7 +848,7 @@ export default function SoldierManagement() {
             <>
               {/* Search Results Header */}
               <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold" style={{ color: colors.white }}>Search Results ({searchResults.length})</h3>
+                <h3 className="text-lg font-semibold" style={{ color: colors.white }}>{t('search_results_title', { count: searchResults.length })}</h3>
                 <button
                   onClick={() => {
                     setSearchResults([]);
@@ -868,14 +862,14 @@ export default function SoldierManagement() {
                     boxShadow: '0 4px 12px rgba(237, 195, 129, 0.3)'
                   }}
                 >
-                  Clear Search
+                  {t('clear_search')}
                 </button>
               </div>
               
               {/* Search Results */}
               {searchResults.length === 0 ? (
                 <div className="text-center py-8 rounded-2xl shadow-sm" style={{ background: colors.sectionBg, color: colors.white }}>
-                  No soldiers found matching your search.
+                  {t('no_soldiers_match_search')}
                 </div>
               ) : (
                 <div className="space-y-4 max-w-full">
@@ -888,16 +882,16 @@ export default function SoldierManagement() {
               {/* All Soldiers */}
               {soldiers.length === 0 ? (
                 <div className="text-center py-8 rounded-2xl shadow-sm" style={{ background: colors.sectionBg, color: colors.white }}>
-                  No active soldiers found
+                  {t('no_active_soldiers')}
                 </div>
               ) : (
                 <>
                   {/* Filter Info */}
                   {showOnlyHome && (
                     <div className="text-center py-3 rounded-xl shadow-sm" style={{ background: colors.gold, color: colors.black }}>
-                      <div className="font-semibold text-lg">🏠 Showing Only Soldiers Currently Home</div>
+                      <div className="font-semibold text-lg">🏠 {t('banner_only_home_title')}</div>
                       <div className="text-sm opacity-80">
-                        {getHomeSoldiersCount()} of {soldiers.length} soldiers are home
+                        {t('banner_home_of_total', { home: getHomeSoldiersCount(), total: soldiers.length })}
                       </div>
                     </div>
                   )}
@@ -911,8 +905,8 @@ export default function SoldierManagement() {
                   {showOnlyHome && getHomeSoldiersCount() === 0 && (
                     <div className="text-center py-8 rounded-2xl shadow-sm" style={{ background: colors.sectionBg, color: colors.white }}>
                       <div className="text-2xl mb-2">🏠</div>
-                      <div className="font-semibold text-lg">No soldiers are currently home</div>
-                      <div className="text-sm opacity-80">All soldiers are marked as away or not present</div>
+                      <div className="font-semibold text-lg">{t('no_soldiers_home_title')}</div>
+                      <div className="text-sm opacity-80">{t('no_soldiers_home_desc')}</div>
                     </div>
                   )}
                 </>
@@ -930,7 +924,7 @@ export default function SoldierManagement() {
             <div className="p-4 phone-sm:p-6" style={{ background: colors.primaryGreen, color: colors.white }}>
               <div className="flex items-center justify-between">
                 <h3 className="text-lg phone-sm:text-xl font-bold truncate pr-2">
-                  Soldier Details: {selectedSoldier.fullName}
+                  {t('soldier_details_title', { name: selectedSoldier.fullName })}
                 </h3>
                 <button
                   onClick={() => setShowSoldierDetails(false)}
@@ -1026,7 +1020,7 @@ export default function SoldierManagement() {
                         boxShadow: '0 4px 12px rgba(237, 195, 129, 0.1)'
                       }}
                     >
-                      ✏️ Edit Soldier
+                      ✏️ {t('edit_soldier')}
                     </button>
                   )}
                   <button
@@ -1039,7 +1033,7 @@ export default function SoldierManagement() {
                       boxShadow: '0 4px 12px rgba(7, 99, 50, 0.1)'
                     }}
                   >
-                    Close
+                    {t('close')}
                   </button>
                   <button
                     onClick={() => openDeleteAccountModal(selectedSoldier)}
@@ -1052,7 +1046,7 @@ export default function SoldierManagement() {
                       boxShadow: '0 4px 12px rgba(220, 38, 38, 0.1)'
                     }}
                   >
-                    🗑️ Delete Account
+                    🗑️ {t('admin_delete_account')}
                   </button>
                   <button
                     onClick={() => showDeleteConfirmationDialog(selectedSoldier)}
@@ -1065,7 +1059,7 @@ export default function SoldierManagement() {
                       boxShadow: '0 4px 12px rgba(255, 82, 82, 0.1)'
                     }}
                   >
-                    {processingId === selectedSoldier.id ? 'Processing...' : 'Mark as Left'}
+                    {processingId === selectedSoldier.id ? t('processing') : t('mark_as_left')}
                   </button>
                 </div>
               </div>
@@ -1082,7 +1076,7 @@ export default function SoldierManagement() {
             <div className="p-4 phone-sm:p-6" style={{ background: colors.primaryGreen, color: colors.white }}>
               <div className="flex items-center justify-between">
                 <h3 className="text-lg phone-sm:text-xl font-bold truncate pr-2">
-                  Edit Soldier: {selectedSoldier.fullName}
+                  {t('edit_soldier_modal_title', { name: selectedSoldier.fullName })}
                 </h3>
                 <button
                   onClick={handleCancelEdit}
@@ -1513,7 +1507,7 @@ export default function SoldierManagement() {
                       boxShadow: '0 4px 12px rgba(7, 99, 50, 0.1)'
                     }}
                   >
-                    Cancel
+                    {t('cancel')}
                   </button>
                   <button
                     onClick={() => setShowSaveConfirmation(true)}
@@ -1526,7 +1520,7 @@ export default function SoldierManagement() {
                       boxShadow: '0 4px 12px rgba(7, 99, 50, 0.1)'
                     }}
                   >
-                    Save Changes
+                    {t('save_changes')}
                   </button>
                 </div>
               </div>
@@ -1542,7 +1536,7 @@ export default function SoldierManagement() {
             {/* Header */}
             <div className="p-4 phone-sm:p-6" style={{ background: colors.red, color: colors.white }}>
               <h3 className="text-lg phone-sm:text-xl font-bold text-center">
-                Confirm Soldier Removal
+                {t('soldier_remove_modal_title')}
               </h3>
             </div>
 
@@ -1553,10 +1547,10 @@ export default function SoldierManagement() {
                   <span className="text-2xl">⚠️</span>
                 </div>
                 <h4 className="text-lg font-semibold text-gray-800 mb-2">
-                  Remove {soldierToDelete.fullName}?
+                  {t('soldier_remove_confirm', { name: soldierToDelete.fullName })}
                 </h4>
                 <p className="text-gray-600 text-sm mb-4">
-                  Please wait {delayCountdown} seconds before confirming this action.
+                  {t('soldier_delete_account_wait', { seconds: delayCountdown })}
                 </p>
                 <div className="w-full bg-gray-200 rounded-full h-2 mb-4">
                   <div 
@@ -1568,7 +1562,7 @@ export default function SoldierManagement() {
                   ></div>
                 </div>
                 <p className="text-red-600 text-sm font-medium">
-                  This action cannot be undone.
+                  {t('soldier_delete_account_irreversible')}
                 </p>
               </div>
 
@@ -1584,7 +1578,7 @@ export default function SoldierManagement() {
                     boxShadow: '0 4px 12px rgba(7, 99, 50, 0.1)'
                   }}
                 >
-                  Cancel
+                  {t('cancel')}
                 </button>
                 <button
                   onClick={proceedToDelete}
@@ -1597,7 +1591,7 @@ export default function SoldierManagement() {
                     boxShadow: '0 4px 12px rgba(255, 82, 82, 0.1)'
                   }}
                 >
-                  {processingId === soldierToDelete.id ? 'Processing...' : delayCountdown > 0 ? `Wait ${delayCountdown}s` : 'Remove Soldier'}
+                  {processingId === soldierToDelete.id ? t('processing') : delayCountdown > 0 ? t('soldier_delete_account_wait_seconds', { count: delayCountdown }) : t('remove_soldier')}
                 </button>
               </div>
             </div>
@@ -1612,7 +1606,7 @@ export default function SoldierManagement() {
           <div className="bg-white rounded-2xl max-w-md w-full">
             <div className="p-4 phone-sm:p-6" style={{ background: '#dc2626', color: 'white' }}>
               <h3 className="text-lg phone-sm:text-xl font-bold text-center">
-                Delete Account
+                {t('soldier_delete_account_modal_title')}
               </h3>
             </div>
 
@@ -1622,13 +1616,13 @@ export default function SoldierManagement() {
                   <span className="text-2xl">🗑️</span>
                 </div>
                 <h4 className="text-lg font-semibold text-gray-800 mb-2 text-center">
-                  Delete account for {soldierToDeleteAccount.fullName}?
+                  {t('soldier_delete_account_confirm', { name: soldierToDeleteAccount.fullName })}
                 </h4>
                 <p className="text-gray-600 text-sm text-center mb-3">
-                  This will <strong>permanently delete </strong>all of this user&apos;s data, including their profile, uploaded files, reports, and refund requests.
+                  {t('soldier_delete_account_intro')}
                 </p>
                 <p className="text-gray-600 text-sm text-center mb-4">
-                  Please wait {deleteAccountCountdown} seconds before confirming this action.
+                  {t('soldier_delete_account_wait', { seconds: deleteAccountCountdown })}
                 </p>
                 <div className="w-full bg-gray-200 rounded-full h-2 mb-4">
                   <div
@@ -1640,7 +1634,7 @@ export default function SoldierManagement() {
                   />
                 </div>
                 <p className="text-red-500 text-xs text-center font-medium">
-                  This action cannot be undone.
+                  {t('soldier_delete_account_irreversible')}
                 </p>
               </div>
 
@@ -1655,7 +1649,7 @@ export default function SoldierManagement() {
                     boxShadow: '0 4px 12px rgba(7, 99, 50, 0.1)'
                   }}
                 >
-                  Cancel
+                  {t('cancel')}
                 </button>
                 <button
                   onClick={() => handleDeleteAccount(soldierToDeleteAccount.id)}
@@ -1671,10 +1665,10 @@ export default function SoldierManagement() {
                   }}
                 >
                   {processingId === soldierToDeleteAccount.id
-                    ? 'Deleting...'
+                    ? t('soldier_delete_account_deleting')
                     : deleteAccountCountdown > 0
-                      ? `Wait ${deleteAccountCountdown}s`
-                      : 'Delete Account'}
+                      ? t('soldier_delete_account_wait_seconds', { count: deleteAccountCountdown })
+                      : t('soldier_delete_account_button')}
                 </button>
               </div>
             </div>
@@ -1688,7 +1682,7 @@ export default function SoldierManagement() {
           <div className="bg-white rounded-2xl max-w-md w-full">
             <div className="p-4 phone-sm:p-6" style={{ background: colors.gold, color: colors.black }}>
               <h3 className="text-lg phone-sm:text-xl font-bold text-center">
-                {saving ? 'Saving...' : success ? 'Done!' : 'Confirm Changes'}
+                {saving ? t('saving_ellipsis') : success ? t('done_exclamation') : t('confirm_changes')}
               </h3>
             </div>
 
@@ -1696,7 +1690,7 @@ export default function SoldierManagement() {
               {saving ? (
                 <div className="py-8">
                   <div className="animate-spin rounded-full h-12 w-12 border-4 border-t-transparent mx-auto mb-4" style={{ borderColor: colors.primaryGreen, borderTopColor: 'transparent' }}></div>
-                  <p className="text-gray-600 font-medium">Updating soldier data...</p>
+                  <p className="text-gray-600 font-medium">{t('updating_soldier_data')}</p>
                 </div>
               ) : success ? (
                 <div className="py-8">
@@ -1720,7 +1714,7 @@ export default function SoldierManagement() {
                     className="px-6 py-3 rounded-xl font-semibold"
                     style={{ background: colors.primaryGreen, color: 'white' }}
                   >
-                    Close
+                    {t('close')}
                   </button>
                 </div>
               ) : (
@@ -1730,10 +1724,10 @@ export default function SoldierManagement() {
                       <span className="text-2xl">&#9998;</span>
                     </div>
                     <p className="text-gray-800 font-semibold text-lg mb-2">
-                      Are you sure you want to save these changes?
+                      {t('save_changes_confirm')}
                     </p>
                     <p className="text-gray-500 text-sm">
-                      This will update {selectedSoldier?.fullName || 'this soldier'}&apos;s data.
+                      {t('save_changes_subtitle', { name: selectedSoldier?.fullName || t('unknown_soldier') })}
                     </p>
                   </div>
                   <div className="flex flex-col phone-sm:flex-row gap-2 phone-sm:gap-3 justify-center">
@@ -1742,7 +1736,7 @@ export default function SoldierManagement() {
                       className="px-6 py-3 rounded-xl font-semibold transition-all duration-200 hover:scale-105"
                       style={{ background: 'transparent', color: colors.primaryGreen, border: `2px solid ${colors.primaryGreen}` }}
                     >
-                      Cancel
+                      {t('cancel')}
                     </button>
                     <button
                       onClick={async () => {
@@ -1755,7 +1749,7 @@ export default function SoldierManagement() {
                       className="px-6 py-3 rounded-xl font-semibold transition-all duration-200 hover:scale-105"
                       style={{ background: colors.primaryGreen, color: 'white' }}
                     >
-                      Yes, Save
+                      {t('yes_save')}
                     </button>
                   </div>
                 </>

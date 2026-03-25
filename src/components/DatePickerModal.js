@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from 'react';
+import '@/i18n';
+import { useTranslation } from 'react-i18next';
 import colors from '@/app/colors';
 import { CalendarGrid } from '@/components/StyledDateInput';
 
@@ -15,9 +17,10 @@ function fmtVal(y, m, d) {
   return `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
 }
 
-const SHORT_MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-
-export default function DatePickerModal({ open, mode = "single", initialDate = "", initialFrom = "", initialTo = "", onSelect, onClose, title = "Choose Date" }) {
+export default function DatePickerModal({ open, mode = "single", initialDate = "", initialFrom = "", initialTo = "", onSelect, onClose, title }) {
+  const { t } = useTranslation('components');
+  const shortMonths = t('calendar_months_short', { returnObjects: true });
+  const sm = Array.isArray(shortMonths) ? shortMonths : ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   const now = new Date();
   const parsedInit = parseInitial(initialDate);
   const parsedFrom = parseInitial(initialFrom);
@@ -32,6 +35,8 @@ export default function DatePickerModal({ open, mode = "single", initialDate = "
   const [toView, setToView] = useState({ y: parsedTo?.year || now.getFullYear(), m: parsedTo?.month ?? now.getMonth() });
   const [rangeStep, setRangeStep] = useState('from');
 
+  const resolvedTitle = title || t('date_picker_modal.choose_date');
+
   if (!open) return null;
 
   if (mode === "single") {
@@ -39,8 +44,8 @@ export default function DatePickerModal({ open, mode = "single", initialDate = "
       <div className="fixed inset-0 z-[60] bg-black/50 flex items-center justify-center" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
         <div className="bg-white rounded-2xl w-full max-w-[340px] mx-4 overflow-hidden shadow-2xl">
           <div className="flex items-center justify-between px-4 pt-4">
-            <h3 className="text-base font-bold" style={{ color: colors.text }}>{title}</h3>
-            <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full active:bg-gray-100" style={{ color: colors.muted }}>✕</button>
+            <h3 className="text-base font-bold" style={{ color: colors.text }}>{resolvedTitle}</h3>
+            <button type="button" onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full active:bg-gray-100" style={{ color: colors.muted }}>✕</button>
           </div>
           <CalendarGrid
             selectedDate={singleDate}
@@ -57,17 +62,16 @@ export default function DatePickerModal({ open, mode = "single", initialDate = "
     );
   }
 
-  const fmtLabel = (d) => d ? `${SHORT_MONTHS[d.month]} ${d.day}, ${d.year}` : '—';
+  const fmtLabel = (d) => d ? `${sm[d.month]} ${d.day}, ${d.year}` : t('date_picker_modal.empty_range');
 
   return (
     <div className="fixed inset-0 z-[60] bg-black/50 flex items-center justify-center" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="bg-white rounded-2xl w-full max-w-[340px] mx-4 overflow-hidden shadow-2xl">
         <div className="flex items-center justify-between px-4 pt-4">
-          <h3 className="text-base font-bold" style={{ color: colors.text }}>{title}</h3>
-          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full active:bg-gray-100" style={{ color: colors.muted }}>✕</button>
+          <h3 className="text-base font-bold" style={{ color: colors.text }}>{resolvedTitle}</h3>
+          <button type="button" onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full active:bg-gray-100" style={{ color: colors.muted }}>✕</button>
         </div>
 
-        {/* Range tab selector */}
         <div className="flex gap-2 px-4 pt-3">
           <button
             type="button"
@@ -78,7 +82,7 @@ export default function DatePickerModal({ open, mode = "single", initialDate = "
               color: rangeStep === 'from' ? '#fff' : colors.text,
             }}
           >
-            From: {fmtLabel(fromDate)}
+            {t('date_picker_modal.from_prefix')} {fmtLabel(fromDate)}
           </button>
           <button
             type="button"
@@ -89,7 +93,7 @@ export default function DatePickerModal({ open, mode = "single", initialDate = "
               color: rangeStep === 'to' ? '#fff' : colors.text,
             }}
           >
-            To: {fmtLabel(toDate)}
+            {t('date_picker_modal.to_prefix')} {fmtLabel(toDate)}
           </button>
         </div>
 
@@ -123,7 +127,7 @@ export default function DatePickerModal({ open, mode = "single", initialDate = "
             className="w-full py-3 rounded-xl text-white font-semibold text-base transition-all active:scale-95 disabled:opacity-40"
             style={{ backgroundColor: colors.gold }}
           >
-            Select Range
+            {t('date_picker_modal.select_range')}
           </button>
         </div>
       </div>

@@ -38,6 +38,9 @@
     "bit": "💳 Bit",
     "cash": "💰 Cash"
   },
+  "admin_reports_title": "Reports",
+  "admin_reports_subtitle": "View and manage all submitted reports",
+  "feedback_must_be_logged_in": "You must be logged in",
   "report_website_problem": "Report a Website Problem",
   "email_subject": "Subject",
   "email_subject_placeholder": "What's the issue?",

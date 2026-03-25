@@ -109,8 +109,10 @@ async function loadImageAsBase64(photoUrl, timeoutMs = 10000) {
 // ---------------------------------------------------------------------------
 
 function t(key, fallback) {
-  const val = i18n.t(key, { ns: 'admin' });
-  return val === key ? fallback : val;
+  const fromExpenses = i18n.t(key, { ns: 'expenses' });
+  if (fromExpenses && fromExpenses !== key) return fromExpenses;
+  const fromAdmin = i18n.t(key, { ns: 'admin' });
+  return fromAdmin === key ? fallback : fromAdmin;
 }
 
 function addHeader(doc, title, dateInfo) {

@@ -49,7 +49,8 @@ export default function HomePage() {
   const [showAllEvents, setShowAllEvents] = useState(false);
   const [showAllSurveys, setShowAllSurveys] = useState(false);
   const [showAllMessages, setShowAllMessages] = useState(false);
-  const isRTL = i18n.language === 'he';
+  const isRTL = i18n.language?.startsWith('he');
+  const dateLocale = isRTL ? 'he-IL' : 'en-US';
 
   // Check if user profile is complete
   const checkUserProfileComplete = (userData) => {
@@ -312,7 +313,7 @@ export default function HomePage() {
         {loadingUser ? (
           <div className="flex justify-center py-4"><HouseLoader size={60} /></div>
         ) : (
-          <WelcomeHeader status={status} userData={userData} />
+          <WelcomeHeader status={status} userData={userData} isRTL={isRTL} />
         )}
 
         
@@ -402,7 +403,7 @@ export default function HomePage() {
         {/* Events Section */}
         <div className="mb-8 rounded-xl overflow-hidden" style={thinGoldWrap}>
           <div className="flex items-center px-4 py-3 shadow-sm select-none" style={{ background: colors.sectionBg, color: colors.white }}>
-            <span className="font-semibold text-lg flex-1 text-left" style={{ color: colors.white }}>
+            <span className="font-semibold text-lg flex-1 text-start" style={{ color: colors.white }} dir={isRTL ? 'rtl' : 'ltr'}>
               {t('upcomingEvents')}
             </span>
           </div>
@@ -421,8 +422,8 @@ export default function HomePage() {
                       {(event.startTime || event.endTime) && (() => {
                         const fmt = (ts) => {
                           const d = new Date(ts.seconds ? ts.seconds * 1000 : ts);
-                          const date = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-                          const time = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+                          const date = d.toLocaleDateString(dateLocale, { weekday: 'short', month: 'short', day: 'numeric' });
+                          const time = d.toLocaleTimeString(dateLocale, { hour: '2-digit', minute: '2-digit', hour12: false });
                           return `${date}, ${time}`;
                         };
                         const s = event.startTime ? fmt(event.startTime) : null;
@@ -491,7 +492,7 @@ export default function HomePage() {
         {/* Surveys Section */}
         <div className="mb-8 rounded-xl overflow-hidden" style={thinGoldWrap}>
           <div className="flex items-center px-4 py-3 shadow-sm select-none" style={{ background: colors.sectionBg, color: colors.white }}>
-            <span className="font-semibold text-lg flex-1 text-left" style={{ color: colors.white }}>
+            <span className="font-semibold text-lg flex-1 text-start" style={{ color: colors.white }} dir={isRTL ? 'rtl' : 'ltr'}>
               {t('surveysToFill')}
             </span>
           </div>
@@ -508,11 +509,12 @@ export default function HomePage() {
                       <div className="font-bold text-xl text-[#076332] mb-3 leading-tight line-clamp-2">{survey.title}</div>
                       {survey.body && <div className="text-base font-medium text-gray-700 mb-4 leading-relaxed line-clamp-2">{survey.body}</div>}
                       {survey.endTime && (
-                        <div className="text-sm font-semibold text-gray-600">
-                          Due Date: {new Date(survey.endTime.seconds ? survey.endTime.seconds * 1000 : survey.endTime).toLocaleDateString('en-US', { 
-                            weekday: 'short', 
-                            month: 'short', 
-                            day: 'numeric'
+                        <div className="text-sm font-semibold text-gray-600" dir="auto">
+                          {t('due_date_label')}{' '}
+                          {new Date(survey.endTime.seconds ? survey.endTime.seconds * 1000 : survey.endTime).toLocaleDateString(dateLocale, {
+                            weekday: 'short',
+                            month: 'short',
+                            day: 'numeric',
                           })}
                         </div>
                       )}
@@ -576,7 +578,7 @@ export default function HomePage() {
         {/* Messages Section */}
         <div className="mb-8 rounded-xl overflow-hidden" style={thinGoldWrap}>
           <div className="flex items-center px-4 py-3 shadow-sm select-none" style={{ background: colors.sectionBg, color: colors.white }}>
-            <span className="font-semibold text-lg flex-1 text-left" style={{ color: colors.white }}>
+            <span className="font-semibold text-lg flex-1 text-start" style={{ color: colors.white }} dir={isRTL ? 'rtl' : 'ltr'}>
               {t('importantMessages')}
             </span>
           </div>
@@ -595,8 +597,8 @@ export default function HomePage() {
                       {(message.startTime || message.endTime) && (() => {
                         const fmt = (ts) => {
                           const d = new Date(ts.seconds ? ts.seconds * 1000 : ts);
-                          const date = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-                          const time = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+                          const date = d.toLocaleDateString(dateLocale, { weekday: 'short', month: 'short', day: 'numeric' });
+                          const time = d.toLocaleTimeString(dateLocale, { hour: '2-digit', minute: '2-digit', hour12: false });
                           return `${date}, ${time}`;
                         };
                         const s = message.startTime ? fmt(message.startTime) : null;
@@ -634,9 +636,9 @@ export default function HomePage() {
           { key: 'notComing', icon: '✕', bg: colors.red, label: t('notComing') },
         ];
         const confirmMessages = {
-          coming: t('response_confirmed_coming', 'Your response has been recorded. See you there!'),
-          maybe: t('response_confirmed_maybe', 'Thanks! We\'ll keep you updated.'),
-          notComing: t('response_confirmed_not_coming', 'Thanks for letting us know.'),
+          coming: t('response_confirmed_coming'),
+          maybe: t('response_confirmed_maybe'),
+          notComing: t('response_confirmed_not_coming'),
         };
         const activeOption = responseOptions.find(o => o.key === eventResponse);
 
@@ -647,7 +649,7 @@ export default function HomePage() {
               style={{ backgroundColor: colors.surface }}
             >
               <button
-                className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full transition-colors z-10"
+                className={`absolute top-4 w-8 h-8 flex items-center justify-center rounded-full transition-colors z-10 ${isRTL ? 'left-4' : 'right-4'}`}
                 style={{ backgroundColor: colors.gray400 + '33' }}
                 onClick={() => setModalOpen(false)}
               >
@@ -655,7 +657,7 @@ export default function HomePage() {
               </button>
 
               <div className="px-6 pt-6 pb-2">
-                <h2 className="text-xl font-bold pr-8" style={{ color: colors.primaryGreen }}>
+                <h2 className={`text-xl font-bold ${isRTL ? 'pl-8' : 'pr-8'}`} style={{ color: colors.primaryGreen }} dir="auto">
                   {selectedEvent?.title}
                 </h2>
               </div>
@@ -672,20 +674,20 @@ export default function HomePage() {
                     <h3 className="text-lg font-bold mb-2" style={{ color: activeOption?.bg }}>
                       {activeOption?.label}
                     </h3>
-                    <p className="text-sm" style={{ color: colors.muted }}>
+                    <p className="text-sm" style={{ color: colors.muted }} dir="auto">
                       {confirmMessages[eventResponse]}
                     </p>
                   </div>
                 ) : (
                   <div className="flex flex-col gap-3 mt-2">
-                    <p className="text-sm text-center mb-1" style={{ color: colors.muted }}>
-                      {t('respond_prompt', 'Will you be attending?')}
+                    <p className="text-sm text-center mb-1" style={{ color: colors.muted }} dir="auto">
+                      {t('respond_prompt')}
                     </p>
                     {responseOptions.map(({ key, icon, bg, label }) => (
                       <button
                         key={key}
                         className="w-full py-3.5 rounded-2xl font-semibold text-base flex items-center justify-center gap-2 text-white transition-all duration-150 active:scale-[0.97] shadow-sm hover:shadow-md"
-                        style={{ backgroundColor: bg }}
+                        style={{ backgroundColor: bg, flexDirection: isRTL ? 'row-reverse' : 'row' }}
                         onClick={() => handleEventResponse(key)}
                       >
                         <span className="text-lg leading-none">{icon}</span>
@@ -704,7 +706,7 @@ export default function HomePage() {
       {surveyModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl p-6 shadow-xl w-full max-w-sm">
-            <h2 className="text-lg font-bold mb-4 text-center" style={{ color: colors.primaryGreen }}>{selectedSurvey?.title}</h2>
+            <h2 className="text-lg font-bold mb-4 text-center" style={{ color: colors.primaryGreen }} dir="auto">{selectedSurvey?.title}</h2>
             {(!selectedSurvey?.link || selectedSurvey.link.trim() === '') && !selectedSurvey?.resolvedLink ? (
               <p className="text-center text-gray-600 mb-4">{t('noSurveyLink')}</p>
             ) : (

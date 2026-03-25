@@ -10,10 +10,12 @@ import { signOut } from 'firebase/auth';
 
 import useAuthRedirect from '@/hooks/useAuthRedirect';
 import colors from '../../colors';
+import { setLangCookie } from '@/lib/langCookie';
 
 export default function SelectionPage() {
   const router = useRouter();
-  const { t } = useTranslation('register');
+  const { t, i18n } = useTranslation('register');
+  const isRTL = i18n.language?.startsWith('he');
   const isReady = useAuthRedirect();
   const [langPicked, setLangPicked] = useState(false);
 
@@ -22,6 +24,7 @@ export default function SelectionPage() {
     if (lang !== i18n.language) {
       i18n.changeLanguage(lang);
       if (typeof window !== 'undefined') localStorage.setItem('lang', lang);
+      setLangCookie(lang);
       document.documentElement.dir = lang === 'he' ? 'rtl' : 'ltr';
     }
   };
@@ -108,9 +111,9 @@ export default function SelectionPage() {
   return (
     <main className="min-h-screen flex items-center justify-center font-body px-4 phone-lg:px-0" style={{ background: colors.white }}>
       <div
-        className="w-full max-w-xs phone-md:max-w-sm phone-lg:max-w-md mx-auto 
-          bg-transparent rounded-none shadow-none p-0
-          phone-lg:bg-white phone-lg:rounded-[2.5rem] phone-lg:shadow-lg phone-lg:p-[3.5rem_2.2rem]"
+        className="w-full max-w-xs phone-md:max-w-sm phone-lg:max-w-md mx-auto
+          bg-white rounded-[2.5rem] shadow-lg p-[2.25rem_1.25rem]
+          phone-lg:p-[3.5rem_2.2rem]"
       >
         {/* Language picker */}
         <div className="mb-10">
@@ -147,7 +150,12 @@ export default function SelectionPage() {
           </p>
         </div>
 
-        <h2 style={{ fontWeight: 700, fontSize: '2.5rem', textAlign: 'center', marginBottom: '2.8rem' }}>{t('selection.do_you')}</h2>
+        <h2
+          style={{ fontWeight: 700, fontSize: '2.5rem', textAlign: 'center', marginBottom: '2.8rem' }}
+          dir={isRTL ? 'rtl' : 'ltr'}
+        >
+          {t('selection.do_you')}
+        </h2>
         
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', opacity: langPicked ? 1 : 0.4, pointerEvents: langPicked ? 'auto' : 'none', transition: 'opacity 0.3s' }}>
           <button

@@ -1,6 +1,9 @@
 // src/components/SoldierNameSearch.js
 
 'use client';
+
+import '@/i18n';
+import { useTranslation } from 'react-i18next';
 import { useState, useEffect, useRef } from 'react';
 import { searchSoldiersByName } from '@/lib/soldierDataService';
 
@@ -14,10 +17,12 @@ const ROOM_COL = 'חדר';
  */
 export default function SoldierNameSearch({
   onSoldierSelect,
-  placeholder = 'חיפוש לפי שם או ת.ז...',
+  placeholder: placeholderProp,
   disabled = false,
   error = null
 }) {
+  const { t } = useTranslation('admin');
+  const placeholder = placeholderProp ?? t('soldier_name_search_placeholder');
   const [searchTerm, setSearchTerm] = useState('');
   const [suggestions, setSuggestions] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -48,7 +53,7 @@ export default function SoldierNameSearch({
       } catch (err) {
         if (!cancelled) {
           setSuggestions([]);
-          setQueryError('Search is temporarily unavailable');
+          setQueryError(t('soldier_name_search_unavailable'));
         }
       } finally {
         if (!cancelled) setIsLoading(false);
@@ -59,7 +64,7 @@ export default function SoldierNameSearch({
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [searchTerm]);
+  }, [searchTerm, t]);
 
   const handleInputChange = (e) => {
     const value = e.target.value;
@@ -167,6 +172,7 @@ export default function SoldierNameSearch({
       {showSuggestions && suggestions.length > 0 && (
         <div
           className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto"
+          dir="rtl"
           style={{ boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}
         >
           {suggestions.map((soldier, index) => {
@@ -180,17 +186,21 @@ export default function SoldierNameSearch({
                 onClick={() => handleSuggestionClick(soldier)}
                 className="px-4 py-3 hover:bg-green-50 cursor-pointer border-b border-gray-100 last:border-b-0 transition-colors duration-150"
               >
-                <div className="text-right">
-                  <div className="font-medium text-gray-900 flex items-center justify-end gap-2" style={{ fontSize: '1rem' }}>
-                    <span>{name || '—'}</span>
+                <div className="text-start">
+                  <div
+                    className="font-medium text-gray-900 flex flex-row items-center justify-start gap-2 min-w-0"
+                    dir="rtl"
+                    style={{ fontSize: '1rem' }}
+                  >
+                    <span className="min-w-0 truncate">{name || '—'}</span>
                     {lastFour && (
-                      <span className="text-xs text-gray-400 font-normal" dir="ltr">
+                      <span className="text-xs text-gray-400 font-normal shrink-0" dir="ltr">
                         (ת.ז ...{lastFour})
                       </span>
                     )}
                   </div>
                   {room && (
-                    <div className="text-sm text-gray-500 mt-1">
+                    <div className="text-sm text-gray-500 mt-1 text-start">
                       חדר: {room}
                       {(soldier['בניין'] || soldier.building) && `, בניין: ${soldier['בניין'] || soldier.building}`}
                       {(soldier['קומה'] || soldier.floor) && `, קומה: ${soldier['קומה'] || soldier.floor}`}
@@ -206,7 +216,7 @@ export default function SoldierNameSearch({
       {/* No results message */}
       {showSuggestions && suggestions.length === 0 && searchTerm.trim().length >= 2 && !isLoading && (
         <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg p-4 text-center text-gray-500">
-          לא נמצאו תוצאות עבור &quot;{searchTerm}&quot;
+          {t('soldier_name_no_results', { term: searchTerm })}
         </div>
       )}
 

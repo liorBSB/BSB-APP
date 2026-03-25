@@ -83,9 +83,9 @@ function AuthPageInner() {
   return (
     <main className="min-h-screen bg-gradient-to-br from-blue-200/60 to-green-100/60 font-body flex items-center justify-center px-4 phone-lg:px-0">
       <div
-        className="w-full max-w-xs phone-md:max-w-sm phone-lg:max-w-md mx-auto 
-          bg-transparent rounded-none shadow-none p-0
-          phone-lg:bg-white phone-lg:rounded-[2.5rem] phone-lg:shadow-lg phone-lg:p-[3.5rem_2.2rem]"
+        className="w-full max-w-xs phone-md:max-w-sm phone-lg:max-w-md mx-auto
+          bg-white rounded-[2.5rem] shadow-lg p-[2.25rem_1.25rem]
+          phone-lg:p-[3.5rem_2.2rem]"
       >
         <div style={{ textAlign: 'center', marginBottom: '4rem' }}>
           <img

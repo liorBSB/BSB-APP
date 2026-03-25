@@ -1,6 +1,8 @@
 'use client';
 
+import '@/i18n';
 import { useState, useRef, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import colors from '@/app/colors';
 
 const MONTH_NAMES = [
@@ -42,12 +44,25 @@ function fmtDateTimeVal(y, m, d, h, min) {
   return `${fmtDateVal(y, m, d)}T${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
 }
 
-function fmtDisplay(y, m, d) {
-  return `${SHORT_MONTHS[m]} ${d}, ${y}`;
+function fmtDisplay(y, m, d, shortMonths = SHORT_MONTHS) {
+  const sm = shortMonths[m] || SHORT_MONTHS[m];
+  return `${sm} ${d}, ${y}`;
 }
 
-function fmtDisplayDT(y, m, d, h, min) {
-  return `${fmtDisplay(y, m, d)}  ${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
+function fmtDisplayDT(y, m, d, h, min, shortMonths = SHORT_MONTHS) {
+  return `${fmtDisplay(y, m, d, shortMonths)}  ${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
+}
+
+function useCalendarArrays() {
+  const { t } = useTranslation('components');
+  const full = t('calendar_months_full', { returnObjects: true });
+  const short = t('calendar_months_short', { returnObjects: true });
+  const week = t('calendar_weekdays', { returnObjects: true });
+  return {
+    monthsFull: Array.isArray(full) ? full : MONTH_NAMES,
+    monthsShort: Array.isArray(short) ? short : SHORT_MONTHS,
+    weekdays: Array.isArray(week) ? week : WEEKDAYS,
+  };
 }
 
 function snapMinute(m) {
@@ -95,6 +110,7 @@ function PickerModal({ open, onClose, children }) {
 // ────────────────────────────────────────────
 
 export function CalendarGrid({ selectedDate, onSelectDate, viewMonth, viewYear, onChangeView }) {
+  const { monthsFull, weekdays } = useCalendarArrays();
   const today = new Date();
   const tY = today.getFullYear(), tM = today.getMonth(), tD = today.getDate();
 
@@ -129,8 +145,8 @@ export function CalendarGrid({ selectedDate, onSelectDate, viewMonth, viewYear, 
         <button onClick={goPrev} type="button" className="w-10 h-10 rounded-full flex items-center justify-center active:bg-gray-100">
           <svg width="20" height="20" fill="none" viewBox="0 0 20 20"><path d="M12.5 15L7.5 10L12.5 5" stroke={colors.text} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
         </button>
-        <span className="text-base font-bold" style={{ color: colors.text }}>
-          {MONTH_NAMES[viewMonth]} {viewYear}
+        <span className="text-base font-bold dir-ltr" style={{ color: colors.text }}>
+          {monthsFull[viewMonth]} {viewYear}
         </span>
         <button onClick={goNext} type="button" className="w-10 h-10 rounded-full flex items-center justify-center active:bg-gray-100">
           <svg width="20" height="20" fill="none" viewBox="0 0 20 20"><path d="M7.5 15L12.5 10L7.5 5" stroke={colors.text} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
@@ -139,7 +155,7 @@ export function CalendarGrid({ selectedDate, onSelectDate, viewMonth, viewYear, 
 
       {/* Weekday labels */}
       <div className="grid grid-cols-7 mb-1">
-        {WEEKDAYS.map((w, i) => (
+        {weekdays.map((w, i) => (
           <div key={i} className="h-8 flex items-center justify-center text-xs font-semibold" style={{ color: colors.muted }}>{w}</div>
         ))}
       </div>
@@ -179,6 +195,7 @@ export function CalendarGrid({ selectedDate, onSelectDate, viewMonth, viewYear, 
 // ────────────────────────────────────────────
 
 function TimeScroller({ hour, minute, onChangeHour, onChangeMinute }) {
+  const { t } = useTranslation('components');
   const hourRef = useRef(null);
   const minRef = useRef(null);
 
@@ -227,8 +244,8 @@ function TimeScroller({ hour, minute, onChangeHour, onChangeMinute }) {
 
   return (
     <div className="flex gap-4 px-4 py-3">
-      {renderCol(hours, hour, onChangeHour, hourRef, 'Hour')}
-      {renderCol(minutes, minute, onChangeMinute, minRef, 'Min')}
+      {renderCol(hours, hour, onChangeHour, hourRef, t('time_hour'))}
+      {renderCol(minutes, minute, onChangeMinute, minRef, t('time_min'))}
     </div>
   );
 }
@@ -256,7 +273,7 @@ function InputField({ displayValue, placeholder, disabled, onClick, className, s
           ...(style || {}),
         }}
       >
-        <span className="truncate">{displayValue || placeholder || 'Select date'}</span>
+        <span className="truncate">{displayValue || placeholder || ''}</span>
         <svg width="22" height="22" viewBox="0 0 22 22" fill="none" className="flex-shrink-0">
           <rect x="3" y="4.5" width="16" height="14" rx="2.5" stroke={disabled ? '#bbb' : colors.primaryGreen} strokeWidth="1.5"/>
           <path d="M3 9H19" stroke={disabled ? '#bbb' : colors.primaryGreen} strokeWidth="1.5"/>
@@ -276,6 +293,8 @@ function InputField({ displayValue, placeholder, disabled, onClick, className, s
 // ────────────────────────────────────────────
 
 export function StyledDateInput({ value, defaultValue, onChange, name, id, disabled, required, className, style }) {
+  const { t } = useTranslation('components');
+  const { monthsShort } = useCalendarArrays();
   const [open, setOpen] = useState(false);
   const [internal, setInternal] = useState(defaultValue || '');
 
@@ -303,8 +322,8 @@ export function StyledDateInput({ value, defaultValue, onChange, name, id, disab
   return (
     <>
       <InputField
-        displayValue={parsed ? fmtDisplay(parsed.year, parsed.month, parsed.day) : ''}
-        placeholder="Select date"
+        displayValue={parsed ? fmtDisplay(parsed.year, parsed.month, parsed.day, monthsShort) : ''}
+        placeholder={t('calendar_select_date')}
         disabled={disabled}
         onClick={handleOpen}
         className={className}
@@ -328,18 +347,18 @@ export function StyledDateInput({ value, defaultValue, onChange, name, id, disab
             className="flex-1 py-2.5 rounded-xl font-semibold text-sm border-2 transition-all active:scale-95"
             style={{ borderColor: colors.gray400, color: colors.text }}
           >
-            Cancel
+            {t('calendar_cancel')}
           </button>
           <button
             type="button"
             onClick={() => {
-              const t = new Date();
-              handleSelect(t.getFullYear(), t.getMonth(), t.getDate());
+              const now = new Date();
+              handleSelect(now.getFullYear(), now.getMonth(), now.getDate());
             }}
             className="flex-1 py-2.5 rounded-xl font-semibold text-sm transition-all active:scale-95"
             style={{ backgroundColor: colors.primaryGreen, color: '#fff' }}
           >
-            Today
+            {t('calendar_today')}
           </button>
         </div>
       </PickerModal>
@@ -352,6 +371,8 @@ export function StyledDateInput({ value, defaultValue, onChange, name, id, disab
 // ────────────────────────────────────────────
 
 export function StyledDateTimeInput({ value, defaultValue, onChange, name, id, disabled, required, className, style }) {
+  const { t } = useTranslation('components');
+  const { monthsShort } = useCalendarArrays();
   const [open, setOpen] = useState(false);
   const [internal, setInternal] = useState(defaultValue || '');
 
@@ -391,8 +412,8 @@ export function StyledDateTimeInput({ value, defaultValue, onChange, name, id, d
   return (
     <>
       <InputField
-        displayValue={parsed ? fmtDisplayDT(parsed.year, parsed.month, parsed.day, parsed.hour, parsed.minute) : ''}
-        placeholder="Select date & time"
+        displayValue={parsed ? fmtDisplayDT(parsed.year, parsed.month, parsed.day, parsed.hour, parsed.minute, monthsShort) : ''}
+        placeholder={t('calendar_select_datetime')}
         disabled={disabled}
         onClick={handleOpen}
         className={className}
@@ -419,7 +440,7 @@ export function StyledDateTimeInput({ value, defaultValue, onChange, name, id, d
             className="flex-1 py-3 rounded-xl font-semibold text-sm border-2 transition-all active:scale-95"
             style={{ borderColor: colors.gray400, color: colors.text }}
           >
-            Cancel
+            {t('calendar_cancel')}
           </button>
           <button
             type="button"
@@ -428,7 +449,7 @@ export function StyledDateTimeInput({ value, defaultValue, onChange, name, id, d
             className="flex-1 py-3 rounded-xl font-semibold text-sm text-white transition-all active:scale-95 disabled:opacity-40"
             style={{ backgroundColor: colors.gold }}
           >
-            Confirm
+            {t('calendar_confirm')}
           </button>
         </div>
       </PickerModal>

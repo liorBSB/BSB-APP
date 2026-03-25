@@ -20,6 +20,7 @@ const SHOW_PROBLEM_REPORT = false;
 function ReportPageContent() {
   const { t, i18n } = useTranslation('report');
   const router = useRouter();
+  const dateLocale = i18n.language?.startsWith('he') ? 'he-IL' : 'en-US';
 
   // --- User data (for feedback email) ---
   const [userData, setUserData] = useState(null);
@@ -713,7 +714,7 @@ function ReportPageContent() {
                 </div>
                 <div className="flex justify-between py-2 border-b border-gray-100">
                   <span className="text-gray-500">{t('amount')}</span>
-                  <span className="font-semibold">{Number(refundForm.amount).toLocaleString('he-IL', { style: 'currency', currency: 'ILS' })}</span>
+                  <span className="font-semibold">{Number(refundForm.amount).toLocaleString(dateLocale, { style: 'currency', currency: 'ILS' })}</span>
                 </div>
                 <div className="flex justify-between py-2 border-b border-gray-100">
                   <span className="text-gray-500">{t('expense_category')}</span>
@@ -725,7 +726,7 @@ function ReportPageContent() {
                 </div>
                 <div className="flex justify-between py-2 border-b border-gray-100">
                   <span className="text-gray-500">{t('expense_date')}</span>
-                  <span className="font-medium">{refundForm.expenseDate ? new Date(refundForm.expenseDate).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : ''}</span>
+                  <span className="font-medium">{refundForm.expenseDate ? new Date(refundForm.expenseDate).toLocaleDateString(dateLocale, { year: 'numeric', month: 'short', day: 'numeric' }) : ''}</span>
                 </div>
                 {refundPhotoPreviews.length > 0 && (
                   <div className="pt-1">
@@ -864,7 +865,7 @@ function ReportPageContent() {
                   
                   <div>
                     <span className="text-sm font-medium text-gray-600">Submitted:</span>
-                    <p className="text-gray-800">{submittedReport.submittedAt.toLocaleString()}</p>
+                    <p className="text-gray-800">{submittedReport.submittedAt.toLocaleString(dateLocale)}</p>
                   </div>
                   
                   {submittedReport.photos?.length > 0 && (

@@ -1,5 +1,6 @@
 "use client";
 
+import '@/i18n';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
@@ -139,7 +140,7 @@ function AdminReportPageContent() {
     try {
       setFeedbackSending(true);
       const user = auth.currentUser;
-      if (!user) { setFeedbackError('You must be logged in'); setFeedbackSending(false); return; }
+      if (!user) { setFeedbackError(t('feedback_must_be_logged_in')); setFeedbackSending(false); return; }
 
       const uploadedUrls = [];
       for (const s of feedbackScreenshots) {
@@ -763,8 +764,8 @@ function AdminReportPageContent() {
     <main className="min-h-screen bg-gradient-to-br from-blue-200/60 to-green-100/60 font-body flex flex-col items-center pt-6 pb-32 px-4">
       <div className="w-full max-w-md">
         <div className="w-full max-w-md rounded-2xl px-5 pt-6 pb-4 mb-6 bg-white/10 backdrop-blur-md shadow-sm">
-          <h1 className="text-2xl font-bold text-text">Reports</h1>
-          <p className="text-sm text-muted">View and manage all submitted reports</p>
+          <h1 className="text-2xl font-bold text-text">{t('admin_reports_title')}</h1>
+          <p className="text-sm text-muted">{t('admin_reports_subtitle')}</p>
         </div>
 
         {/* ========== WEBSITE FEEDBACK FORM ========== */}
