@@ -22,6 +22,7 @@ const SHOW_PROBLEM_REPORT = false;
 function AdminReportPageContent() {
   const router = useRouter();
   const { t, i18n } = useTranslation('report');
+  const dateLocale = i18n.language?.startsWith('he') ? 'he-IL' : 'en-US';
   const [reports, setReports] = useState([]);
   const [problemReports, setProblemReports] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -234,6 +235,13 @@ function AdminReportPageContent() {
   const [refundError, setRefundError] = useState('');
   const [refundSuccess, setRefundSuccess] = useState('');
   const [refundForm, setRefundForm] = useState({ title: '', amount: '', category: 'transportation', method: 'bit', expenseDate: '' });
+  const [refundConfirmOpen, setRefundConfirmOpen] = useState(false);
+  const [refundPhotoPreviews, setRefundPhotoPreviews] = useState([]);
+  const refundPhotoRef = useRef(null);
+  const [categoryDropOpen, setCategoryDropOpen] = useState(false);
+  const [methodDropOpen, setMethodDropOpen] = useState(false);
+  const categoryRef = useRef(null);
+  const methodRef = useRef(null);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadError, setUploadError] = useState('');
@@ -442,6 +450,12 @@ function AdminReportPageContent() {
       }
       if (fixedProblemsDateRangeDropdownRef.current && !fixedProblemsDateRangeDropdownRef.current.contains(event.target)) {
         setFixedProblemsDateRangeDropdownOpen(false);
+      }
+      if (categoryRef.current && !categoryRef.current.contains(event.target)) {
+        setCategoryDropOpen(false);
+      }
+      if (methodRef.current && !methodRef.current.contains(event.target)) {
+        setMethodDropOpen(false);
       }
     };
 
@@ -718,22 +732,42 @@ function AdminReportPageContent() {
     return '';
   };
 
-  const handleRefundSave = async () => {
-    setRefundError(''); 
+  const handleRefundReview = () => {
+    setRefundError('');
     setRefundSuccess('');
-    const v = validateRefund(); 
-    if (v) { 
-      setRefundError(v); 
-      return; 
+    const v = validateRefund();
+    if (v) {
+      setRefundError(v);
+      return;
     }
+    setCategoryDropOpen(false);
+    setMethodDropOpen(false);
+    setRefundPhotoPreviews(refundPhotoRef.current?.getPreviewUrls() || []);
+    setRefundConfirmOpen(true);
+  };
+
+  const handleRefundConfirm = async () => {
+    setRefundError('');
+    setRefundSuccess('');
     try {
       setRefundSaving(true);
-      const user = auth.currentUser; 
-      if (!user) { 
-        setRefundError('You must be logged in'); 
-        setRefundSaving(false); 
-        return; 
+      const user = auth.currentUser;
+      if (!user) {
+        setRefundError('You must be logged in');
+        setRefundSaving(false);
+        setRefundConfirmOpen(false);
+        return;
       }
+
+      let photoResults;
+      try {
+        photoResults = await refundPhotoRef.current?.upload() || [];
+      } catch {
+        setRefundError('Photo upload failed');
+        setRefundSaving(false);
+        return;
+      }
+
       const userSnap = await getDoc(doc(db, 'users', user.uid));
       const userData = userSnap.exists() ? userSnap.data() : {};
       const payload = {
@@ -749,14 +783,21 @@ function AdminReportPageContent() {
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
         softDeleted: false,
+        photos: photoResults.map(p => ({ url: p.url, path: p.path })),
+        receiptPhotoUrl: photoResults[0]?.url || '',
+        photoPath: photoResults[0]?.path || '',
       };
       await addDoc(collection(db, 'refundRequests'), payload);
-      setRefundSuccess('Request submitted successfully');
+      setRefundConfirmOpen(false);
+      setRefundSuccess(t('request_submitted'));
       setRefundForm({ title: '', amount: '', category: 'transportation', method: 'bit', expenseDate: '' });
-    } catch (e) { 
-      setRefundError('Failed to submit request'); 
-    } finally { 
-      setRefundSaving(false); 
+      refundPhotoRef.current?.clear();
+      setRefundPhotoPreviews([]);
+    } catch (e) {
+      setRefundConfirmOpen(false);
+      setRefundError('Failed to submit request');
+    } finally {
+      setRefundSaving(false);
     }
   };
 
@@ -1000,15 +1041,15 @@ function AdminReportPageContent() {
         </div>)}
 
         {/* Request Refund Section */}
-        {SHOW_PROBLEM_REPORT && (<div className="w-full max-w-md rounded-2xl p-4 mb-6" style={{ background: colors.sectionBg }}>
+        <div className="w-full mb-6">
           <button 
             onClick={() => setRefundOpen(true)} 
             className="w-full rounded-full px-6 py-4 font-bold text-white text-lg shadow" 
             style={{ background: colors.gold }}
           >
-            Request Refund
+            {t('request_refund')}
           </button>
-        </div>)}
+        </div>
 
         {/* Recent Reports Section */}
         {SHOW_PROBLEM_REPORT && (
@@ -1158,11 +1199,11 @@ function AdminReportPageContent() {
       )}
 
       {/* Refund Request Modal */}
-      {SHOW_PROBLEM_REPORT && refundOpen && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
-          <div className="bg-white rounded-2xl w-full max-w-md mx-4 p-5">
+      {refundOpen && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center overflow-y-auto py-8">
+          <div className="bg-white rounded-2xl w-full max-w-md mx-4 p-5 my-auto">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-lg font-bold">Request Refund</h3>
+              <h3 className="text-lg font-bold">{t('request_refund')}</h3>
               <button onClick={() => setRefundOpen(false)} className="text-gray-600">✕</button>
             </div>
             {refundError && <div className="mb-3 text-red-600 text-sm bg-red-50 rounded px-3 py-2">{refundError}</div>}
@@ -1170,49 +1211,146 @@ function AdminReportPageContent() {
             <div className="grid grid-cols-1 gap-3">
               <input 
                 className="w-full px-4 py-3 rounded-xl border" 
-                placeholder="What for" 
+                placeholder={t('what_for')}
                 value={refundForm.title} 
                 onChange={(e) => setRefundForm(f => ({...f, title: e.target.value}))} 
               />
               <input 
                 className="w-full px-4 py-3 rounded-xl border" 
-                placeholder="Amount" 
+                placeholder={t('amount')}
                 value={refundForm.amount} 
                 inputMode="decimal" 
                 onChange={(e) => setRefundForm(f => ({...f, amount: e.target.value}))} 
               />
-              <select 
-                className="w-full px-4 py-3 rounded-xl border" 
-                value={refundForm.category} 
-                onChange={(e) => setRefundForm(f => ({...f, category: e.target.value}))}
-              >
-                <option value="transportation">Transportation</option>
-                <option value="food">Food</option>
-                <option value="shopping">Shopping</option>
-                <option value="utilities">Utilities</option>
-                <option value="medical">Medical</option>
-                <option value="entertainment">Entertainment</option>
-                <option value="other">Other</option>
-              </select>
-              <select 
-                className="w-full px-4 py-3 rounded-xl border" 
-                value={refundForm.method} 
-                onChange={(e) => setRefundForm(f => ({...f, method: e.target.value}))}
-              >
-                <option value="bit">Bit</option>
-                <option value="cash">Cash</option>
-              </select>
+              <div className="relative" ref={categoryRef}>
+                <button
+                  type="button"
+                  onClick={() => { setCategoryDropOpen(v => !v); setMethodDropOpen(false); }}
+                  className="w-full px-4 py-3 rounded-xl border text-left flex items-center justify-between"
+                >
+                  <span>{t(`categories.${refundForm.category}`)}</span>
+                  <svg className={`w-5 h-5 text-gray-400 transition-transform ${categoryDropOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                </button>
+                {categoryDropOpen && (
+                  <div className="absolute z-[80] w-full mt-1 bg-white rounded-xl shadow-lg border max-h-60 overflow-auto">
+                    {['transportation','food','shopping','utilities','medical','entertainment','other'].map(val => (
+                      <button
+                        key={val}
+                        type="button"
+                        onClick={() => { setRefundForm(f => ({ ...f, category: val })); setCategoryDropOpen(false); }}
+                        className={`w-full px-4 py-3 text-left transition-colors first:rounded-t-xl last:rounded-b-xl ${refundForm.category === val ? 'bg-green-50 font-semibold' : 'hover:bg-gray-50'}`}
+                      >
+                        {t(`categories.${val}`)}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div className="relative" ref={methodRef}>
+                <button
+                  type="button"
+                  onClick={() => { setMethodDropOpen(v => !v); setCategoryDropOpen(false); }}
+                  className="w-full px-4 py-3 rounded-xl border text-left flex items-center justify-between"
+                >
+                  <span>{t(`methods.${refundForm.method}`)}</span>
+                  <svg className={`w-5 h-5 text-gray-400 transition-transform ${methodDropOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                </button>
+                {methodDropOpen && (
+                  <div className="absolute z-[80] w-full mt-1 bg-white rounded-xl shadow-lg border">
+                    {['bit','cash'].map(val => (
+                      <button
+                        key={val}
+                        type="button"
+                        onClick={() => { setRefundForm(f => ({ ...f, method: val })); setMethodDropOpen(false); }}
+                        className={`w-full px-4 py-3 text-left transition-colors first:rounded-t-xl last:rounded-b-xl ${refundForm.method === val ? 'bg-green-50 font-semibold' : 'hover:bg-gray-50'}`}
+                      >
+                        {t(`methods.${val}`)}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
               <StyledDateInput
                 value={refundForm.expenseDate} 
                 onChange={(e) => setRefundForm(f => ({...f, expenseDate: e.target.value}))} 
               />
+              <div className="w-full">
+                <PhotoUpload
+                  ref={refundPhotoRef}
+                  uploadPath="refunds"
+                  maxSize={10 * 1024 * 1024}
+                  acceptedTypes={['image/*']}
+                  maxPhotos={5}
+                />
+              </div>
               <button 
-                onClick={handleRefundSave} 
-                disabled={refundSaving} 
-                className="w-full px-4 py-3 rounded-xl text-white font-semibold disabled:opacity-70 text-lg" 
+                onClick={handleRefundReview}
+                className="w-full px-4 py-3 rounded-xl text-white font-semibold text-lg"
                 style={{ background: colors.gold }}
               >
-                {refundSaving ? 'Submitting...' : 'Submit Request'}
+                {t('submit_request')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Refund confirmation modal */}
+      {refundConfirmOpen && (
+        <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl">
+            <div className="px-5 pt-5 pb-3">
+              <h3 className="text-lg font-bold text-center mb-4">{t('confirm_refund_title')}</h3>
+              <div className="space-y-2.5 text-sm">
+                <div className="flex justify-between py-2 border-b border-gray-100">
+                  <span className="text-gray-500">{t('what_for')}</span>
+                  <span className="font-medium text-right max-w-[60%] truncate">{refundForm.title}</span>
+                </div>
+                <div className="flex justify-between py-2 border-b border-gray-100">
+                  <span className="text-gray-500">{t('amount')}</span>
+                  <span className="font-semibold">{Number(refundForm.amount).toLocaleString(dateLocale, { style: 'currency', currency: 'ILS' })}</span>
+                </div>
+                <div className="flex justify-between py-2 border-b border-gray-100">
+                  <span className="text-gray-500">{t('expense_category')}</span>
+                  <span className="font-medium">{t(`categories.${refundForm.category}`)}</span>
+                </div>
+                <div className="flex justify-between py-2 border-b border-gray-100">
+                  <span className="text-gray-500">{t('repayment_method')}</span>
+                  <span className="font-medium">{t(`methods.${refundForm.method}`)}</span>
+                </div>
+                <div className="flex justify-between py-2 border-b border-gray-100">
+                  <span className="text-gray-500">{t('expense_date')}</span>
+                  <span className="font-medium">{refundForm.expenseDate ? new Date(refundForm.expenseDate).toLocaleDateString(dateLocale, { year: 'numeric', month: 'short', day: 'numeric' }) : ''}</span>
+                </div>
+                {refundPhotoPreviews.length > 0 && (
+                  <div className="pt-1">
+                    <span className="text-gray-500 text-xs block mb-1.5">{t('receipt_attached')}</span>
+                    <div className="flex flex-wrap gap-2">
+                      {refundPhotoPreviews.map((url, idx) => (
+                        <img key={idx} src={url} alt="" className="w-20 h-20 object-cover rounded-lg" />
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="flex gap-3 px-5 pb-5 pt-3">
+              <button
+                type="button"
+                onClick={() => setRefundConfirmOpen(false)}
+                className="flex-1 py-3 rounded-xl font-semibold text-sm border-2 transition-all active:scale-95"
+                style={{ borderColor: colors.gray400, color: colors.text }}
+              >
+                {t('go_back')}
+              </button>
+              <button
+                type="button"
+                onClick={handleRefundConfirm}
+                disabled={refundSaving}
+                className="flex-1 py-3 rounded-xl font-semibold text-sm text-white transition-all active:scale-95 disabled:opacity-60"
+                style={{ backgroundColor: colors.primaryGreen }}
+              >
+                {refundSaving ? t('submitting') : t('confirm_submit')}
               </button>
             </div>
           </div>

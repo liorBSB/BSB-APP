@@ -218,6 +218,23 @@
   "done_exclamation": "בוצע!",
   "saving_ellipsis": "שומר...",
   "soldier_details_title": "פרטי חייל: {{name}}",
+  "detail_section_basic": "מידע בסיסי",
+  "detail_section_military": "פרטים צבאיים",
+  "detail_section_emergency": "איש קשר לחירום",
+  "detail_label_full_name": "שם מלא:",
+  "detail_label_email": "אימייל:",
+  "detail_label_phone": "טלפון:",
+  "detail_label_room": "חדר:",
+  "detail_label_personal_number": "מספר אישי:",
+  "detail_label_unit": "יחידה:",
+  "detail_label_battalion": "גדוד:",
+  "detail_label_mashakit_tash": "מש\"קית ת\"ש – שם:",
+  "detail_label_mashakit_phone": "מש\"קית ת\"ש – טלפון:",
+  "detail_label_officer_name": "שם קצין:",
+  "detail_label_officer_phone": "טלפון קצין:",
+  "detail_label_emergency_name": "איש קשר לחירום:",
+  "detail_label_emergency_phone": "טלפון חירום:",
+  "detail_not_specified": "לא צוין",
   "unknown_name": "לא ידוע",
   "soldier_edit_load_error": "טעינת נתוני החייל לעריכה נכשלה.",
   "soldier_update_failed": "עדכון נתוני החייל נכשל. נסו שוב.",
@@ -238,3 +255,4 @@
   "dismiss_30_days": "התעלם (30 יום)",
   "detected_on": "זוהה בתאריך {{date}}"
 }
+
