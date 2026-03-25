@@ -1,66 +1,56 @@
 import { describe, it, expect } from 'vitest';
 import {
   isStorageAvailable,
-  shouldPreferRedirectForAuth,
+  shouldAvoidRedirectForAuth,
   mapAuthErrorCodeToKey,
 } from '../authSignInFlow.js';
 
 describe('authSignInFlow', () => {
-  it('prefers redirect on iPhone user agent', () => {
-    const shouldUseRedirect = shouldPreferRedirectForAuth({
+  it('does not force redirect on iPhone user agent', () => {
+    const shouldAvoidRedirect = shouldAvoidRedirectForAuth({
       userAgent:
         'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15',
-      platform: 'iPhone',
-      maxTouchPoints: 5,
       hasWorkingStorage: true,
     });
 
-    expect(shouldUseRedirect).toBe(true);
+    expect(shouldAvoidRedirect).toBe(false);
   });
 
-  it('prefers redirect on iPad desktop-mode signature', () => {
-    const shouldUseRedirect = shouldPreferRedirectForAuth({
+  it('does not force redirect on iPad desktop-mode signature', () => {
+    const shouldAvoidRedirect = shouldAvoidRedirectForAuth({
       userAgent:
         'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15) AppleWebKit/605.1.15 Version/17.0 Mobile/15E148 Safari/604.1',
-      platform: 'MacIntel',
-      maxTouchPoints: 5,
       hasWorkingStorage: true,
     });
 
-    expect(shouldUseRedirect).toBe(true);
+    expect(shouldAvoidRedirect).toBe(false);
   });
 
-  it('prefers redirect for in-app browser user agents', () => {
-    const shouldUseRedirect = shouldPreferRedirectForAuth({
-      userAgent: 'Mozilla/5.0 Instagram 325.0.0.0.2 iPhone',
-      platform: 'iPhone',
-      maxTouchPoints: 5,
+  it('avoids redirect for in-app browser user agents', () => {
+    const shouldAvoidRedirect = shouldAvoidRedirectForAuth({
+      userAgent: 'Mozilla/5.0 Instagram 325.0.0.0.2 iPhone FBAN/FBIOS',
       hasWorkingStorage: true,
     });
 
-    expect(shouldUseRedirect).toBe(true);
+    expect(shouldAvoidRedirect).toBe(true);
   });
 
-  it('prefers redirect when storage is unavailable', () => {
-    const shouldUseRedirect = shouldPreferRedirectForAuth({
+  it('avoids redirect when storage is unavailable', () => {
+    const shouldAvoidRedirect = shouldAvoidRedirectForAuth({
       userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/125.0',
-      platform: 'Win32',
-      maxTouchPoints: 0,
       hasWorkingStorage: false,
     });
 
-    expect(shouldUseRedirect).toBe(true);
+    expect(shouldAvoidRedirect).toBe(true);
   });
 
-  it('keeps popup flow on normal desktop browsers with storage', () => {
-    const shouldUseRedirect = shouldPreferRedirectForAuth({
+  it('keeps redirect fallback available on normal desktop with storage', () => {
+    const shouldAvoidRedirect = shouldAvoidRedirectForAuth({
       userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/125.0',
-      platform: 'Win32',
-      maxTouchPoints: 0,
       hasWorkingStorage: true,
     });
 
-    expect(shouldUseRedirect).toBe(false);
+    expect(shouldAvoidRedirect).toBe(false);
   });
 
   it('detects available storage correctly', () => {

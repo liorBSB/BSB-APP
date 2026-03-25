@@ -11,18 +11,13 @@ export function isStorageAvailable(storage) {
   }
 }
 
-export function shouldPreferRedirectForAuth({
+export function shouldAvoidRedirectForAuth({
   userAgent = '',
-  platform = '',
-  maxTouchPoints = 0,
   hasWorkingStorage = true,
 } = {}) {
-  const isIOS =
-    /iPad|iPhone|iPod/.test(userAgent) ||
-    (platform === 'MacIntel' && maxTouchPoints > 1);
   const isInAppBrowser = /FBAN|FBAV|Instagram|Line|MicroMessenger|wv/i.test(userAgent);
 
-  return isIOS || isInAppBrowser || !hasWorkingStorage;
+  return isInAppBrowser || !hasWorkingStorage;
 }
 
 export function mapAuthErrorCodeToKey(errorCode) {

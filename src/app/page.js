@@ -20,7 +20,7 @@ import { auth, googleProvider } from '../lib/firebase';
 import HouseLoader from '@/components/HouseLoader';
 import {
   isStorageAvailable,
-  shouldPreferRedirectForAuth,
+  shouldAvoidRedirectForAuth,
   mapAuthErrorCodeToKey,
 } from '@/lib/authSignInFlow';
 
@@ -37,16 +37,14 @@ function AuthPageInner() {
   const [isAuthBootstrapping, setIsAuthBootstrapping] = useState(true);
   const [hasDurablePersistence, setHasDurablePersistence] = useState(false);
 
-  const shouldPreferRedirect = () => {
+  const shouldAvoidRedirect = () => {
     if (typeof navigator === 'undefined') return false;
 
     const hasWorkingStorage =
       typeof window !== 'undefined' ? isStorageAvailable(window.sessionStorage) : true;
 
-    return shouldPreferRedirectForAuth({
+    return shouldAvoidRedirectForAuth({
       userAgent: navigator.userAgent || '',
-      platform: navigator.platform || '',
-      maxTouchPoints: navigator.maxTouchPoints || 0,
       hasWorkingStorage,
     });
   };
@@ -111,15 +109,6 @@ function AuthPageInner() {
     setError('');
     
     try {
-      if (shouldPreferRedirect()) {
-        if (!hasDurablePersistence) {
-          setError(t('error_open_in_browser'));
-          return;
-        }
-        await signInWithRedirect(auth, googleProvider);
-        return;
-      }
-
       await signInWithPopup(auth, googleProvider);
 
       // User is now authenticated - redirect will be handled by onAuthStateChanged
@@ -132,7 +121,7 @@ function AuthPageInner() {
         // User cancelled - normal, no error needed
       } else if (error.code === 'auth/popup-blocked') {
         try {
-          if (!hasDurablePersistence) {
+          if (!hasDurablePersistence || shouldAvoidRedirect()) {
             setError(t('error_open_in_browser'));
             return;
           }
