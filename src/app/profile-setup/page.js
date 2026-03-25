@@ -14,6 +14,7 @@ import { resetSoldierAccount } from '@/lib/database';
 import { resetUserToPreSelection } from '@/lib/database';
 import { fetchStatusFromSheet } from '@/lib/receptionSync';
 import { authedFetch } from '@/lib/authFetch';
+import { getStableAuthUser } from '@/lib/authState';
 import useAuthRedirect from '@/hooks/useAuthRedirect';
 import colors from '../colors';
 
@@ -110,7 +111,8 @@ export default function ProfileSetup() {
     setError('');
     setClaimedDocId(null);
 
-    const uid = auth.currentUser?.uid;
+    const currentUser = auth.currentUser || await getStableAuthUser(auth);
+    const uid = currentUser?.uid;
     if (!uid) {
       setError(t('no_auth_error'));
       setIsLoading(false);
@@ -168,7 +170,7 @@ export default function ProfileSetup() {
         uid,
         userType: 'user',
         status: currentStatus,
-        email: selectedSoldierNormalized.email || auth.currentUser.email,
+        email: selectedSoldierNormalized.email || currentUser.email,
         lastUpdated: serverTimestamp(),
         dataSource: 'google_sheets',
         profileComplete: true,

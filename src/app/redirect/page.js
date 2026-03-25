@@ -6,6 +6,7 @@ import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { createBaseUserDoc } from '@/lib/database';
+import { getStableAuthUser } from '@/lib/authState';
 import colors from '../colors';
 import HouseLoader from '@/components/HouseLoader';
 
@@ -34,17 +35,19 @@ function RedirectPageInner() {
     const next = searchParams.get('next');
 
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (!user) {
+      const resolvedUser = user || await getStableAuthUser(auth);
+
+      if (!resolvedUser) {
         router.replace('/');
         return;
       }
       
-      const userRef = doc(db, 'users', user.uid);
+      const userRef = doc(db, 'users', resolvedUser.uid);
       const userDoc = await getDocWithRetry(userRef);
       
       if (!userDoc.exists()) {
         try {
-          await createBaseUserDoc(user);
+          await createBaseUserDoc(resolvedUser);
           router.replace('/register/selection');
           return;
         } catch (error) {

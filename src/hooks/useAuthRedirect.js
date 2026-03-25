@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
+import { getStableAuthUser } from '@/lib/authState';
 
 export default function useAuthRedirect(redirectIfIncomplete = false) {
   const router = useRouter();
@@ -11,13 +12,15 @@ export default function useAuthRedirect(redirectIfIncomplete = false) {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (!user) {
+      const resolvedUser = user || await getStableAuthUser(auth);
+
+      if (!resolvedUser) {
         router.push('/?next=' + encodeURIComponent(window.location.pathname));
         return;
       }
 
       if (redirectIfIncomplete) {
-        const docRef = doc(db, 'users', user.uid);
+        const docRef = doc(db, 'users', resolvedUser.uid);
         const docSnap = await getDoc(docRef);
 
         if (!docSnap.exists()) {
