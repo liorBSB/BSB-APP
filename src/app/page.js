@@ -6,9 +6,22 @@ import { useTranslation } from 'react-i18next';
 import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 /* eslint-disable @next/next/no-img-element */
-import { signInWithPopup, onAuthStateChanged } from 'firebase/auth';
+import {
+  signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
+  onAuthStateChanged,
+  setPersistence,
+  browserLocalPersistence,
+  inMemoryPersistence,
+} from 'firebase/auth';
 import { auth, googleProvider } from '../lib/firebase';
 import HouseLoader from '@/components/HouseLoader';
+import {
+  isStorageAvailable,
+  shouldPreferRedirectForAuth,
+  mapAuthErrorCodeToKey,
+} from '@/lib/authSignInFlow';
 
 import colors from './colors';
 
@@ -20,6 +33,53 @@ function AuthPageInner() {
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthChecked, setIsAuthChecked] = useState(false);
   const [isSigningIn, setIsSigningIn] = useState(false);
+  const [isAuthBootstrapping, setIsAuthBootstrapping] = useState(true);
+
+  const shouldPreferRedirect = () => {
+    if (typeof navigator === 'undefined') return false;
+
+    const hasWorkingStorage =
+      typeof window !== 'undefined' ? isStorageAvailable(window.sessionStorage) : true;
+
+    return shouldPreferRedirectForAuth({
+      userAgent: navigator.userAgent || '',
+      platform: navigator.platform || '',
+      maxTouchPoints: navigator.maxTouchPoints || 0,
+      hasWorkingStorage,
+    });
+  };
+
+  const mapAuthErrorToMessage = (errorCode) => t(mapAuthErrorCodeToKey(errorCode));
+
+  useEffect(() => {
+    let active = true;
+
+    const bootstrapAuth = async () => {
+      try {
+        await setPersistence(auth, browserLocalPersistence);
+      } catch {
+        try {
+          await setPersistence(auth, inMemoryPersistence);
+        } catch {
+          // Ignore persistence setup failure and continue sign-in flow.
+        }
+      }
+
+      try {
+        await getRedirectResult(auth);
+      } catch (error) {
+        if (active) setError(mapAuthErrorToMessage(error?.code));
+      } finally {
+        if (active) setIsAuthBootstrapping(false);
+      }
+    };
+
+    bootstrapAuth();
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -42,8 +102,12 @@ function AuthPageInner() {
     setError('');
     
     try {
-      const result = await signInWithPopup(auth, googleProvider);
-      const user = result.user;
+      if (shouldPreferRedirect()) {
+        await signInWithRedirect(auth, googleProvider);
+        return;
+      }
+
+      await signInWithPopup(auth, googleProvider);
 
       // User is now authenticated - redirect will be handled by onAuthStateChanged
       // The redirect page will handle user document creation if needed
@@ -54,15 +118,14 @@ function AuthPageInner() {
       } else if (error.code === 'auth/cancelled-popup-request') {
         // User cancelled - normal, no error needed
       } else if (error.code === 'auth/popup-blocked') {
-        setError(t('error_popup_blocked'));
-      } else if (error.code === 'auth/network-request-failed') {
-        setError(t('error_network'));
-      } else if (error.code === 'auth/account-exists-with-different-credential') {
-        setError(t('error_account_exists'));
-      } else if (error.code === 'auth/email-already-in-use') {
-        setError(t('error_email_in_use'));
+        try {
+          await signInWithRedirect(auth, googleProvider);
+          return;
+        } catch (redirectError) {
+          setError(mapAuthErrorToMessage(redirectError?.code));
+        }
       } else {
-        setError(t('error_auth_failed'));
+        setError(mapAuthErrorToMessage(error.code));
       }
     } finally {
       setIsSigningIn(false);
@@ -70,7 +133,7 @@ function AuthPageInner() {
   };
 
   // Show loading spinner while checking auth state
-  if (isLoading || !isAuthChecked) {
+  if (isLoading || !isAuthChecked || isAuthBootstrapping) {
     return (
       <main className="min-h-screen flex items-center justify-center font-body px-4 phone-lg:px-0" style={{ background: colors.white }}>
         <HouseLoader size={80} text={t('loading')} />

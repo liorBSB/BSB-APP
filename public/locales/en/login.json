@@ -8,6 +8,8 @@
   "loading": "Loading...",
   "terms_notice": "By continuing, you agree to our terms and privacy policy",
   "error_popup_blocked": "Popup was blocked by your browser. Please allow popups for this site and try again.",
+  "error_open_in_browser": "Sign-in could not be completed in this browser. Please open this page in Safari or Chrome and try again.",
+  "error_unauthorized_domain": "This app domain is not authorized in Firebase Authentication settings.",
   "error_network": "Network error. Please check your internet connection and try again.",
   "error_account_exists": "An account already exists with this email using a different sign-in method.",
   "error_email_in_use": "This email is already registered. Please try signing in instead.",
