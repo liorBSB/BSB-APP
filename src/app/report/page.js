@@ -1,5 +1,6 @@
 "use client";
 import { useTranslation } from 'react-i18next';
+import { useRouter } from 'next/navigation';
 import BottomNavBar from '@/components/BottomNavBar';
 
 import PhotoUpload from '@/components/PhotoUpload';
@@ -12,24 +13,30 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { ref as storageRef, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { authedFetch } from '@/lib/authFetch';
 import { compressImage } from '@/components/PhotoUpload';
+import HouseLoader from '@/components/HouseLoader';
 
 const SHOW_PROBLEM_REPORT = false;
 
 function ReportPageContent() {
   const { t, i18n } = useTranslation('report');
+  const router = useRouter();
 
   // --- User data (for feedback email) ---
   const [userData, setUserData] = useState(null);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        const snap = await getDoc(doc(db, 'users', user.uid));
-        if (snap.exists()) setUserData(snap.data());
+      if (!user) {
+        router.push('/');
+        return;
       }
+      const snap = await getDoc(doc(db, 'users', user.uid));
+      if (snap.exists()) setUserData(snap.data());
+      setIsCheckingAuth(false);
     });
     return () => unsubscribe();
-  }, []);
+  }, [router]);
 
   // --- Website feedback state ---
   const [feedbackSubject, setFeedbackSubject] = useState('');
@@ -348,6 +355,14 @@ function ReportPageContent() {
       setRefundSaving(false);
     }
   };
+
+  if (isCheckingAuth) {
+    return (
+      <main className="min-h-screen bg-gradient-to-br from-blue-200/60 to-green-100/60 font-body flex items-center justify-center">
+        <HouseLoader />
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-blue-200/60 to-green-100/60 font-body flex flex-col items-center pt-10 pb-32 px-2 phone-sm:px-2 phone-md:px-4 phone-lg:px-6">

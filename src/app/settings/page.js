@@ -15,6 +15,7 @@ import Image from 'next/image';
 import { SOLDIER_EDIT_ENABLED } from '@/lib/sheetFieldMap';
 import colors from '../colors';
 import { StyledDateInput } from '@/components/StyledDateInput';
+import HouseLoader from '@/components/HouseLoader';
 
 export default function SettingsPage() {
   const { t, i18n } = useTranslation('settings');
@@ -48,22 +49,24 @@ export default function SettingsPage() {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        const userRef = doc(db, 'users', user.uid);
-        const userSnap = await getDoc(userRef);
-        if (userSnap.exists()) {
-          const data = userSnap.data();
-          setFields({
-            name: data.fullName || '',
-            room: data.roomNumber || '',
-            email: data.email || '',
-          });
-        }
+      if (!user) {
+        router.push('/');
+        return;
+      }
+      const userRef = doc(db, 'users', user.uid);
+      const userSnap = await getDoc(userRef);
+      if (userSnap.exists()) {
+        const data = userSnap.data();
+        setFields({
+          name: data.fullName || '',
+          room: data.roomNumber || '',
+          email: data.email || '',
+        });
       }
       setLoading(false);
     });
     return () => unsubscribe();
-  }, []);
+  }, [router]);
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -394,6 +397,14 @@ export default function SettingsPage() {
     setShowEditAllModal(false);
     setEditAllForm({});
   };
+
+  if (loading) {
+    return (
+      <main className="min-h-screen bg-gradient-to-br from-blue-200/60 to-green-100/60 font-body flex items-center justify-center">
+        <HouseLoader />
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-blue-200/60 to-green-100/60 font-body flex flex-col items-center pt-10 pb-32 px-2 phone-sm:px-2 phone-md:px-4 phone-lg:px-6">

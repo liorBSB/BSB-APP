@@ -112,6 +112,8 @@ export default function HomePage() {
             console.error('User onSnapshot error:', error);
           }
         );
+      } else {
+        return;
       }
       setLoadingUser(false);
       setIsCheckingProfile(false);

@@ -4,7 +4,9 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import '@/i18n';
 import { auth, db } from '@/lib/firebase';
+import { onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import HouseLoader from '@/components/HouseLoader';
 import colors from '../../colors';
 import AdminBottomNavBar from '@/components/AdminBottomNavBar';
 import EditFieldModal from '@/components/EditFieldModal';
@@ -14,6 +16,7 @@ import { cleanupExpiredPhotos } from '@/lib/storageCleanup';
 
 export default function AdminSettingsPage() {
   const router = useRouter();
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [fields, setFields] = useState({
     name: '',
     title: '',
@@ -30,23 +33,27 @@ export default function AdminSettingsPage() {
   const [cleanupResult, setCleanupResult] = useState(null);
 
   useEffect(() => {
-    const fetchUserData = async () => {
-      const user = auth.currentUser;
-      if (user) {
-        const userRef = doc(db, 'users', user.uid);
-        const docSnap = await getDoc(userRef);
-        if (docSnap.exists()) {
-          const data = docSnap.data();
-          setFields({
-            name: data.fullName || '',
-            title: data.jobTitle || '',
-            email: data.email || '',
-          });
-        }
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        router.push('/');
+        return;
       }
-    };
-    fetchUserData();
-  }, []);
+      const userRef = doc(db, 'users', user.uid);
+      const docSnap = await getDoc(userRef);
+      if (!docSnap.exists() || docSnap.data().userType !== 'admin') {
+        router.push('/');
+        return;
+      }
+      const data = docSnap.data();
+      setFields({
+        name: data.fullName || '',
+        title: data.jobTitle || '',
+        email: data.email || '',
+      });
+      setIsCheckingAuth(false);
+    });
+    return () => unsubscribe();
+  }, [router]);
 
   const handleSaveField = async (field, value) => {
     setSaving(true);
@@ -94,6 +101,14 @@ export default function AdminSettingsPage() {
     title: 'Job Title',
     email: 'Email',
   };
+
+  if (isCheckingAuth) {
+    return (
+      <main className="min-h-screen bg-gradient-to-br from-blue-200/60 to-green-100/60 font-body flex items-center justify-center">
+        <HouseLoader />
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-blue-200/60 to-green-100/60 font-body flex flex-col items-center pt-6 pb-32 px-4">

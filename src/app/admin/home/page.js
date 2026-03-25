@@ -168,16 +168,21 @@ export default function AdminHomePage() {
       const userRef = doc(db, 'users', user.uid);
       const userDoc = await getDoc(userRef);
       
-      if (userDoc.exists()) {
-        const data = userDoc.data();
-        setAdminData(data);
-        
-        // Check if admin profile is complete
-        if (!checkAdminProfileComplete(data)) {
-          router.push('/admin/profile-setup');
-          return;
-        }
-      } else {
+      if (!userDoc.exists()) {
+        router.push('/');
+        return;
+      }
+
+      const data = userDoc.data();
+
+      if (data.userType !== 'admin') {
+        router.push('/');
+        return;
+      }
+
+      setAdminData(data);
+
+      if (!checkAdminProfileComplete(data)) {
         router.push('/admin/profile-setup');
         return;
       }
