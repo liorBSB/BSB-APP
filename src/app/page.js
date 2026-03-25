@@ -8,8 +8,6 @@ import { useRouter, useSearchParams } from 'next/navigation';
 /* eslint-disable @next/next/no-img-element */
 import {
   signInWithPopup,
-  signInWithRedirect,
-  getRedirectResult,
   onAuthStateChanged,
   setPersistence,
   browserLocalPersistence,
@@ -19,8 +17,6 @@ import {
 import { auth, googleProvider } from '../lib/firebase';
 import HouseLoader from '@/components/HouseLoader';
 import {
-  isStorageAvailable,
-  shouldAvoidRedirectForAuth,
   mapAuthErrorCodeToKey,
 } from '@/lib/authSignInFlow';
 
@@ -35,19 +31,6 @@ function AuthPageInner() {
   const [isAuthChecked, setIsAuthChecked] = useState(false);
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [isAuthBootstrapping, setIsAuthBootstrapping] = useState(true);
-  const [hasDurablePersistence, setHasDurablePersistence] = useState(false);
-
-  const shouldAvoidRedirect = () => {
-    if (typeof navigator === 'undefined') return false;
-
-    const hasWorkingStorage =
-      typeof window !== 'undefined' ? isStorageAvailable(window.sessionStorage) : true;
-
-    return shouldAvoidRedirectForAuth({
-      userAgent: navigator.userAgent || '',
-      hasWorkingStorage,
-    });
-  };
 
   const mapAuthErrorToMessage = (errorCode) => t(mapAuthErrorCodeToKey(errorCode));
 
@@ -57,28 +40,18 @@ function AuthPageInner() {
     const bootstrapAuth = async () => {
       try {
         await setPersistence(auth, browserLocalPersistence);
-        if (active) setHasDurablePersistence(true);
       } catch {
         try {
           await setPersistence(auth, browserSessionPersistence);
-          if (active) setHasDurablePersistence(true);
         } catch {
           try {
             await setPersistence(auth, inMemoryPersistence);
           } catch {
             // Ignore persistence setup failure and continue sign-in flow.
           }
-          if (active) setHasDurablePersistence(false);
         }
       }
-
-      try {
-        await getRedirectResult(auth);
-      } catch (error) {
-        if (active) setError(mapAuthErrorToMessage(error?.code));
-      } finally {
-        if (active) setIsAuthBootstrapping(false);
-      }
+      if (active) setIsAuthBootstrapping(false);
     };
 
     bootstrapAuth();
@@ -120,16 +93,7 @@ function AuthPageInner() {
       } else if (error.code === 'auth/cancelled-popup-request') {
         // User cancelled - normal, no error needed
       } else if (error.code === 'auth/popup-blocked') {
-        try {
-          if (!hasDurablePersistence || shouldAvoidRedirect()) {
-            setError(t('error_open_in_browser'));
-            return;
-          }
-          await signInWithRedirect(auth, googleProvider);
-          return;
-        } catch (redirectError) {
-          setError(mapAuthErrorToMessage(redirectError?.code));
-        }
+        setError(t('error_popup_blocked'));
       } else {
         setError(mapAuthErrorToMessage(error.code));
       }
