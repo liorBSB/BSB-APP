@@ -503,6 +503,19 @@ export default function AdminHomePage() {
             ) : (<>
               {(openSurveys ? surveys : surveys.slice(0, 1)).map(survey => (
                 <div key={survey.id} className="relative mb-5 bg-blue-50 rounded-xl shadow-md p-6">
+                  {survey.link && survey.link.trim() !== '' && (
+                    <button
+                      className="absolute bottom-3 p-2 rounded-lg hover:bg-gray-200 transition-colors"
+                      style={{ insetInlineEnd: '0.75rem' }}
+                      title={t('copy_link')}
+                      onClick={() => openSurveyLinkModal(survey)}
+                    >
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" stroke="#6B7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" stroke="#6B7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    </button>
+                  )}
                   <div className="flex items-start justify-between">
                     <div className="flex-1 pr-4">
                       <div className="font-bold text-xl text-[#076332] mb-3 leading-tight line-clamp-2">{survey.title}</div>
@@ -526,18 +539,6 @@ export default function AdminHomePage() {
                       >
                         {t('fill_now')}
                       </button>
-                      {survey.link && survey.link.trim() !== '' && (
-                        <button
-                          className="p-2 rounded-lg hover:bg-gray-200 transition-colors"
-                          title={t('copy_link')}
-                          onClick={() => openSurveyLinkModal(survey)}
-                        >
-                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" stroke="#6B7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" stroke="#6B7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                          </svg>
-                        </button>
-                      )}
                       <button onClick={() => handleEditClick('survey', survey)} className="p-2 rounded-full hover:bg-gray-100">
                         <PencilIcon />
                       </button>
