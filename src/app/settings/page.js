@@ -424,7 +424,9 @@ export default function SettingsPage() {
         <div className="rounded-3xl p-10 mb-8 shadow-lg flex flex-col items-center" style={{ background: 'rgba(0,0,0,0.38)' }}>
           <h2 className="text-3xl font-extrabold mb-8 text-white text-center tracking-wide">{t('settings')}</h2>
           {loading ? (
-            <div className="text-center text-white text-xl py-8">{t('loading')}</div>
+            <div className="flex justify-center py-8">
+              <HouseLoader size={56} text={t('loading')} />
+            </div>
           ) : (
             <>
               {Object.keys(fields).map((field) => (

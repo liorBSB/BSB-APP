@@ -3,6 +3,12 @@ import { requireAuth } from '@/lib/serverAuth';
 import { searchSoldiersInSheets } from '@/lib/serverSheetsBridge';
 import { sheetRowToApp, FIELD_MAP } from '@/lib/sheetFieldMap';
 import { takeRateLimit, applyRateLimitHeaders, resolveRateLimitClientId } from '@/lib/rateLimit';
+import {
+  getSyncRequestId,
+  logSyncStep,
+  toBridgeError,
+  toErrorPayload,
+} from '@/lib/sheetsSyncRuntime';
 
 const ALLOWED_SEARCH_FIELDS = FIELD_MAP.map((field) => field.app);
 
@@ -22,6 +28,8 @@ function toSafeSearchResult(row) {
 }
 
 export async function POST(request) {
+  const requestId = getSyncRequestId('soldier-search');
+  const startedAt = Date.now();
   try {
     const authResult = await requireAuth(request);
     if (!authResult.ok) {
@@ -44,12 +52,27 @@ export async function POST(request) {
       return applyRateLimitHeaders(NextResponse.json({ soldiers: [] }), limiterResult);
     }
 
-    const matches = await searchSoldiersInSheets(normalized);
+    const matches = await searchSoldiersInSheets(normalized, { requestId });
+    logSyncStep({
+      requestId,
+      route: 'soldiers-search',
+      step: 'request.done',
+      details: { durationMs: Date.now() - startedAt, matches: matches.length },
+    });
     const response = NextResponse.json({
       soldiers: matches.slice(0, 20).map(toSafeSearchResult),
     });
     return applyRateLimitHeaders(response, limiterResult);
   } catch (error) {
-    return NextResponse.json({ error: error.message || 'Search failed' }, { status: 500 });
+    const bridgeError = toBridgeError(error, { message: 'Search failed' });
+    const payload = toErrorPayload(bridgeError, 'Search failed');
+    logSyncStep({
+      requestId,
+      route: 'soldiers-search',
+      step: 'request.error',
+      status: 'error',
+      details: { durationMs: Date.now() - startedAt, ...payload },
+    });
+    return NextResponse.json({ error: payload.message, ...payload }, { status: bridgeError.status || 500 });
   }
 }

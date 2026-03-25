@@ -36,6 +36,17 @@ function makeRequest(body) {
   });
 }
 
+function makeIdempotentRequest(body, key) {
+  return new Request('http://localhost/api/soldiers/update-sheet', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Idempotency-Key': key,
+    },
+    body: JSON.stringify(body),
+  });
+}
+
 describe('/api/soldiers/update-sheet POST', () => {
   let POST;
 
@@ -91,5 +102,22 @@ describe('/api/soldiers/update-sheet POST', () => {
     const body = await res.json();
     expect(body.success).toBe(true);
     expect(body.message).toBe('ok');
+  });
+
+  it('replays cached response for same idempotency key', async () => {
+    mockRequireOwnerOrAdmin.mockResolvedValue({ ok: true, uid: 'u1' });
+    mockGet.mockResolvedValue({
+      exists: true,
+      data: () => ({ idNumber: '123456789', fullName: 'Test User' }),
+    });
+    mockUpdateSoldierInSheets.mockResolvedValue({ message: 'ok' });
+
+    const payload = { userId: 'u1', updateData: { roomNumber: '4', idNumber: '123456789' } };
+    const first = await POST(makeIdempotentRequest(payload, 'key-1'));
+    const second = await POST(makeIdempotentRequest(payload, 'key-1'));
+
+    expect(first.status).toBe(200);
+    expect(second.status).toBe(200);
+    expect(mockUpdateSoldierInSheets).toHaveBeenCalledTimes(1);
   });
 });

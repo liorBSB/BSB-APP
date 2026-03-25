@@ -1,7 +1,7 @@
 'use client';
 
 import '@/i18n';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import i18n from '@/i18n';
 import { doc, updateDoc, collection, getDoc, getDocs, query, where, orderBy, onSnapshot, arrayUnion, arrayRemove } from 'firebase/firestore';
@@ -51,6 +51,9 @@ export default function HomePage() {
   const [showAllMessages, setShowAllMessages] = useState(false);
   const [isSavingStatus, setIsSavingStatus] = useState(false);
   const [isSavingEventResponse, setIsSavingEventResponse] = useState(false);
+  const statusRef = useRef('Home');
+  const isSavingStatusRef = useRef(false);
+  const queuedStatusRef = useRef(null);
   const isRTL = i18n.language?.startsWith('he');
   const dateLocale = isRTL ? 'he-IL' : 'en-US';
 
@@ -177,11 +180,18 @@ export default function HomePage() {
     }
   }, [userData?.status]);
 
-  const handleStatusToggle = async (newStatus) => {
-    if (isSavingStatus || newStatus === status) return;
+  useEffect(() => {
+    statusRef.current = status;
+  }, [status]);
+
+  const persistStatus = async (newStatus) => {
+    if (newStatus === statusRef.current) return;
+
     setIsSavingStatus(true);
-    setStatus(newStatus);
+    isSavingStatusRef.current = true;
     const uid = auth.currentUser?.uid;
+
+    setStatus(newStatus);
     if (uid) {
       const userRef = doc(db, 'users', uid);
       try {
@@ -189,10 +199,34 @@ export default function HomePage() {
         syncStatusToReceptionSheet(userData?.roomNumber, newStatus).catch(() => {});
       } finally {
         setIsSavingStatus(false);
+        isSavingStatusRef.current = false;
       }
       return;
     }
+
     setIsSavingStatus(false);
+    isSavingStatusRef.current = false;
+  };
+
+  const handleStatusToggle = async (newStatus) => {
+    if (newStatus === statusRef.current) {
+      queuedStatusRef.current = null;
+      return;
+    }
+
+    // If a save is in-flight, keep only the latest choice.
+    if (isSavingStatusRef.current) {
+      queuedStatusRef.current = newStatus;
+      setStatus(newStatus);
+      return;
+    }
+
+    let nextStatus = newStatus;
+    while (nextStatus && nextStatus !== statusRef.current) {
+      queuedStatusRef.current = null;
+      await persistStatus(nextStatus);
+      nextStatus = queuedStatusRef.current;
+    }
   };
 
 
@@ -426,7 +460,9 @@ export default function HomePage() {
           </div>
           <div className="p-5" style={{ background: 'rgba(0,0,0,0.18)' }}>
             {loadingEvents ? (
-              <div className="text-center text-muted py-3">{t('loading')}</div>
+              <div className="flex justify-center py-3">
+                <HouseLoader size={48} text={t('loading')} />
+              </div>
             ) : futureEvents.length === 0 ? (
               <div className="text-center text-muted py-3">{t('noUpcomingEvents')}</div>
             ) : (<>
@@ -515,7 +551,9 @@ export default function HomePage() {
           </div>
           <div className="p-5" style={{ background: 'rgba(0,0,0,0.18)' }}>
             {loadingSurveys ? (
-              <div className="text-center text-muted py-3">{t('loading')}</div>
+              <div className="flex justify-center py-3">
+                <HouseLoader size={48} text={t('loading')} />
+              </div>
             ) : futureSurveys.length === 0 ? (
               <div className="text-center text-muted py-3">{t('noSurveys')}</div>
             ) : (<>
@@ -601,7 +639,9 @@ export default function HomePage() {
           </div>
           <div className="p-5" style={{ background: 'rgba(0,0,0,0.18)' }}>
             {loadingMessages ? (
-              <div className="text-center text-muted py-3">{t('loading')}</div>
+              <div className="flex justify-center py-3">
+                <HouseLoader size={48} text={t('loading')} />
+              </div>
             ) : futureMessages.length === 0 ? (
               <div className="text-center text-muted py-3">{t('no_important_messages')}</div>
             ) : (<>

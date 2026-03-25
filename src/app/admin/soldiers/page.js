@@ -9,6 +9,7 @@ import { doc, getDoc } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import AdminBottomNavBar from '@/components/AdminBottomNavBar';
 import SoldierManagement from '@/components/SoldierManagement';
+import HouseLoader from '@/components/HouseLoader';
 
 export default function AdminSoldiersPage() {
   const { t } = useTranslation('admin');
@@ -60,7 +61,7 @@ export default function AdminSoldiersPage() {
   if (isCheckingProfile) {
     return (
       <main className="min-h-screen bg-gradient-to-br from-blue-200/60 to-green-100/60 font-body flex items-center justify-center">
-        <div className="text-center text-muted">{t('loading')}</div>
+        <HouseLoader size={80} text={t('loading')} />
       </main>
     );
   }

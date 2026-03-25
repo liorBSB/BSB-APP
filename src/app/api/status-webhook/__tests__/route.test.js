@@ -277,4 +277,30 @@ describe('/api/status-webhook POST', () => {
     const body = await res.json();
     expect(body.message).toContain('room 5');
   });
+
+  it('ignores stale webhook updates when local updatedAt is newer', async () => {
+    const nowSec = Math.floor(Date.now() / 1000);
+    const newerDoc = {
+      data: () => ({ updatedAt: new Date((nowSec + 60) * 1000).toISOString() }),
+      ref: { update: vi.fn() },
+    };
+    mockGet.mockResolvedValue({ empty: false, docs: [newerDoc] });
+
+    const body = { room: '5', status: 'Home' };
+    const staleTimestampSec = nowSec;
+    const nonce = 'stale-nonce';
+    const signature = sign('test-secret-123', staleTimestampSec, nonce, body);
+    const res = await POST(
+      makeRequest(body, null, {
+        'x-webhook-timestamp': String(staleTimestampSec),
+        'x-webhook-nonce': nonce,
+        'x-webhook-signature': signature,
+      }),
+    );
+
+    expect(res.status).toBe(202);
+    const responseBody = await res.json();
+    expect(responseBody.staleIgnored).toBe(true);
+    expect(newerDoc.ref.update).not.toHaveBeenCalled();
+  });
 });

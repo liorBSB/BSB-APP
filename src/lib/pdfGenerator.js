@@ -270,6 +270,31 @@ function createTableHooks(items, photoColIndex, getPhotoUrl) {
 }
 
 // ---------------------------------------------------------------------------
+// PDF file delivery
+// ---------------------------------------------------------------------------
+
+function triggerPdfDownload(doc, fileName) {
+  const blob = doc.output('blob');
+  const blobUrl = URL.createObjectURL(blob);
+
+  try {
+    const link = document.createElement('a');
+    link.href = blobUrl;
+    link.download = fileName;
+    link.rel = 'noopener';
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  } catch {
+    // Fallback for environments that block programmatic anchor downloads.
+    doc.save(fileName);
+  } finally {
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 30000);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Date range helpers
 // ---------------------------------------------------------------------------
 
@@ -409,7 +434,7 @@ export async function generateExpensesPDF(items, options = {}) {
   );
 
   const fileName = `expenses_report_${new Date().toISOString().slice(0, 10)}.pdf`;
-  doc.save(fileName);
+  triggerPdfDownload(doc, fileName);
 }
 
 // ---------------------------------------------------------------------------
@@ -528,5 +553,5 @@ export async function generateRefundsPDF(items, options = {}) {
   );
 
   const fileName = `RefundReport_${getDateRangeLabel(dateRange)}_${new Date().toISOString().slice(0, 10)}.pdf`;
-  doc.save(fileName);
+  triggerPdfDownload(doc, fileName);
 }

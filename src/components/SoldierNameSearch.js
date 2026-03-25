@@ -6,6 +6,7 @@ import '@/i18n';
 import { useTranslation } from 'react-i18next';
 import { useState, useEffect, useRef } from 'react';
 import { searchSoldiersByName } from '@/lib/soldierDataService';
+import HouseLoader from '@/components/HouseLoader';
 
 const FULL_NAME_COL = 'שם מלא                                  (מילוי אוטומטי: לא לגעת)';
 const ID_COL = 'מספר זהות';
@@ -28,6 +29,7 @@ export default function SoldierNameSearch({
   const [isLoading, setIsLoading] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [queryError, setQueryError] = useState('');
+  const [hasCommittedSelection, setHasCommittedSelection] = useState(false);
 
   const inputRef = useRef(null);
 
@@ -35,6 +37,14 @@ export default function SoldierNameSearch({
     let cancelled = false;
     const normalized = searchTerm.trim();
     setQueryError('');
+
+    // Stop auto-search after user picked a result; resume only on manual edit/clear.
+    if (hasCommittedSelection) {
+      setIsLoading(false);
+      setSuggestions([]);
+      setShowSuggestions(false);
+      return () => { cancelled = true; };
+    }
 
     if (normalized.length < 2) {
       setSuggestions([]);
@@ -64,11 +74,12 @@ export default function SoldierNameSearch({
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [searchTerm, t]);
+  }, [searchTerm, hasCommittedSelection, t]);
 
   const handleInputChange = (e) => {
     const value = e.target.value;
     setSearchTerm(value);
+    setHasCommittedSelection(false);
 
     if (value.trim().length < 2) {
       setSuggestions([]);
@@ -80,6 +91,7 @@ export default function SoldierNameSearch({
   const handleSuggestionClick = (soldier) => {
     const name = soldier[FULL_NAME_COL] || soldier.fullName || '';
     setSearchTerm(name);
+    setHasCommittedSelection(true);
     setShowSuggestions(false);
     setSuggestions([]);
     onSoldierSelect(soldier);
@@ -114,6 +126,7 @@ export default function SoldierNameSearch({
     setSuggestions([]);
     setQueryError('');
     setShowSuggestions(false);
+    setHasCommittedSelection(false);
     onSoldierSelect(null);
     inputRef.current?.focus();
   };
@@ -148,14 +161,7 @@ export default function SoldierNameSearch({
             direction: 'rtl' // Ensure Hebrew text displays correctly
           }}
         />
-        
-        {/* Small loading indicator while searching */}
-        {isLoading && (
-          <div className="absolute left-3 top-1/2 transform -translate-y-1/2">
-            <div className="animate-spin rounded-full h-5 w-5 border-2 border-green-500 border-t-transparent"></div>
-          </div>
-        )}
-        
+
         {/* Clear button */}
         {searchTerm && !disabled && (
           <button
@@ -167,6 +173,13 @@ export default function SoldierNameSearch({
           </button>
         )}
       </div>
+
+      {/* Searching indicator (bigger, below input) */}
+      {isLoading && searchTerm.trim().length >= 2 && (
+        <div className="mt-3 flex flex-col items-center justify-center text-center">
+          <HouseLoader size={44} text={t('soldier_name_searching')} />
+        </div>
+      )}
 
       {/* Suggestions Dropdown */}
       {showSuggestions && suggestions.length > 0 && (
@@ -217,6 +230,9 @@ export default function SoldierNameSearch({
       {showSuggestions && suggestions.length === 0 && searchTerm.trim().length >= 2 && !isLoading && (
         <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg p-4 text-center text-gray-500">
           {t('soldier_name_no_results', { term: searchTerm })}
+          <div className="mt-1 text-xs text-gray-400">
+            {t('soldier_name_no_results_hint')}
+          </div>
         </div>
       )}
 

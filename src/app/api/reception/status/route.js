@@ -7,11 +7,20 @@ import {
   applyRateLimitHeaders,
   resolveRateLimitClientId,
 } from '@/lib/rateLimit';
+import {
+  getSyncRequestId,
+  logSyncStep,
+  toBridgeError,
+  toErrorPayload,
+} from '@/lib/sheetsSyncRuntime';
 
 const VALID_STATUSES = ['Home', 'Out', 'In base', 'Abroad'];
 
 export async function POST(request) {
+  const requestId = getSyncRequestId('reception-status');
+  const startedAt = Date.now();
   try {
+    logSyncStep({ requestId, route: 'reception-status', step: 'request.start' });
     const authResult = await requireAuth(request);
     if (!authResult.ok) {
       return NextResponse.json({ error: authResult.error }, { status: authResult.status });
@@ -42,14 +51,31 @@ export async function POST(request) {
       return respond({ error: 'Forbidden room access' }, 403);
     }
 
-    const rows = await fetchReceptionRows();
+    const rows = await fetchReceptionRows({ requestId });
     const match = rows.find((row) => String(row.room || '').trim() === room);
     const status = String(match?.status || '').trim();
     if (!status || status === 'Empty' || !VALID_STATUSES.includes(status)) {
       return respond({ status: 'Home' });
     }
+    logSyncStep({
+      requestId,
+      route: 'reception-status',
+      step: 'request.done',
+      details: { durationMs: Date.now() - startedAt, found: Boolean(match) },
+    });
     return respond({ status });
-  } catch {
+  } catch (error) {
+    const bridgeError = toBridgeError(error, { message: 'Reception status lookup failed' });
+    logSyncStep({
+      requestId,
+      route: 'reception-status',
+      step: 'request.error',
+      status: 'error',
+      details: {
+        durationMs: Date.now() - startedAt,
+        ...toErrorPayload(bridgeError, 'Reception status lookup failed'),
+      },
+    });
     return NextResponse.json({ status: 'Home' });
   }
 }

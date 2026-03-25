@@ -36,5 +36,6 @@
   "personal_number_placeholder": "Personal number",
   "reclaim_submit": "Verify & Reclaim",
   "reclaim_cancel": "Cancel",
-  "reclaim_failed": "Personal number does not match. Contact staff for help."
+  "reclaim_failed": "Personal number does not match. Contact staff for help.",
+  "clear_selection": "Clear selected resident"
 }

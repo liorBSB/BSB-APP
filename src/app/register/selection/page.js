@@ -11,6 +11,7 @@ import { signOut } from 'firebase/auth';
 import useAuthRedirect from '@/hooks/useAuthRedirect';
 import colors from '../../colors';
 import { setLangCookie } from '@/lib/langCookie';
+import HouseLoader from '@/components/HouseLoader';
 
 export default function SelectionPage() {
   const router = useRouter();
@@ -103,7 +104,7 @@ export default function SelectionPage() {
   if (!isReady) {
     return (
       <main className="min-h-screen flex items-center justify-center font-body" style={{ background: colors.white }}>
-        <div className="animate-spin rounded-full h-16 w-16 border-b-4" style={{ borderColor: colors.primaryGreen }}></div>
+        <HouseLoader size={80} text={t('loading')} />
       </main>
     );
   }

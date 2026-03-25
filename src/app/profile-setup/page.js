@@ -257,6 +257,27 @@ export default function ProfileSetup() {
                 position: 'relative',
                 boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
               }}>
+                <button
+                  type="button"
+                  onClick={() => handleSoldierSelect(null)}
+                  aria-label={t('clear_selection')}
+                  style={{
+                    position: 'absolute',
+                    top: '0.5rem',
+                    left: '0.5rem',
+                    width: '1.75rem',
+                    height: '1.75rem',
+                    borderRadius: '999px',
+                    border: 'none',
+                    background: 'rgba(0,0,0,0.06)',
+                    color: colors.muted,
+                    cursor: 'pointer',
+                    fontWeight: 700,
+                    lineHeight: 1
+                  }}
+                >
+                  ✕
+                </button>
                 <div style={{ textAlign: 'start', fontSize: '1rem' }} dir={isRTL ? 'rtl' : 'ltr'}>
                   <div
                     style={{
@@ -362,7 +383,7 @@ export default function ProfileSetup() {
             >
               {isLoading ? (
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
-                  <div className="animate-spin rounded-full h-5 w-5 border-2 border-black border-t-transparent"></div>
+                  <HouseLoader size={20} />
                   {t('loading')}
                 </div>
               ) : (

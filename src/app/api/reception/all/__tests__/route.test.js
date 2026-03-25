@@ -49,5 +49,6 @@ describe('/api/reception/all GET', () => {
     expect(res.status).toBe(500);
     const body = await res.json();
     expect(body.error).toBe('unavailable');
+    expect(body.code).toBeDefined();
   });
 });

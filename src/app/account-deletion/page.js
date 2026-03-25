@@ -117,9 +117,7 @@ export default function AccountDeletionPage() {
             <>
               <div className="text-center mb-6">
                 <div className="w-20 h-20 mx-auto mb-4 rounded-full flex items-center justify-center" style={{ backgroundColor: '#fef3c7' }}>
-                  <svg className="w-10 h-10 text-yellow-500 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                  </svg>
+                  <HouseLoader size={44} />
                 </div>
                 <h2 className="text-2xl font-bold mb-3 text-white">{t('deleting_account')}</h2>
                 <p className="text-white/80 text-sm mb-2">{t('deleting_wait')}</p>

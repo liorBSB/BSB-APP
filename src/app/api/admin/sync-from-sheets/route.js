@@ -4,6 +4,12 @@ import { requireAdmin } from '@/lib/serverAuth';
 import { getAdminDb } from '@/lib/firebaseAdmin';
 import { fetchAllSoldiersFromSheets } from '@/lib/serverSheetsBridge';
 import { PRIMARY_KEY_APP, PRIMARY_KEY_SHEET, sheetRowToApp } from '@/lib/sheetFieldMap';
+import {
+  getSyncRequestId,
+  logSyncStep,
+  toBridgeError,
+  toErrorPayload,
+} from '@/lib/sheetsSyncRuntime';
 
 async function ensureDepartureRequest(db, soldier) {
   const existing = await db
@@ -28,6 +34,8 @@ async function ensureDepartureRequest(db, soldier) {
 }
 
 export async function POST(request) {
+  const requestId = getSyncRequestId('sync-from-sheets');
+  const startedAt = Date.now();
   try {
     const authResult = await requireAdmin(request);
     if (!authResult.ok) {
@@ -35,19 +43,28 @@ export async function POST(request) {
     }
 
     const db = getAdminDb();
-    const sheetSoldiers = await fetchAllSoldiersFromSheets();
+    const sheetSoldiers = await fetchAllSoldiersFromSheets({ requestId });
     const usersSnap = await db.collection('users').where('userType', '==', 'user').get();
     const appSoldiers = usersSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    const appById = new Map(
+      appSoldiers.map((soldier) => [String(soldier[PRIMARY_KEY_APP] || '').trim(), soldier]),
+    );
 
     let updated = 0;
+    let skipped = 0;
+    let unmatchedRows = 0;
     for (const sheetRow of sheetSoldiers) {
       const sheetId = String(sheetRow[PRIMARY_KEY_SHEET] || '').trim();
-      if (!sheetId) continue;
+      if (!sheetId) {
+        skipped++;
+        continue;
+      }
 
-      const match = appSoldiers.find(
-        (s) => String(s[PRIMARY_KEY_APP] || '').trim() === sheetId,
-      );
-      if (!match) continue;
+      const match = appById.get(sheetId);
+      if (!match) {
+        unmatchedRows++;
+        continue;
+      }
 
       const mapped = sheetRowToApp(sheetRow);
       const nonEmpty = {};
@@ -69,6 +86,8 @@ export async function POST(request) {
           updatedAt: Timestamp.now(),
         });
         updated++;
+      } else {
+        skipped++;
       }
     }
 
@@ -85,8 +104,30 @@ export async function POST(request) {
       if (await ensureDepartureRequest(db, soldier)) flagged++;
     }
 
-    return NextResponse.json({ success: true, updated, flagged });
+    const payload = { success: true, updated, flagged, skipped, unmatchedRows };
+    logSyncStep({
+      requestId,
+      route: 'admin-sync-from-sheets',
+      step: 'request.done',
+      details: {
+        durationMs: Date.now() - startedAt,
+        updated,
+        flagged,
+        skipped,
+        unmatchedRows,
+      },
+    });
+    return NextResponse.json(payload);
   } catch (error) {
-    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+    const bridgeError = toBridgeError(error, { message: 'Sync from sheets failed' });
+    const payload = { success: false, ...toErrorPayload(bridgeError, 'Sync from sheets failed') };
+    logSyncStep({
+      requestId,
+      route: 'admin-sync-from-sheets',
+      step: 'request.error',
+      status: 'error',
+      details: { durationMs: Date.now() - startedAt, ...payload },
+    });
+    return NextResponse.json(payload, { status: bridgeError.status || 500 });
   }
 }

@@ -33,5 +33,6 @@
   "personal_number_placeholder": "מספר אישי",
   "reclaim_submit": "אימות ושחזור",
   "reclaim_cancel": "ביטול",
-  "reclaim_failed": "המספר האישי לא תואם. פנה/י לצוות לעזרה."
+  "reclaim_failed": "המספר האישי לא תואם. פנה/י לצוות לעזרה.",
+  "clear_selection": "ניקוי בחירה"
 }

@@ -108,5 +108,6 @@ describe('/api/soldiers/search POST', () => {
     expect(res.status).toBe(500);
     const body = await res.json();
     expect(body.error).toBe('bridge down');
+    expect(body.code).toBeDefined();
   });
 });

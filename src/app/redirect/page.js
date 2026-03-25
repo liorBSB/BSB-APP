@@ -7,6 +7,7 @@ import { auth, db } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { createBaseUserDoc } from '@/lib/database';
 import colors from '../colors';
+import HouseLoader from '@/components/HouseLoader';
 
 function getSafeNext(next, userType) {
   if (!next || !next.startsWith('/') || next.startsWith('//')) return null;
@@ -157,10 +158,7 @@ function RedirectPageInner() {
 
   return (
     <main className="min-h-screen flex items-center justify-center font-body" style={{ background: colors.white }}>
-      <div className="flex flex-col items-center justify-center">
-        <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-primaryGreen mb-6" style={{ borderColor: colors.primaryGreen }}></div>
-        <div style={{ color: colors.primaryGreen, fontWeight: 600, fontSize: 22 }}>{t('checking_account')}</div>
-      </div>
+      <HouseLoader size={80} text={t('checking_account')} />
     </main>
   );
 }

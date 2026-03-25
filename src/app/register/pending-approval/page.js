@@ -8,6 +8,7 @@ import { doc, onSnapshot } from 'firebase/firestore';
 
 import colors from '../../colors';
 import { fullyDeleteCurrentUser } from '@/lib/accountDeletionClient';
+import HouseLoader from '@/components/HouseLoader';
 
 export default function PendingApprovalPage() {
   const router = useRouter();
@@ -95,10 +96,7 @@ export default function PendingApprovalPage() {
   if (loading) {
     return (
       <main className="min-h-screen flex items-center justify-center font-body px-4 phone-lg:px-0" style={{ background: colors.white }}>
-        <div className="text-center">
-          <div className="text-muted mb-2">{t('pending_approval.processing')}</div>
-          <div className="text-sm text-muted">{t('pending_approval.please_wait')}</div>
-        </div>
+        <HouseLoader size={80} text={t('pending_approval.processing')} />
       </main>
     );
   }

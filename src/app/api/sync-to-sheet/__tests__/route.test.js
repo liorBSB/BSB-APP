@@ -54,6 +54,8 @@ describe('/api/sync-to-sheet POST', () => {
       data: () => ({ userType: 'user', roomNumber: '5' }),
     });
     process.env.RECEPTION_SCRIPT_URL = FAKE_URL;
+    process.env.SHEETS_FETCH_RETRIES_ENABLED = 'false';
+    process.env.SHEETS_FETCH_RETRIES = '0';
     const mod = await import('../../sync-to-sheet/route.js');
     POST = mod.POST;
   });
@@ -61,6 +63,8 @@ describe('/api/sync-to-sheet POST', () => {
   afterEach(() => {
     vi.restoreAllMocks();
     delete process.env.RECEPTION_SCRIPT_URL;
+    delete process.env.SHEETS_FETCH_RETRIES_ENABLED;
+    delete process.env.SHEETS_FETCH_RETRIES;
   });
 
   it('returns 500 when RECEPTION_SCRIPT_URL is not configured', async () => {
@@ -72,6 +76,7 @@ describe('/api/sync-to-sheet POST', () => {
     expect(res.status).toBe(500);
     const body = await res.json();
     expect(body.message).toContain('not configured');
+    expect(body.code).toBe('CONFIG_MISSING');
   });
 
   it('rejects unauthenticated requests', async () => {
@@ -175,9 +180,9 @@ describe('/api/sync-to-sheet POST', () => {
     fetch.mockResolvedValueOnce({ ok: false, status: 502 });
 
     const res = await POST(makeRequest({ roomNumber: '5', newStatus: 'Home' }));
-    expect(res.status).toBe(500);
+    expect(res.status).toBe(502);
     const body = await res.json();
-    expect(body.message).toContain('Reception read failed');
+    expect(body.code).toBe('UPSTREAM_5XX');
   });
 
   it('returns 500 when POST to sheet fails', async () => {
@@ -189,9 +194,9 @@ describe('/api/sync-to-sheet POST', () => {
       .mockResolvedValueOnce({ ok: false, status: 500 });
 
     const res = await POST(makeRequest({ roomNumber: '5', newStatus: 'Out' }));
-    expect(res.status).toBe(500);
+    expect(res.status).toBe(502);
     const body = await res.json();
-    expect(body.message).toContain('Reception update failed');
+    expect(body.code).toBe('UPSTREAM_5XX');
   });
 
   it('returns 500 when sheet POST returns non-success status', async () => {
@@ -206,7 +211,7 @@ describe('/api/sync-to-sheet POST', () => {
       });
 
     const res = await POST(makeRequest({ roomNumber: '5', newStatus: 'Out' }));
-    expect(res.status).toBe(500);
+    expect(res.status).toBe(502);
     const body = await res.json();
     expect(body.message).toBe('Sheet locked');
   });
@@ -215,9 +220,10 @@ describe('/api/sync-to-sheet POST', () => {
     fetch.mockRejectedValueOnce(new Error('DNS resolution failed'));
 
     const res = await POST(makeRequest({ roomNumber: '5', newStatus: 'Home' }));
-    expect(res.status).toBe(500);
+    expect(res.status).toBe(502);
     const body = await res.json();
     expect(body.message).toBe('DNS resolution failed');
+    expect(body.code).toBe('UPSTREAM_NETWORK');
   });
 
   it('trims room numbers when matching', async () => {
@@ -291,9 +297,45 @@ describe('/api/sync-to-sheet POST', () => {
       });
 
     const res = await POST(makeRequest({ roomNumber: '5', newStatus: 'Out' }));
-    expect(res.status).toBe(500);
+    expect(res.status).toBe(502);
     const body = await res.json();
     expect(body.message).toBe('Reception update failed');
+  });
+
+  it('returns 504 when reception read times out', async () => {
+    fetch.mockRejectedValueOnce(Object.assign(new Error('aborted'), { name: 'AbortError' }));
+
+    const res = await POST(makeRequest({ roomNumber: '5', newStatus: 'Home' }));
+    expect(res.status).toBe(504);
+    const body = await res.json();
+    expect(body.code).toBe('UPSTREAM_TIMEOUT');
+  });
+
+  it('replays same response when idempotency key repeats', async () => {
+    fetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve([{ room: '5', id: 'row-5', status: 'Home' }]),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ status: 'success' }),
+      });
+
+    const first = await POST(new Request('http://localhost/api/sync-to-sheet', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Idempotency-Key': 'abc-123' },
+      body: JSON.stringify({ roomNumber: '5', newStatus: 'Out' }),
+    }));
+    const second = await POST(new Request('http://localhost/api/sync-to-sheet', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Idempotency-Key': 'abc-123' },
+      body: JSON.stringify({ roomNumber: '5', newStatus: 'Out' }),
+    }));
+
+    expect(first.status).toBe(200);
+    expect(second.status).toBe(200);
+    expect(fetch).toHaveBeenCalledTimes(2);
   });
 
   it('handles sheet returning empty array', async () => {

@@ -6,6 +6,7 @@ import { storage, auth } from '@/lib/firebase';
 import colors from '@/app/colors';
 import '@/i18n';
 import { useTranslation } from 'react-i18next';
+import HouseLoader from '@/components/HouseLoader';
 
 export function compressImage(file, maxDimension = 1200) {
   return new Promise((resolve) => {
@@ -513,7 +514,9 @@ const PhotoUpload = forwardRef(function PhotoUpload(
           {cameraLoading && (
             <div className="absolute inset-0 flex items-center justify-center bg-black/50">
               <div className="text-white text-center">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-2"></div>
+                <div className="flex justify-center mb-2">
+                  <HouseLoader size={36} />
+                </div>
                 <p>{t('photo_upload.starting_camera')}</p>
               </div>
             </div>

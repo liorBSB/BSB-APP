@@ -87,6 +87,8 @@ describe('/api/admin/sync-from-sheets POST', () => {
     expect(body.success).toBe(true);
     expect(body.updated).toBe(0);
     expect(body.flagged).toBe(0);
+    expect(body.skipped).toBe(0);
+    expect(body.unmatchedRows).toBe(0);
   });
 
   it('returns 500 on bridge failure', async () => {
@@ -98,6 +100,7 @@ describe('/api/admin/sync-from-sheets POST', () => {
     const body = await res.json();
     expect(body.success).toBe(false);
     expect(body.message).toBe('bridge down');
+    expect(body.code).toBeDefined();
   });
 });
 

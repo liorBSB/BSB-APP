@@ -8,6 +8,7 @@ import { doc, setDoc, getDoc, writeBatch, serverTimestamp } from 'firebase/fires
 import useAuthRedirect from '@/hooks/useAuthRedirect';
 import colors from '../../colors';
 import { resetUserToPreSelection } from '@/lib/database';
+import HouseLoader from '@/components/HouseLoader';
 
 export default function AdminProfileSetupPage() {
   const router = useRouter();
@@ -93,7 +94,7 @@ export default function AdminProfileSetupPage() {
   if (!isReady) {
     return (
       <main className="min-h-screen flex items-center justify-center font-body" style={{ background: colors.white }}>
-        <div className="animate-spin rounded-full h-16 w-16 border-b-4" style={{ borderColor: colors.primaryGreen }}></div>
+        <HouseLoader size={80} text={t('loading')} />
       </main>
     );
   }

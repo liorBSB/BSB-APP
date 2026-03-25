@@ -18,6 +18,7 @@ import EditFieldModal from '@/components/EditFieldModal';
 import PencilIcon from '@/components/PencilIcon';
 import AddItemModal from '@/components/AddItemModal';
 import { StyledDateTimeInput } from '@/components/StyledDateInput';
+import HouseLoader from '@/components/HouseLoader';
 
 
 export default function AdminHomePage() {
@@ -206,7 +207,7 @@ export default function AdminHomePage() {
   if (isCheckingProfile) {
     return (
       <main className="min-h-screen bg-gradient-to-br from-blue-200/60 to-green-100/60 font-body flex items-center justify-center">
-        <div className="text-center text-muted">{t('loading')}</div>
+        <HouseLoader size={80} text={t('loading')} />
       </main>
     );
   }
@@ -392,7 +393,9 @@ export default function AdminHomePage() {
           </div>
           <div className="p-5" style={{ background: 'rgba(0,0,0,0.18)' }}>
             {loading ? (
-              <div className="text-center text-muted py-3">{t('loading')}</div>
+              <div className="flex justify-center py-3">
+                <HouseLoader size={48} text={t('loading')} />
+              </div>
             ) : events.length === 0 ? (
               <div className="text-center text-muted py-3">{t('no_events')}</div>
             ) : (<>
@@ -456,7 +459,9 @@ export default function AdminHomePage() {
           </div>
           <div className="p-5" style={{ background: 'rgba(0,0,0,0.18)' }}>
             {loading ? (
-              <div className="text-center text-muted py-3">{t('loading')}</div>
+              <div className="flex justify-center py-3">
+                <HouseLoader size={48} text={t('loading')} />
+              </div>
             ) : surveys.length === 0 ? (
               <div className="text-center text-muted py-3">{t('no_surveys')}</div>
             ) : (<>
@@ -513,7 +518,9 @@ export default function AdminHomePage() {
           </div>
           <div className="p-5" style={{ background: 'rgba(0,0,0,0.18)' }}>
             {loading ? (
-              <div className="text-center text-muted py-3">{t('loading')}</div>
+              <div className="flex justify-center py-3">
+                <HouseLoader size={48} text={t('loading')} />
+              </div>
             ) : messages.length === 0 ? (
               <div className="text-center text-muted py-3">{t('no_messages')}</div>
             ) : (<>
@@ -568,7 +575,9 @@ export default function AdminHomePage() {
           </div>
           <div className="p-5" style={{ background: 'rgba(0,0,0,0.18)' }}>
             {loading ? (
-              <div className="text-center text-muted py-3">{t('loading')}</div>
+              <div className="flex justify-center py-3">
+                <HouseLoader size={48} text={t('loading')} />
+              </div>
             ) : approvalRequests.length === 0 ? (
               <div className="text-center text-muted py-3">{t('no_pending_approvals')}</div>
             ) : openApprovalRequests ? (

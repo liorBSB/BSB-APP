@@ -478,12 +478,9 @@ function AdminReportPageContent() {
   // Show loading while checking admin profile
   if (isCheckingProfile) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-900 via-blue-800 to-indigo-900 flex items-center justify-center">
-        <div className="text-white text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
-          <p>Verifying admin access...</p>
-        </div>
-      </div>
+      <main className="min-h-screen bg-gradient-to-br from-blue-200/60 to-green-100/60 flex items-center justify-center">
+        <HouseLoader size={80} text={t('loading')} />
+      </main>
     );
   }
 

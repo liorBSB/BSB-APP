@@ -8,6 +8,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 /* eslint-disable @next/next/no-img-element */
 import { signInWithPopup, onAuthStateChanged } from 'firebase/auth';
 import { auth, googleProvider } from '../lib/firebase';
+import HouseLoader from '@/components/HouseLoader';
 
 import colors from './colors';
 
@@ -72,10 +73,7 @@ function AuthPageInner() {
   if (isLoading || !isAuthChecked) {
     return (
       <main className="min-h-screen flex items-center justify-center font-body px-4 phone-lg:px-0" style={{ background: colors.white }}>
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-4 mx-auto mb-6" style={{ borderColor: colors.primaryGreen }}></div>
-          <div style={{ color: colors.primaryGreen, fontWeight: 600, fontSize: 22 }}>{t('loading')}</div>
-        </div>
+        <HouseLoader size={80} text={t('loading')} />
       </main>
     );
   }
@@ -176,7 +174,7 @@ function AuthPageInner() {
         >
           {isSigningIn ? (
             <>
-              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-gray-400"></div>
+              <HouseLoader size={20} />
               {t('signing_in')}
             </>
           ) : (

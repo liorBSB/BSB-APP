@@ -14,6 +14,7 @@ import { mapSoldierData } from '@/lib/soldierDataService';
 import colors from '../app/colors';
 import { useTranslation } from 'react-i18next';
 import { StyledDateInput } from '@/components/StyledDateInput';
+import HouseLoader from '@/components/HouseLoader';
 
 const STATUS_OPTIONS = ['Home', 'Out', 'In base', 'Abroad'];
 
@@ -918,7 +919,9 @@ export default function SoldierManagement() {
       {/* Soldiers List */}
       {loading ? (
         <div className="text-center py-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <div className="flex justify-center mb-4">
+            <HouseLoader size={40} />
+          </div>
           <div className="text-gray-600">{t('loading_soldiers')}</div>
         </div>
       ) : (
@@ -1836,7 +1839,9 @@ export default function SoldierManagement() {
             <div className="p-4 phone-sm:p-6 text-center">
               {saving ? (
                 <div className="py-8">
-                  <div className="animate-spin rounded-full h-12 w-12 border-4 border-t-transparent mx-auto mb-4" style={{ borderColor: colors.primaryGreen, borderTopColor: 'transparent' }}></div>
+                  <div className="flex justify-center mb-4">
+                    <HouseLoader size={48} />
+                  </div>
                   <p className="text-gray-600 font-medium">{t('updating_soldier_data')}</p>
                 </div>
               ) : success ? (

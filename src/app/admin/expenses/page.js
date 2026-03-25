@@ -1010,7 +1010,7 @@ export default function AdminExpensesPage() {
         >
           {saving ? (
             <span className="flex items-center justify-center gap-2">
-              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+              <HouseLoader size={20} />
               {t('form.saving')}
             </span>
           ) : (
@@ -1268,7 +1268,14 @@ export default function AdminExpensesPage() {
                       e.target.style.color = colors.primaryGreen;
                     }}
                   >
-                    {isGeneratingPDF ? `⏳ ${t('report.generating_pdf')}` : `📄 ${t('report.export_pdf')}`}
+                    {isGeneratingPDF ? (
+                      <span className="flex items-center justify-center gap-2">
+                        <HouseLoader size={20} />
+                        {t('report.generating_pdf')}
+                      </span>
+                    ) : (
+                      `📄 ${t('report.export_pdf')}`
+                    )}
                   </button>
                   <button 
                     onClick={exportToExcel}
@@ -1936,7 +1943,14 @@ export default function AdminExpensesPage() {
                   style={{ background: isGeneratingPDF ? colors.gold : colors.primaryGreen }}
                   disabled={isGeneratingPDF}
                 >
-                  {isGeneratingPDF ? `⏳ ${t('refunds.generating_pdf_short')}` : `📊 ${t('refunds.export_pdf')}`}
+                  {isGeneratingPDF ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <HouseLoader size={20} />
+                      {t('refunds.generating_pdf_short')}
+                    </span>
+                  ) : (
+                    `📊 ${t('refunds.export_pdf')}`
+                  )}
                 </button>
               </div>
               
@@ -2280,7 +2294,14 @@ export default function AdminExpensesPage() {
                 style={{ background: isGeneratingPDF ? colors.gold : colors.primaryGreen }}
                 disabled={isGeneratingPDF}
               >
-                {isGeneratingPDF ? t('refunds.generating_pdf_short') : t('refunds.export_pdf_btn')}
+                {isGeneratingPDF ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <HouseLoader size={20} />
+                    {t('refunds.generating_pdf_short')}
+                  </span>
+                ) : (
+                  t('refunds.export_pdf_btn')
+                )}
               </button>
             </div>
           </div>
