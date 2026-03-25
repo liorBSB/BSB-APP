@@ -62,6 +62,9 @@ export default function AdminHomePage() {
   const [addLoading, setAddLoading] = useState(false);
   const [processingApproval, setProcessingApproval] = useState(false);
   const [responseListModal, setResponseListModal] = useState({ open: false, event: null });
+  const [surveyModalOpen, setSurveyModalOpen] = useState(false);
+  const [selectedSurvey, setSelectedSurvey] = useState(null);
+  const [surveyLinkCopied, setSurveyLinkCopied] = useState(false);
 
   useEffect(() => {
     simpleScheduler.start();
@@ -291,6 +294,38 @@ export default function AdminHomePage() {
     setEditModal({ open: false, type: '', item: null, form: {} });
   };
 
+  const openSurveyLink = (survey) => {
+    if (!survey?.link || survey.link.trim() === '') {
+      setSelectedSurvey(survey);
+      setSurveyModalOpen(true);
+      setSurveyLinkCopied(false);
+      return;
+    }
+
+    let linkUrl = survey.link.trim();
+    if (!linkUrl.startsWith('http://') && !linkUrl.startsWith('https://')) {
+      linkUrl = `https://${linkUrl}`;
+    }
+    window.open(linkUrl, '_blank', 'noopener,noreferrer');
+  };
+
+  const openSurveyLinkModal = (survey) => {
+    if (!survey?.link || survey.link.trim() === '') {
+      setSelectedSurvey(survey);
+      setSurveyModalOpen(true);
+      setSurveyLinkCopied(false);
+      return;
+    }
+
+    let linkUrl = survey.link.trim();
+    if (!linkUrl.startsWith('http://') && !linkUrl.startsWith('https://')) {
+      linkUrl = `https://${linkUrl}`;
+    }
+    setSelectedSurvey({ ...survey, resolvedLink: linkUrl });
+    setSurveyModalOpen(true);
+    setSurveyLinkCopied(false);
+  };
+
   return (
     <main className="min-h-screen bg-gradient-to-br from-blue-200/60 to-green-100/60 font-body flex flex-col items-center pt-6 pb-40 px-4">
       <div className="w-full max-w-md">
@@ -483,9 +518,29 @@ export default function AdminHomePage() {
                         </div>
                       )}
                     </div>
-                    <button onClick={() => handleEditClick('survey', survey)} className="flex-shrink-0 p-2 rounded-full hover:bg-gray-100">
-                      <PencilIcon />
-                    </button>
+                    <div className="flex-shrink-0 flex items-center gap-2">
+                      <button
+                        className="px-4 py-2 rounded-lg bg-[#EDC381] text-white font-semibold text-sm shadow-md hover:bg-[#D4A574] transition-colors"
+                        onClick={() => openSurveyLink(survey)}
+                      >
+                        {t('fill_now')}
+                      </button>
+                      {survey.link && survey.link.trim() !== '' && (
+                        <button
+                          className="p-2 rounded-lg hover:bg-gray-200 transition-colors"
+                          title={t('copy_link')}
+                          onClick={() => openSurveyLinkModal(survey)}
+                        >
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" stroke="#6B7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" stroke="#6B7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                        </button>
+                      )}
+                      <button onClick={() => handleEditClick('survey', survey)} className="p-2 rounded-full hover:bg-gray-100">
+                        <PencilIcon />
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -779,6 +834,46 @@ export default function AdminHomePage() {
           </div>
         );
       })()}
+
+      {surveyModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl p-6 shadow-xl w-full max-w-sm">
+            <h2 className="text-lg font-bold mb-4 text-center" style={{ color: colors.primaryGreen }} dir="auto">{selectedSurvey?.title}</h2>
+            {(!selectedSurvey?.link || selectedSurvey.link.trim() === '') && !selectedSurvey?.resolvedLink ? (
+              <p className="text-center text-gray-600 mb-4">{t('no_survey_link')}</p>
+            ) : (
+              <div className="mb-4">
+                <p className="text-sm text-gray-600 mb-2 text-center">{t('survey_link_blocked')}</p>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    readOnly
+                    value={selectedSurvey?.resolvedLink || selectedSurvey?.link || ''}
+                    className="flex-1 px-3 py-2 border rounded-lg bg-gray-50 text-sm text-gray-700 truncate"
+                  />
+                  <button
+                    className="px-3 py-2 rounded-lg text-white font-semibold text-sm shrink-0"
+                    style={{ background: surveyLinkCopied ? colors.primaryGreen : colors.gold }}
+                    onClick={() => {
+                      navigator.clipboard.writeText(selectedSurvey?.resolvedLink || selectedSurvey?.link || '');
+                      setSurveyLinkCopied(true);
+                      setTimeout(() => setSurveyLinkCopied(false), 2000);
+                    }}
+                  >
+                    {surveyLinkCopied ? t('copied') : t('copy_link')}
+                  </button>
+                </div>
+              </div>
+            )}
+            <button
+              className="w-full mt-2 py-2 text-gray-500 hover:text-gray-700 transition-colors text-sm font-medium"
+              onClick={() => setSurveyModalOpen(false)}
+            >
+              {t('close')}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Edit Modal */}
       {editModal.open && (

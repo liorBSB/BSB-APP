@@ -5,6 +5,7 @@ import I18nProvider from '@/components/I18nProvider';
 export const metadata = {
   title: 'House Efficiency',
   description: 'Smart Living, Streamlined',
+  manifest: '/manifest.webmanifest',
 };
 
 export default async function RootLayout({ children }) {
