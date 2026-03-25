@@ -16,6 +16,7 @@ import {
   updateDoc,
 } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
+import { onAuthStateChanged } from "firebase/auth";
 import { deleteDoc } from "firebase/firestore";
 import AdminBottomNavBar from "@/components/AdminBottomNavBar";
 import DatePickerModal from "@/components/DatePickerModal";
@@ -52,6 +53,7 @@ export default function AdminExpensesPage() {
   const router = useRouter();
   const isRTL = i18n.language === 'he';
   const [userDoc, setUserDoc] = useState(null);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
 
   const [form, setForm] = useState({
     title: "",
@@ -171,36 +173,35 @@ export default function AdminExpensesPage() {
 
   // Access control: only admins
   useEffect(() => {
-    const check = async () => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       try {
-        const user = auth.currentUser;
-        if (!user) { 
-          router.push("/"); 
-          return; 
+        if (!user) {
+          router.push("/");
+          return;
         }
         const uRef = doc(db, "users", user.uid);
         const uSnap = await getDoc(uRef);
-        
-        if (!uSnap.exists()) { 
-          router.push("/home"); 
-          return; 
+
+        if (!uSnap.exists()) {
+          router.push("/home");
+          return;
         }
-        
+
         const userData = uSnap.data();
-        
-        if (userData?.userType !== "admin") { 
-          router.push("/home"); 
-          return; 
+
+        if (userData?.userType !== "admin") {
+          router.push("/home");
+          return;
         }
-        
+
         setUserDoc({ id: uSnap.id, ...userData });
-        
+        setIsCheckingAuth(false);
       } catch (error) {
         console.error('Error checking user access:', error);
         router.push("/");
       }
-    };
-    check();
+    });
+    return () => unsubscribe();
   }, [router]);
 
   const validate = () => {
@@ -868,6 +869,14 @@ export default function AdminExpensesPage() {
       )}
     </div>
   );
+
+  if (isCheckingAuth) {
+    return (
+      <main className="min-h-screen bg-gradient-to-br from-blue-200/60 to-green-100/60 font-body flex items-center justify-center">
+        <HouseLoader />
+      </main>
+    );
+  }
 
   return (
     <main dir={isRTL ? 'rtl' : 'ltr'} className="min-h-screen bg-gradient-to-br from-blue-200/60 to-green-100/60 font-body flex flex-col items-center pt-6 pb-32 px-4">
