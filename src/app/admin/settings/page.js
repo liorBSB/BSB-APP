@@ -72,7 +72,15 @@ export default function AdminSettingsPage() {
       if (user) {
         const userRef = doc(db, 'users', user.uid);
         let updateObj = {};
-        if (field === 'name') updateObj.fullName = value;
+        if (field === 'name') {
+          const trimmedValue = value.trim();
+          const nameParts = trimmedValue.split(/\s+/).filter(Boolean);
+          updateObj.fullName = trimmedValue;
+          if (nameParts.length > 0) {
+            updateObj.firstName = nameParts[0];
+            updateObj.lastName = nameParts.slice(1).join(' ');
+          }
+        }
         if (field === 'title') updateObj.jobTitle = value;
         if (field === 'email') updateObj.email = value;
         await updateDoc(userRef, updateObj);

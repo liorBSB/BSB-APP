@@ -65,6 +65,7 @@ export default function AdminHomePage() {
   const [surveyModalOpen, setSurveyModalOpen] = useState(false);
   const [selectedSurvey, setSelectedSurvey] = useState(null);
   const [surveyLinkCopied, setSurveyLinkCopied] = useState(false);
+  const adminDisplayName = adminData?.fullName || [adminData?.firstName, adminData?.lastName].filter(Boolean).join(' ');
 
   useEffect(() => {
     simpleScheduler.start();
@@ -335,7 +336,7 @@ export default function AdminHomePage() {
           style={{ border: `1px solid ${colors.gold}` }}
         >
           <h1 className="text-xl font-bold text-text">
-            {t('welcome')}, {adminData?.firstName && adminData?.lastName ? `${adminData.firstName} ${adminData.lastName}` : ''}
+            {t('welcome')}, {adminDisplayName}
           </h1>
           <p className="text-sm text-muted">
             {adminData?.jobTitle || ''}
