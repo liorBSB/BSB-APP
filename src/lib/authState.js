@@ -3,11 +3,20 @@ export function delay(ms) {
 }
 
 export async function getStableAuthUser(auth, options = {}) {
-  const timeoutMs = options.timeoutMs ?? 1800;
+  const timeoutMs = options.timeoutMs ?? 5000;
   const pollMs = options.pollMs ?? 120;
 
   if (!auth) return null;
   if (auth.currentUser) return auth.currentUser;
+
+  if (typeof auth.authStateReady === 'function') {
+    try {
+      await Promise.race([auth.authStateReady(), delay(timeoutMs)]);
+    } catch {
+      // If authStateReady fails, continue with polling fallback.
+    }
+    if (auth.currentUser) return auth.currentUser;
+  }
 
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {

@@ -37,4 +37,22 @@ describe('authState', () => {
     const user = await promise;
     expect(user).toBeNull();
   });
+
+  it('uses authStateReady when available', async () => {
+    const auth = {
+      currentUser: null,
+      authStateReady: () =>
+        new Promise((resolve) => {
+          setTimeout(() => {
+            auth.currentUser = { uid: 'u-3' };
+            resolve();
+          }, 80);
+        }),
+    };
+
+    const promise = getStableAuthUser(auth, { timeoutMs: 300, pollMs: 100 });
+    await vi.advanceTimersByTimeAsync(120);
+    const user = await promise;
+    expect(user).toEqual({ uid: 'u-3' });
+  });
 });

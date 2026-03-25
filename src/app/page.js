@@ -13,6 +13,7 @@ import {
   onAuthStateChanged,
   setPersistence,
   browserLocalPersistence,
+  browserSessionPersistence,
   inMemoryPersistence,
 } from 'firebase/auth';
 import { auth, googleProvider } from '../lib/firebase';
@@ -34,6 +35,7 @@ function AuthPageInner() {
   const [isAuthChecked, setIsAuthChecked] = useState(false);
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [isAuthBootstrapping, setIsAuthBootstrapping] = useState(true);
+  const [hasDurablePersistence, setHasDurablePersistence] = useState(false);
 
   const shouldPreferRedirect = () => {
     if (typeof navigator === 'undefined') return false;
@@ -57,11 +59,18 @@ function AuthPageInner() {
     const bootstrapAuth = async () => {
       try {
         await setPersistence(auth, browserLocalPersistence);
+        if (active) setHasDurablePersistence(true);
       } catch {
         try {
-          await setPersistence(auth, inMemoryPersistence);
+          await setPersistence(auth, browserSessionPersistence);
+          if (active) setHasDurablePersistence(true);
         } catch {
-          // Ignore persistence setup failure and continue sign-in flow.
+          try {
+            await setPersistence(auth, inMemoryPersistence);
+          } catch {
+            // Ignore persistence setup failure and continue sign-in flow.
+          }
+          if (active) setHasDurablePersistence(false);
         }
       }
 
@@ -103,6 +112,10 @@ function AuthPageInner() {
     
     try {
       if (shouldPreferRedirect()) {
+        if (!hasDurablePersistence) {
+          setError(t('error_open_in_browser'));
+          return;
+        }
         await signInWithRedirect(auth, googleProvider);
         return;
       }
@@ -119,6 +132,10 @@ function AuthPageInner() {
         // User cancelled - normal, no error needed
       } else if (error.code === 'auth/popup-blocked') {
         try {
+          if (!hasDurablePersistence) {
+            setError(t('error_open_in_browser'));
+            return;
+          }
           await signInWithRedirect(auth, googleProvider);
           return;
         } catch (redirectError) {
