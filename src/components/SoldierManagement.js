@@ -55,6 +55,8 @@ export default function SoldierManagement() {
   const [showFamilyDropdown, setShowFamilyDropdown] = useState(false);
   const [showDeleteAccountModal, setShowDeleteAccountModal] = useState(false);
   const [soldierToDeleteAccount, setSoldierToDeleteAccount] = useState(null);
+  const [deleteAccountCountdown, setDeleteAccountCountdown] = useState(5);
+  const [deleteAccountDelayTimer, setDeleteAccountDelayTimer] = useState(null);
   const [showSaveConfirmation, setShowSaveConfirmation] = useState(false);
   const [departureRequests, setDepartureRequests] = useState([]);
   const [departureProcessingId, setDepartureProcessingId] = useState(null);
@@ -89,7 +91,7 @@ export default function SoldierManagement() {
   const soldiersRef = useRef([]);
   useEffect(() => { soldiersRef.current = soldiers; }, [soldiers]);
 
-  // Cleanup timer on unmount
+  // Cleanup timers on unmount
   useEffect(() => {
     return () => {
       if (delayTimer) {
@@ -97,6 +99,14 @@ export default function SoldierManagement() {
       }
     };
   }, [delayTimer]);
+
+  useEffect(() => {
+    return () => {
+      if (deleteAccountDelayTimer) {
+        clearInterval(deleteAccountDelayTimer);
+      }
+    };
+  }, [deleteAccountDelayTimer]);
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -555,6 +565,36 @@ export default function SoldierManagement() {
     }
   };
 
+  const openDeleteAccountModal = (soldier) => {
+    if (deleteAccountDelayTimer) {
+      clearInterval(deleteAccountDelayTimer);
+      setDeleteAccountDelayTimer(null);
+    }
+    setSoldierToDeleteAccount(soldier);
+    setShowDeleteAccountModal(true);
+    setDeleteAccountCountdown(5);
+    const timer = setInterval(() => {
+      setDeleteAccountCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    setDeleteAccountDelayTimer(timer);
+  };
+
+  const cancelDeleteAccountModal = () => {
+    setShowDeleteAccountModal(false);
+    setSoldierToDeleteAccount(null);
+    setDeleteAccountCountdown(5);
+    if (deleteAccountDelayTimer) {
+      clearInterval(deleteAccountDelayTimer);
+      setDeleteAccountDelayTimer(null);
+    }
+  };
+
   const handleDeleteAccount = async (soldierId) => {
     if (!auth.currentUser) return;
 
@@ -570,8 +610,13 @@ export default function SoldierManagement() {
         setSelectedSoldier(null);
       }
 
+      if (deleteAccountDelayTimer) {
+        clearInterval(deleteAccountDelayTimer);
+        setDeleteAccountDelayTimer(null);
+      }
       setShowDeleteAccountModal(false);
       setSoldierToDeleteAccount(null);
+      setDeleteAccountCountdown(5);
 
       alert(`✅ Account for "${soldierToDeleteAccount?.fullName || 'Unknown'}" has been permanently deleted.`);
 
@@ -997,10 +1042,7 @@ export default function SoldierManagement() {
                     Close
                   </button>
                   <button
-                    onClick={() => {
-                      setSoldierToDeleteAccount(selectedSoldier);
-                      setShowDeleteAccountModal(true);
-                    }}
+                    onClick={() => openDeleteAccountModal(selectedSoldier)}
                     disabled={processingId === selectedSoldier.id}
                     className="px-4 phone-sm:px-6 py-3 rounded-xl font-semibold transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed text-sm phone-sm:text-base"
                     style={{ 
@@ -1583,8 +1625,20 @@ export default function SoldierManagement() {
                   Delete account for {soldierToDeleteAccount.fullName}?
                 </h4>
                 <p className="text-gray-600 text-sm text-center mb-3">
-                  This will <strong>permanently delete</strong> all of this user&apos;s data, including their profile, uploaded files, reports, and refund requests.
+                  This will <strong>permanently delete </strong>all of this user&apos;s data, including their profile, uploaded files, reports, and refund requests.
                 </p>
+                <p className="text-gray-600 text-sm text-center mb-4">
+                  Please wait {deleteAccountCountdown} seconds before confirming this action.
+                </p>
+                <div className="w-full bg-gray-200 rounded-full h-2 mb-4">
+                  <div
+                    className="h-2 rounded-full transition-all duration-1000"
+                    style={{
+                      background: colors.red,
+                      width: `${((5 - deleteAccountCountdown) / 5) * 100}%`,
+                    }}
+                  />
+                </div>
                 <p className="text-red-500 text-xs text-center font-medium">
                   This action cannot be undone.
                 </p>
@@ -1592,10 +1646,7 @@ export default function SoldierManagement() {
 
               <div className="flex flex-col phone-sm:flex-row gap-2 phone-sm:gap-3 justify-center">
                 <button
-                  onClick={() => {
-                    setShowDeleteAccountModal(false);
-                    setSoldierToDeleteAccount(null);
-                  }}
+                  onClick={cancelDeleteAccountModal}
                   className="px-4 phone-sm:px-6 py-3 rounded-xl font-semibold transition-all duration-200 hover:scale-105 text-sm phone-sm:text-base"
                   style={{
                     background: 'transparent',
@@ -1608,7 +1659,9 @@ export default function SoldierManagement() {
                 </button>
                 <button
                   onClick={() => handleDeleteAccount(soldierToDeleteAccount.id)}
-                  disabled={processingId === soldierToDeleteAccount.id}
+                  disabled={
+                    deleteAccountCountdown > 0 || processingId === soldierToDeleteAccount.id
+                  }
                   className="px-4 phone-sm:px-6 py-3 rounded-xl font-semibold transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed text-sm phone-sm:text-base"
                   style={{
                     background: 'transparent',
@@ -1617,7 +1670,11 @@ export default function SoldierManagement() {
                     boxShadow: '0 4px 12px rgba(220, 38, 38, 0.1)'
                   }}
                 >
-                  {processingId === soldierToDeleteAccount.id ? 'Deleting...' : 'Delete Account'}
+                  {processingId === soldierToDeleteAccount.id
+                    ? 'Deleting...'
+                    : deleteAccountCountdown > 0
+                      ? `Wait ${deleteAccountCountdown}s`
+                      : 'Delete Account'}
                 </button>
               </div>
             </div>

@@ -3,17 +3,18 @@
 import '@/i18n'; // 👈 This loads your i18n config
 import i18n from '@/i18n';
 import { useTranslation } from 'react-i18next';
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 /* eslint-disable @next/next/no-img-element */
 import { signInWithPopup, onAuthStateChanged } from 'firebase/auth';
 import { auth, googleProvider } from '../lib/firebase';
 
 import colors from './colors';
 
-export default function AuthPage() {
+function AuthPageInner() {
   const { t } = useTranslation('login');
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthChecked, setIsAuthChecked] = useState(false);
@@ -22,8 +23,9 @@ export default function AuthPage() {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
-        // User is authenticated, redirect to appropriate page
-        router.push('/redirect');
+        const next = searchParams.get('next');
+        const isSafe = next && next.startsWith('/') && !next.startsWith('//');
+        router.push('/redirect' + (isSafe ? '?next=' + encodeURIComponent(next) : ''));
       } else {
         setIsAuthChecked(true);
       }
@@ -203,5 +205,13 @@ export default function AuthPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+export default function AuthPage() {
+  return (
+    <Suspense fallback={null}>
+      <AuthPageInner />
+    </Suspense>
   );
 }

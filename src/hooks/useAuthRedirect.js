@@ -12,7 +12,7 @@ export default function useAuthRedirect(redirectIfIncomplete = false) {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (!user) {
-        router.push('/');
+        router.push('/?next=' + encodeURIComponent(window.location.pathname));
         return;
       }
 
@@ -21,7 +21,7 @@ export default function useAuthRedirect(redirectIfIncomplete = false) {
         const docSnap = await getDoc(docRef);
 
         if (!docSnap.exists()) {
-          router.push('/');
+          router.push('/?next=' + encodeURIComponent(window.location.pathname));
           return;
         }
 

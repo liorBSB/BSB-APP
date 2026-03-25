@@ -1,12 +1,19 @@
 'use client';
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useState, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { createBaseUserDoc } from '@/lib/database';
 import colors from '../colors';
+
+function getSafeNext(next, userType) {
+  if (!next || !next.startsWith('/') || next.startsWith('//')) return null;
+  if (userType === 'admin' && next.startsWith('/admin/')) return next;
+  if (userType === 'user' && !next.startsWith('/admin/')) return next;
+  return null;
+}
 
 async function getDocWithRetry(docRef, retries = 2) {
   for (let i = 0; i <= retries; i++) {
@@ -16,12 +23,15 @@ async function getDocWithRetry(docRef, retries = 2) {
   }
 }
 
-export default function RedirectPage() {
+function RedirectPageInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { t } = useTranslation('login');
   const [missingUser, setMissingUser] = useState(false);
 
   useEffect(() => {
+    const next = searchParams.get('next');
+
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (!user) {
         router.replace('/');
@@ -51,7 +61,7 @@ export default function RedirectPage() {
         if (!userData.firstName || !userData.lastName || !userData.jobTitle) {
           router.replace('/admin/profile-setup');
         } else {
-          router.replace('/admin/home');
+          router.replace(getSafeNext(next, 'admin') || '/admin/home');
         }
         return;
       }
@@ -79,7 +89,7 @@ export default function RedirectPage() {
             router.replace('/register/selection');
           }
         } else {
-          router.replace('/home');
+          router.replace(getSafeNext(next, 'user') || '/home');
         }
         return;
       }
@@ -88,7 +98,7 @@ export default function RedirectPage() {
       router.replace('/register/selection');
     });
     return () => unsubscribe();
-  }, [router]);
+  }, [router, searchParams]);
 
   // Show missing user page instead of modal
   if (missingUser) {
@@ -153,4 +163,12 @@ export default function RedirectPage() {
       </div>
     </main>
   );
-} 
+}
+
+export default function RedirectPage() {
+  return (
+    <Suspense fallback={null}>
+      <RedirectPageInner />
+    </Suspense>
+  );
+}
