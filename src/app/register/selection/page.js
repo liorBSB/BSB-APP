@@ -166,7 +166,7 @@ function SelectionPageInner() {
           {t('selection.do_you')}
         </h2>
         
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', opacity: langPicked ? 1 : 0.4, transition: 'opacity 0.3s' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <button
             onClick={handleWorkHere}
             style={{ 
