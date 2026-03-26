@@ -17,6 +17,7 @@ import {
 import { auth, googleProvider } from '../lib/firebase';
 import HouseLoader from '@/components/HouseLoader';
 import {
+  isStorageAvailable,
   mapAuthErrorCodeToKey,
 } from '@/lib/authSignInFlow';
 
@@ -36,6 +37,10 @@ function AuthPageInner() {
 
   useEffect(() => {
     let active = true;
+
+    // #region agent log
+    fetch('http://127.0.0.1:7376/ingest/622e0f72-8f44-4150-84ee-ce7476cc5432',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'295cab'},body:JSON.stringify({sessionId:'295cab',runId:'run1',hypothesisId:'H1',location:'src/app/page.js:bootstrapAuth.start',message:'login bootstrap start',data:{pathname:typeof window!=='undefined'?window.location.pathname:'n/a',host:typeof window!=='undefined'?window.location.host:'n/a',hasSessionStorage:typeof window!=='undefined'?isStorageAvailable(window.sessionStorage):false,ua:typeof navigator!=='undefined'?navigator.userAgent:'n/a'},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
 
     const bootstrapAuth = async () => {
       try {
@@ -63,6 +68,9 @@ function AuthPageInner() {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      // #region agent log
+      fetch('http://127.0.0.1:7376/ingest/622e0f72-8f44-4150-84ee-ce7476cc5432',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'295cab'},body:JSON.stringify({sessionId:'295cab',runId:'run1',hypothesisId:'H3',location:'src/app/page.js:onAuthStateChanged',message:'login auth state callback',data:{hasUser:!!user,uid:user?.uid||null,pathname:typeof window!=='undefined'?window.location.pathname:'n/a'},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
       if (user) {
         const next = searchParams.get('next');
         const isSafe = next && next.startsWith('/') && !next.startsWith('//');
@@ -80,14 +88,24 @@ function AuthPageInner() {
     
     setIsSigningIn(true);
     setError('');
+
+    // #region agent log
+    fetch('http://127.0.0.1:7376/ingest/622e0f72-8f44-4150-84ee-ce7476cc5432',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'295cab'},body:JSON.stringify({sessionId:'295cab',runId:'run1',hypothesisId:'H1',location:'src/app/page.js:handleGoogleAuth.start',message:'google auth button pressed',data:{pathname:typeof window!=='undefined'?window.location.pathname:'n/a'},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
     
     try {
+      // #region agent log
+      fetch('http://127.0.0.1:7376/ingest/622e0f72-8f44-4150-84ee-ce7476cc5432',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'295cab'},body:JSON.stringify({sessionId:'295cab',runId:'run1',hypothesisId:'H2',location:'src/app/page.js:handleGoogleAuth.beforePopup',message:'calling signInWithPopup',data:{provider:'google'},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
       await signInWithPopup(auth, googleProvider);
 
       // User is now authenticated - redirect will be handled by onAuthStateChanged
       // The redirect page will handle user document creation if needed
       
     } catch (error) {
+      // #region agent log
+      fetch('http://127.0.0.1:7376/ingest/622e0f72-8f44-4150-84ee-ce7476cc5432',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'295cab'},body:JSON.stringify({sessionId:'295cab',runId:'run1',hypothesisId:'H2',location:'src/app/page.js:handleGoogleAuth.catch',message:'sign in failed',data:{code:error?.code||null,name:error?.name||null,message:error?.message||null},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
       if (error.code === 'auth/popup-closed-by-user') {
         // User closed the popup - normal, no error needed
       } else if (error.code === 'auth/cancelled-popup-request') {

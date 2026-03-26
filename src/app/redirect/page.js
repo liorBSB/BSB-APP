@@ -37,6 +37,10 @@ function RedirectPageInner() {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       const resolvedUser = user || await getStableAuthUser(auth);
 
+      // #region agent log
+      fetch('http://127.0.0.1:7376/ingest/622e0f72-8f44-4150-84ee-ce7476cc5432',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'295cab'},body:JSON.stringify({sessionId:'295cab',runId:'run1',hypothesisId:'H3',location:'src/app/redirect/page.js:onAuthStateChanged',message:'redirect auth resolution',data:{hasUser:!!resolvedUser,uid:resolvedUser?.uid||null,next:next||null},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
+
       if (!resolvedUser) {
         router.replace('/');
         return;

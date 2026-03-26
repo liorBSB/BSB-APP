@@ -113,6 +113,11 @@ export default function ProfileSetup() {
 
     const currentUser = auth.currentUser || await getStableAuthUser(auth);
     const uid = currentUser?.uid;
+
+    // #region agent log
+    fetch('http://127.0.0.1:7376/ingest/622e0f72-8f44-4150-84ee-ce7476cc5432',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'295cab'},body:JSON.stringify({sessionId:'295cab',runId:'run1',hypothesisId:'H5',location:'src/app/profile-setup/page.js:handleSave.authCheck',message:'profile save auth check',data:{hasUser:!!currentUser,uid:uid||null,hasSelectedSoldier:!!selectedSoldier},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+
     if (!uid) {
       setError(t('no_auth_error'));
       setIsLoading(false);
