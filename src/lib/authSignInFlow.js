@@ -20,9 +20,6 @@ export function isUnsupportedBrowser({
   return isInAppBrowser || !hasWorkingStorage;
 }
 
-// Keep old name as alias so existing tests still pass during transition
-export const shouldAvoidRedirectForAuth = isUnsupportedBrowser;
-
 export function mapAuthErrorCodeToKey(errorCode) {
   if (
     errorCode === 'auth/missing-initial-state' ||

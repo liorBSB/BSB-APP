@@ -62,12 +62,8 @@ function AuthPageInner() {
       if (error.code === 'auth/popup-closed-by-user' || error.code === 'auth/cancelled-popup-request') {
         // User closed/cancelled — not an error
       } else if (error.code === 'auth/popup-blocked') {
-        try {
-          await signInWithRedirect(auth, googleProvider);
-          return;
-        } catch {
-          setError(t('error_popup_blocked'));
-        }
+        await signInWithRedirect(auth, googleProvider);
+        return;
       } else {
         setError(mapAuthErrorToMessage(error.code));
       }

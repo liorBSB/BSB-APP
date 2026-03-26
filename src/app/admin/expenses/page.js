@@ -1766,7 +1766,7 @@ export default function AdminExpensesPage() {
 
       {/* Delete Confirmation Modal */}
       {deleteConfirmOpen && expenseToDelete && (
-        <div className="fixed inset-0 z-[58] bg-black/50 flex items-center justify-center p-2 sm:p-4">
+        <div className="fixed inset-0 z-[130] bg-black/50 flex items-center justify-center p-2 sm:p-4">
           <div className="bg-white rounded-2xl w-full max-w-md mx-2 sm:mx-0 p-4 sm:p-6 text-center">
             <h3 className="text-lg sm:text-xl font-bold text-gray-800 mb-3 sm:mb-4">{t('delete_modal.title')}</h3>
             <p className="text-sm sm:text-base text-gray-700 mb-3 sm:mb-4">{t('delete_modal.message')}</p>

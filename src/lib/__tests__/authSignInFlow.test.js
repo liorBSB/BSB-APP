@@ -1,13 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import {
   isStorageAvailable,
-  shouldAvoidRedirectForAuth,
+  isUnsupportedBrowser,
   mapAuthErrorCodeToKey,
 } from '../authSignInFlow.js';
 
 describe('authSignInFlow', () => {
   it('does not force redirect on iPhone user agent', () => {
-    const shouldAvoidRedirect = shouldAvoidRedirectForAuth({
+    const shouldAvoidRedirect = isUnsupportedBrowser({
       userAgent:
         'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15',
       hasWorkingStorage: true,
@@ -17,7 +17,7 @@ describe('authSignInFlow', () => {
   });
 
   it('does not force redirect on iPad desktop-mode signature', () => {
-    const shouldAvoidRedirect = shouldAvoidRedirectForAuth({
+    const shouldAvoidRedirect = isUnsupportedBrowser({
       userAgent:
         'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15) AppleWebKit/605.1.15 Version/17.0 Mobile/15E148 Safari/604.1',
       hasWorkingStorage: true,
@@ -27,7 +27,7 @@ describe('authSignInFlow', () => {
   });
 
   it('avoids redirect for in-app browser user agents', () => {
-    const shouldAvoidRedirect = shouldAvoidRedirectForAuth({
+    const shouldAvoidRedirect = isUnsupportedBrowser({
       userAgent: 'Mozilla/5.0 Instagram 325.0.0.0.2 iPhone FBAN/FBIOS',
       hasWorkingStorage: true,
     });
@@ -36,7 +36,7 @@ describe('authSignInFlow', () => {
   });
 
   it('detects WhatsApp in-app browser as unsupported auth context', () => {
-    const shouldAvoidRedirect = shouldAvoidRedirectForAuth({
+    const shouldAvoidRedirect = isUnsupportedBrowser({
       userAgent: 'Mozilla/5.0 iPhone WhatsApp/24.4.78 Mobile',
       hasWorkingStorage: true,
     });
@@ -45,7 +45,7 @@ describe('authSignInFlow', () => {
   });
 
   it('avoids redirect when storage is unavailable', () => {
-    const shouldAvoidRedirect = shouldAvoidRedirectForAuth({
+    const shouldAvoidRedirect = isUnsupportedBrowser({
       userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/125.0',
       hasWorkingStorage: false,
     });
@@ -54,7 +54,7 @@ describe('authSignInFlow', () => {
   });
 
   it('keeps redirect fallback available on normal desktop with storage', () => {
-    const shouldAvoidRedirect = shouldAvoidRedirectForAuth({
+    const shouldAvoidRedirect = isUnsupportedBrowser({
       userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/125.0',
       hasWorkingStorage: true,
     });
