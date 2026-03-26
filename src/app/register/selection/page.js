@@ -1,23 +1,26 @@
 'use client';
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import '@/i18n';
 import { useTranslation } from 'react-i18next';
 import i18n from '@/i18n';
 import { auth, db } from '@/lib/firebase';
 import { doc, deleteDoc, updateDoc, getDoc } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
+import { Suspense } from 'react';
 
 import useAuthRedirect from '@/hooks/useAuthRedirect';
 import colors from '../../colors';
 import { setLangCookie } from '@/lib/langCookie';
 import HouseLoader from '@/components/HouseLoader';
 
-export default function SelectionPage() {
+function SelectionPageInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const nextParam = searchParams.get('next');
   const { t, i18n } = useTranslation('register');
   const isRTL = i18n.language?.startsWith('he');
-  const isReady = useAuthRedirect();
+  const { isReady } = useAuthRedirect();
   const [langPicked, setLangPicked] = useState(false);
 
   const pickLanguage = (lang) => {
@@ -28,6 +31,11 @@ export default function SelectionPage() {
       setLangCookie(lang);
       document.documentElement.dir = lang === 'he' ? 'rtl' : 'ltr';
     }
+  };
+
+  const appendNext = (base) => {
+    if (!nextParam) return base;
+    return base + (base.includes('?') ? '&' : '?') + 'next=' + encodeURIComponent(nextParam);
   };
 
   const handleWorkHere = async () => {
@@ -45,10 +53,10 @@ export default function SelectionPage() {
           roleChoice: 'work_here'
         });
       }
-      router.push('/admin/profile-setup');
+      router.push(appendNext('/admin/profile-setup'));
     } catch (error) {
       console.error('Error updating user choice:', error);
-      router.push('/admin/profile-setup');
+      router.push(appendNext('/admin/profile-setup'));
     }
   };
 
@@ -59,7 +67,7 @@ export default function SelectionPage() {
         const userRef = doc(db, 'users', user.uid);
         const snap = await getDoc(userRef);
         if (snap.exists() && ['admin', 'pending_approval'].includes(snap.data().userType)) {
-          router.push('/redirect');
+          router.push(appendNext('/redirect'));
           return;
         }
         await updateDoc(userRef, {
@@ -67,10 +75,10 @@ export default function SelectionPage() {
           roleChoice: 'live_here'
         });
       }
-      router.push('/profile-setup');
+      router.push(appendNext('/profile-setup'));
     } catch (error) {
       console.error('Error updating user choice:', error);
-      router.push('/profile-setup');
+      router.push(appendNext('/profile-setup'));
     }
   };
 
@@ -215,4 +223,12 @@ export default function SelectionPage() {
       </div>
     </main>
   );
-} 
+}
+
+export default function SelectionPage() {
+  return (
+    <Suspense fallback={null}>
+      <SelectionPageInner />
+    </Suspense>
+  );
+}

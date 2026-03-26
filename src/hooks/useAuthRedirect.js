@@ -1,64 +1,102 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { onAuthStateChanged } from 'firebase/auth';
-import { auth, db } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
-import { getStableAuthUser } from '@/lib/authState';
+import { db } from '@/lib/firebase';
+import { useAuth } from '@/components/AuthProvider';
 
-export default function useAuthRedirect(redirectIfIncomplete = false) {
+/**
+ * Unified auth guard hook. Consumes the centralized AuthProvider context.
+ *
+ * Options:
+ *   requireRole   - 'admin' | 'user' | undefined (any authenticated)
+ *   redirectIfIncomplete - redirect to profile-setup if profile is missing
+ *   fetchUserData - fetch the Firestore user doc and return it
+ *
+ * Returns { isReady, user, userData }
+ */
+export default function useAuthRedirect(options = {}) {
+  // Support legacy boolean signature: useAuthRedirect(true)
+  const opts =
+    typeof options === 'boolean'
+      ? { redirectIfIncomplete: options, fetchUserData: options }
+      : options;
+
+  const {
+    requireRole,
+    redirectIfIncomplete = false,
+    fetchUserData = false,
+  } = opts;
+
   const router = useRouter();
+  const { user, isLoading } = useAuth();
   const [isReady, setIsReady] = useState(false);
-  const shouldSendDebugLog =
-    typeof window !== 'undefined' && window.location.hostname === 'localhost';
+  const [userData, setUserData] = useState(null);
+  const didRun = useRef(false);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      const resolvedUser = user || await getStableAuthUser(auth);
+    if (isLoading) return;
 
-      // #region agent log
-      if (shouldSendDebugLog) fetch('http://127.0.0.1:7376/ingest/622e0f72-8f44-4150-84ee-ce7476cc5432',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'295cab'},body:JSON.stringify({sessionId:'295cab',runId:'run1',hypothesisId:'H4',location:'src/hooks/useAuthRedirect.js:onAuthStateChanged',message:'protected route auth guard',data:{hasUser:!!resolvedUser,uid:resolvedUser?.uid||null,redirectIfIncomplete,pathname:typeof window!=='undefined'?window.location.pathname:'n/a'},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
+    if (!user) {
+      const next = typeof window !== 'undefined' ? window.location.pathname + window.location.search : '/';
+      router.replace('/?next=' + encodeURIComponent(next));
+      return;
+    }
 
-      if (!resolvedUser) {
-        // #region agent log
-        if (shouldSendDebugLog) fetch('http://127.0.0.1:7376/ingest/622e0f72-8f44-4150-84ee-ce7476cc5432',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'295cab'},body:JSON.stringify({sessionId:'295cab',runId:'run1',hypothesisId:'H4',location:'src/hooks/useAuthRedirect.js:redirectToLogin',message:'redirecting unauthenticated user to root',data:{pathname:typeof window!=='undefined'?window.location.pathname:'n/a'},timestamp:Date.now()})}).catch(()=>{});
-        // #endregion
-        router.push('/?next=' + encodeURIComponent(window.location.pathname));
+    if (!fetchUserData && !redirectIfIncomplete && !requireRole) {
+      setIsReady(true);
+      return;
+    }
+
+    if (didRun.current) return;
+    didRun.current = true;
+
+    const check = async () => {
+      const docRef = doc(db, 'users', user.uid);
+      const docSnap = await getDoc(docRef);
+
+      if (!docSnap.exists()) {
+        router.replace('/?next=' + encodeURIComponent(window.location.pathname));
         return;
       }
 
-      if (redirectIfIncomplete) {
-        const docRef = doc(db, 'users', resolvedUser.uid);
-        const docSnap = await getDoc(docRef);
+      const data = docSnap.data();
 
-        if (!docSnap.exists()) {
-          router.push('/?next=' + encodeURIComponent(window.location.pathname));
-          return;
-        }
+      if (requireRole && data.userType !== requireRole) {
+        router.replace('/');
+        return;
+      }
 
-        const userData = docSnap.data();
+      if (redirectIfIncomplete && data.userType === 'user') {
+        const hasProfile =
+          data.fullName &&
+          data.fullName.trim() !== '' &&
+          data.roomNumber &&
+          data.roomNumber.trim() !== '';
 
-        if (userData.userType === 'user') {
-          const hasProfile = userData.fullName && userData.fullName.trim() !== ''
-            && userData.roomNumber && userData.roomNumber.trim() !== '';
-
-          if (!hasProfile) {
-            if (userData.roleChoice === 'live_here') {
-              router.push('/profile-setup');
-            } else {
-              router.push('/register/selection');
-            }
-            return;
+        if (!hasProfile) {
+          if (data.roleChoice === 'live_here') {
+            router.replace('/profile-setup');
+          } else {
+            router.replace('/register/selection');
           }
+          return;
         }
       }
 
+      if (redirectIfIncomplete && data.userType === 'admin') {
+        if (!data.firstName || !data.lastName || !data.jobTitle) {
+          router.replace('/admin/profile-setup');
+          return;
+        }
+      }
+
+      setUserData(data);
       setIsReady(true);
-    });
+    };
 
-    return () => unsubscribe();
-  }, [router, redirectIfIncomplete]);
+    check();
+  }, [isLoading, user, router, requireRole, redirectIfIncomplete, fetchUserData]);
 
-  return isReady;
+  return { isReady, user, userData };
 }

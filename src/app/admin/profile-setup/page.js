@@ -1,7 +1,7 @@
 "use client";
 import '@/i18n';
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import { auth, db } from '@/lib/firebase';
 import { doc, setDoc, getDoc, writeBatch, serverTimestamp } from 'firebase/firestore';
@@ -10,11 +10,13 @@ import colors from '../../colors';
 import { resetUserToPreSelection } from '@/lib/database';
 import HouseLoader from '@/components/HouseLoader';
 
-export default function AdminProfileSetupPage() {
+function AdminProfileSetupInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const nextParam = searchParams.get('next');
   const { t, i18n } = useTranslation('profilesetup');
   const isRTL = i18n.language?.startsWith('he');
-  const isReady = useAuthRedirect();
+  const { isReady } = useAuthRedirect();
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -39,7 +41,8 @@ export default function AdminProfileSetupPage() {
       const userRef = doc(db, 'users', user.uid);
       const existingDoc = await getDoc(userRef);
       if (existingDoc.exists() && existingDoc.data().userType === 'admin') {
-        router.push('/admin/home');
+        const dest = nextParam && nextParam.startsWith('/admin/') ? nextParam : '/admin/home';
+        router.push(dest);
         return;
       }
 
@@ -68,7 +71,10 @@ export default function AdminProfileSetupPage() {
 
       await batch.commit();
 
-      router.push('/register/pending-approval');
+      const pendingDest = nextParam
+        ? '/register/pending-approval?next=' + encodeURIComponent(nextParam)
+        : '/register/pending-approval';
+      router.push(pendingDest);
     } catch (error) {
       console.error('Profile setup error:', error);
       setError(error.message);
@@ -181,4 +187,12 @@ export default function AdminProfileSetupPage() {
       </div>
     </main>
   );
-} 
+}
+
+export default function AdminProfileSetupPage() {
+  return (
+    <Suspense fallback={null}>
+      <AdminProfileSetupInner />
+    </Suspense>
+  );
+}

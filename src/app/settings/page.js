@@ -3,8 +3,8 @@ import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { auth, db } from '@/lib/firebase';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
-import { onAuthStateChanged } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
+import useAuthRedirect from '@/hooks/useAuthRedirect';
 import BottomNavBar from '@/components/BottomNavBar';
 import EditFieldModal from '@/components/EditFieldModal';
 import PhotoUpload from '@/components/PhotoUpload';
@@ -20,6 +20,7 @@ import HouseLoader from '@/components/HouseLoader';
 export default function SettingsPage() {
   const { t } = useTranslation('settings');
   const router = useRouter();
+  const { isReady, userData: authUserData } = useAuthRedirect({ fetchUserData: true });
   const [fields, setFields] = useState({
     name: '',
     room: '',
@@ -48,25 +49,14 @@ export default function SettingsPage() {
   });
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (!user) {
-        router.push('/');
-        return;
-      }
-      const userRef = doc(db, 'users', user.uid);
-      const userSnap = await getDoc(userRef);
-      if (userSnap.exists()) {
-        const data = userSnap.data();
-        setFields({
-          name: data.fullName || '',
-          room: data.roomNumber || '',
-          email: data.email || '',
-        });
-      }
-      setLoading(false);
+    if (!isReady || !authUserData) return;
+    setFields({
+      name: authUserData.fullName || '',
+      room: authUserData.roomNumber || '',
+      email: authUserData.email || '',
     });
-    return () => unsubscribe();
-  }, [router]);
+    setLoading(false);
+  }, [isReady, authUserData]);
 
   // Close dropdowns when clicking outside
   useEffect(() => {

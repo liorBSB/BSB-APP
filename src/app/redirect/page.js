@@ -2,11 +2,11 @@
 import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
-import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { signOut } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { createBaseUserDoc } from '@/lib/database';
-import { getStableAuthUser } from '@/lib/authState';
+import { useAuth } from '@/components/AuthProvider';
 import colors from '../colors';
 import HouseLoader from '@/components/HouseLoader';
 
@@ -15,6 +15,11 @@ function getSafeNext(next, userType) {
   if (userType === 'admin' && next.startsWith('/admin/')) return next;
   if (userType === 'user' && !next.startsWith('/admin/')) return next;
   return null;
+}
+
+function appendNext(base, next) {
+  if (!next) return base;
+  return base + (base.includes('?') ? '&' : '?') + 'next=' + encodeURIComponent(next);
 }
 
 async function getDocWithRetry(docRef, retries = 2) {
@@ -29,88 +34,70 @@ function RedirectPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { t } = useTranslation('login');
+  const { user, isLoading } = useAuth();
   const [missingUser, setMissingUser] = useState(false);
-  const shouldSendDebugLog =
-    typeof window !== 'undefined' && window.location.hostname === 'localhost';
 
   useEffect(() => {
+    if (isLoading) return;
+
+    if (!user) {
+      router.replace('/');
+      return;
+    }
+
     const next = searchParams.get('next');
 
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      const resolvedUser = user || await getStableAuthUser(auth);
+    const resolve = async () => {
+      const userRef = doc(db, 'users', user.uid);
+      const userDoc = await getDocWithRetry(userRef);
 
-      // #region agent log
-      if (shouldSendDebugLog) fetch('http://127.0.0.1:7376/ingest/622e0f72-8f44-4150-84ee-ce7476cc5432',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'295cab'},body:JSON.stringify({sessionId:'295cab',runId:'run1',hypothesisId:'H3',location:'src/app/redirect/page.js:onAuthStateChanged',message:'redirect auth resolution',data:{hasUser:!!resolvedUser,uid:resolvedUser?.uid||null,next:next||null},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
-
-      if (!resolvedUser) {
-        router.replace('/');
+      if (!userDoc.exists()) {
+        createBaseUserDoc(user).catch((err) =>
+          console.error('Failed to create user document:', err)
+        );
+        router.replace(appendNext('/register/selection', next));
         return;
       }
-      
-      const userRef = doc(db, 'users', resolvedUser.uid);
-      const userDoc = await getDocWithRetry(userRef);
-      
-      if (!userDoc.exists()) {
-        try {
-          await createBaseUserDoc(resolvedUser);
-          router.replace('/register/selection');
-          return;
-        } catch (error) {
-          console.error('Failed to create user document:', error);
-          setMissingUser(true);
-          return;
-        }
-      }
-      
+
       const userData = userDoc.data();
-      
-      // Admin
+
       if (userData.userType === 'admin') {
-        // Check admin-specific fields
         if (!userData.firstName || !userData.lastName || !userData.jobTitle) {
-          router.replace('/admin/profile-setup');
+          router.replace(appendNext('/admin/profile-setup', next));
         } else {
           router.replace(getSafeNext(next, 'admin') || '/admin/home');
         }
         return;
       }
-      
-      // Pending approval
+
       if (userData.userType === 'pending_approval') {
-        // Check if they've completed admin profile setup
         if (!userData.firstName || !userData.lastName || !userData.jobTitle) {
-          // Admin profile incomplete - continue to admin profile setup
-          router.replace('/admin/profile-setup');
+          router.replace(appendNext('/admin/profile-setup', next));
         } else {
-          // Admin profile complete - send to pending approval page
-          router.replace('/register/pending-approval');
+          router.replace(appendNext('/register/pending-approval', next));
         }
         return;
       }
-      
-      // User - check if profile is complete
+
       if (userData.userType === 'user') {
-        // Check if user has completed profile setup (has name and room number)
         if (!userData.fullName || !userData.roomNumber || userData.fullName.trim() === '' || userData.roomNumber.trim() === '') {
           if (userData.roleChoice === 'live_here') {
-            router.replace('/profile-setup');
+            router.replace(appendNext('/profile-setup', next));
           } else {
-            router.replace('/register/selection');
+            router.replace(appendNext('/register/selection', next));
           }
         } else {
           router.replace(getSafeNext(next, 'user') || '/home');
         }
         return;
       }
-      
-      // Fallback - new user or unknown type, send to selection
-      router.replace('/register/selection');
-    });
-    return () => unsubscribe();
-  }, [router, searchParams]);
 
-  // Show missing user page instead of modal
+      router.replace(appendNext('/register/selection', next));
+    };
+
+    resolve();
+  }, [isLoading, user, router, searchParams]);
+
   if (missingUser) {
     return (
       <main className="min-h-screen flex items-center justify-center font-body px-4" style={{ background: colors.white }}>
@@ -124,15 +111,15 @@ function RedirectPageInner() {
             <h2 className="text-2xl font-bold mb-2" style={{ color: colors.primaryGreen }}>{t('no_account_found')}</h2>
             <p className="text-gray-600 mb-8">{t('no_account_message')}</p>
           </div>
-          
+
           <div className="space-y-4">
             <button
               onClick={() => {
                 router.push('/register/selection');
               }}
               className="w-full rounded-full py-4 font-semibold text-lg"
-              style={{ 
-                background: colors.gold, 
+              style={{
+                background: colors.gold,
                 color: colors.black,
                 minHeight: '56px',
                 cursor: 'pointer',
@@ -148,8 +135,8 @@ function RedirectPageInner() {
                 window.location.href = '/';
               }}
               className="w-full rounded-full py-4 font-semibold border-2 text-lg"
-              style={{ 
-                borderColor: colors.primaryGreen, 
+              style={{
+                borderColor: colors.primaryGreen,
                 color: colors.primaryGreen,
                 minHeight: '56px',
                 cursor: 'pointer',

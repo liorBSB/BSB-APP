@@ -16,7 +16,7 @@ import {
   updateDoc,
 } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
-import { onAuthStateChanged } from "firebase/auth";
+import useAuthRedirect from '@/hooks/useAuthRedirect';
 import { deleteDoc } from "firebase/firestore";
 import AdminBottomNavBar from "@/components/AdminBottomNavBar";
 import DatePickerModal from "@/components/DatePickerModal";
@@ -66,8 +66,8 @@ export default function AdminExpensesPage() {
     return slug ? t(`reimbursement_methods.${slug}`) : (m || t('card.na'));
   };
   const refundStatusLabel = (s) => t(`refunds.status_labels.${s}`, { defaultValue: s || '' });
+  const { isReady, userData: hookUserDoc } = useAuthRedirect({ requireRole: 'admin', fetchUserData: true });
   const [userDoc, setUserDoc] = useState(null);
-  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
 
   const [form, setForm] = useState({
     title: "",
@@ -187,38 +187,10 @@ export default function AdminExpensesPage() {
   }, [isAnyOverlayOpen]);
 
 
-  // Access control: only admins
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      try {
-        if (!user) {
-          router.push("/");
-          return;
-        }
-        const uRef = doc(db, "users", user.uid);
-        const uSnap = await getDoc(uRef);
-
-        if (!uSnap.exists()) {
-          router.push("/home");
-          return;
-        }
-
-        const userData = uSnap.data();
-
-        if (userData?.userType !== "admin") {
-          router.push("/home");
-          return;
-        }
-
-        setUserDoc({ id: uSnap.id, ...userData });
-        setIsCheckingAuth(false);
-      } catch (error) {
-        console.error('Error checking user access:', error);
-        router.push("/");
-      }
-    });
-    return () => unsubscribe();
-  }, [router]);
+    if (!isReady || !hookUserDoc) return;
+    setUserDoc({ id: auth.currentUser?.uid, ...hookUserDoc });
+  }, [isReady, hookUserDoc]);
 
   const validate = () => {
     if (!form.title.trim()) return t('validation.title_required');
@@ -893,7 +865,7 @@ export default function AdminExpensesPage() {
     </div>
   );
 
-  if (isCheckingAuth) {
+  if (!isReady) {
     return (
       <main className="min-h-screen bg-gradient-to-br from-blue-200/60 to-green-100/60 font-body flex items-center justify-center">
         <HouseLoader />

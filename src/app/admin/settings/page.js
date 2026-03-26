@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import '@/i18n';
 import { useTranslation } from 'react-i18next';
 import { auth, db } from '@/lib/firebase';
-import { onAuthStateChanged } from 'firebase/auth';
+import useAuthRedirect from '@/hooks/useAuthRedirect';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import HouseLoader from '@/components/HouseLoader';
 import colors from '../../colors';
@@ -18,7 +18,7 @@ import { cleanupExpiredPhotos } from '@/lib/storageCleanup';
 export default function AdminSettingsPage() {
   const { t } = useTranslation('admin');
   const router = useRouter();
-  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+  const { isReady, userData: hookAdminData } = useAuthRedirect({ requireRole: 'admin', fetchUserData: true });
   const [fields, setFields] = useState({
     name: '',
     title: '',
@@ -41,27 +41,13 @@ export default function AdminSettingsPage() {
   };
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (!user) {
-        router.push('/');
-        return;
-      }
-      const userRef = doc(db, 'users', user.uid);
-      const docSnap = await getDoc(userRef);
-      if (!docSnap.exists() || docSnap.data().userType !== 'admin') {
-        router.push('/');
-        return;
-      }
-      const data = docSnap.data();
-      setFields({
-        name: data.fullName || '',
-        title: data.jobTitle || '',
-        email: data.email || '',
-      });
-      setIsCheckingAuth(false);
+    if (!isReady || !hookAdminData) return;
+    setFields({
+      name: hookAdminData.fullName || '',
+      title: hookAdminData.jobTitle || '',
+      email: hookAdminData.email || '',
     });
-    return () => unsubscribe();
-  }, [router]);
+  }, [isReady, hookAdminData]);
 
   const handleSaveField = async (field, value) => {
     setSaving(true);
@@ -112,7 +98,7 @@ export default function AdminSettingsPage() {
     }
   };
 
-  if (isCheckingAuth) {
+  if (!isReady) {
     return (
       <main className="min-h-screen bg-gradient-to-br from-blue-200/60 to-green-100/60 font-body flex items-center justify-center">
         <HouseLoader />

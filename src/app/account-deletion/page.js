@@ -1,32 +1,22 @@
 'use client';
 import '@/i18n';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { auth } from '@/lib/firebase';
-import { onAuthStateChanged } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { fullyDeleteCurrentUser } from '@/lib/accountDeletionClient';
 import HouseLoader from '@/components/HouseLoader';
+import useAuthRedirect from '@/hooks/useAuthRedirect';
 
 export default function AccountDeletionPage() {
   const { t } = useTranslation('settings');
   const router = useRouter();
-  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+  const { isReady } = useAuthRedirect();
+  const isCheckingAuth = !isReady;
   const [status, setStatus] = useState('confirm');
   const [errorMessage, setErrorMessage] = useState('');
   const [currentStep, setCurrentStep] = useState('');
   const deletingRef = useRef(false);
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (!user) {
-        router.push('/');
-        return;
-      }
-      setIsCheckingAuth(false);
-    });
-    return () => unsubscribe();
-  }, [router]);
 
   const handleDelete = async () => {
     if (deletingRef.current) return;

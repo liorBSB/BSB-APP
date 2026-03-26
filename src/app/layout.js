@@ -1,6 +1,7 @@
 import './globals.css';
 import { cookies } from 'next/headers';
 import I18nProvider from '@/components/I18nProvider';
+import AuthProvider from '@/components/AuthProvider';
 
 export const metadata = {
   title: 'House Efficiency',
@@ -17,7 +18,9 @@ export default async function RootLayout({ children }) {
   return (
     <html lang={initialLang} dir={isRtl ? 'rtl' : 'ltr'}>
       <body className="min-h-screen">
-        <I18nProvider initialLang={initialLang}>{children}</I18nProvider>
+        <I18nProvider initialLang={initialLang}>
+          <AuthProvider>{children}</AuthProvider>
+        </I18nProvider>
       </body>
     </html>
   );

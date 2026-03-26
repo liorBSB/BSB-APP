@@ -7,7 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { collection, getDocs, query, orderBy, addDoc, doc, getDoc, serverTimestamp, updateDoc, where, deleteDoc } from 'firebase/firestore';
 import { ref as storageRef, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { db, storage, auth } from '@/lib/firebase';
-import { onAuthStateChanged } from 'firebase/auth';
+import useAuthRedirect from '@/hooks/useAuthRedirect';
 import colors from '../../colors';
 import { StyledDateInput } from '@/components/StyledDateInput';
 import AdminBottomNavBar from '@/components/AdminBottomNavBar';
@@ -27,8 +27,8 @@ function AdminReportPageContent() {
   const [problemReports, setProblemReports] = useState([]);
   const [loading, setLoading] = useState(true);
   const [problemsLoading, setProblemsLoading] = useState(true);
+  const { isReady, userData: hookAdminData } = useAuthRedirect({ requireRole: 'admin', fetchUserData: true, redirectIfIncomplete: true });
   const [adminData, setAdminData] = useState(null);
-  const [isCheckingProfile, setIsCheckingProfile] = useState(true);
   
   // Report a Problem Form State
   const [desc, setDesc] = useState('');
@@ -55,49 +55,10 @@ function AdminReportPageContent() {
   const fixedProblemsCategoryDropdownRef = useRef(null);
   const fixedProblemsDateRangeDropdownRef = useRef(null);
 
-  // Check if admin profile is complete
-  const checkAdminProfileComplete = (userData) => {
-    if (!userData) return false;
-    return !!(userData.firstName && userData.lastName && userData.jobTitle);
-  };
-
-  // Admin authentication check
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (!user) {
-        router.push('/');
-        return;
-      }
-      
-      // Check admin profile completeness
-      const userRef = doc(db, 'users', user.uid);
-      const userSnap = await getDoc(userRef);
-      
-      if (!userSnap.exists()) {
-        router.push('/');
-        return;
-      }
-      
-      const userData = userSnap.data();
-      
-      // Check if user is admin
-      if (userData.userType !== 'admin') {
-        router.push('/');
-        return;
-      }
-      
-      // Check if admin profile is complete
-      if (!checkAdminProfileComplete(userData)) {
-        router.push('/admin/profile-setup');
-        return;
-      }
-      
-      setAdminData(userData);
-      setIsCheckingProfile(false);
-    });
-
-    return () => unsubscribe();
-  }, [router]);
+    if (!isReady || !hookAdminData) return;
+    setAdminData(hookAdminData);
+  }, [isReady, hookAdminData]);
 
   // --- Website feedback state ---
   const [feedbackSubject, setFeedbackSubject] = useState('');
@@ -418,11 +379,11 @@ function AdminReportPageContent() {
   }, [fixedProblems, fixedProblemsFilters]);
 
   useEffect(() => {
-    if (!isCheckingProfile && adminData) {
+    if (isReady && adminData) {
       fetchReports();
       fetchProblemReports();
     }
-  }, [isCheckingProfile, adminData]);
+  }, [isReady, adminData]);
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -476,7 +437,7 @@ function AdminReportPageContent() {
   }, [applyFixedProblemsFilters]);
 
   // Show loading while checking admin profile
-  if (isCheckingProfile) {
+  if (!isReady) {
     return (
       <main className="min-h-screen bg-gradient-to-br from-blue-200/60 to-green-100/60 flex items-center justify-center">
         <HouseLoader size={80} text={t('loading')} />

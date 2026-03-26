@@ -18,15 +18,5 @@
   "no_account_found": "לא נמצא חשבון",
   "no_account_message": "לא מצאנו את החשבון שלך. האם תרצה ליצור חשבון חדש?",
   "complete_registration": "השלם הרשמה",
-  "cancel": "ביטול",
-  "email": "אימייל",
-  "password": "סיסמה",
-  "password_placeholder": "הזן את הסיסמה שלך",
-  "remember": "זכור אותי",
-  "forgot": "שכחת סיסמה?",
-  "login": "התחברות",
-  "no_account": "אין לך חשבון?",
-  "register": "הרשמה",
-  "crew_login": "כניסת צוות / מנהל",
-  "error": "אימייל או סיסמה שגויים"
+  "cancel": "ביטול"
 }

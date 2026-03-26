@@ -11,7 +11,6 @@ import HouseLoader from '@/components/HouseLoader';
 import WelcomeHeader from '@/components/home/WelcomeHeader';
 import CollapsibleSection from '@/components/home/CollapsibleSection';
 import ListItem from '@/components/home/ListItem';
-import { onAuthStateChanged } from 'firebase/auth';
 import EventResponseModal from '@/components/home/EventResponseModal';
 import BottomNavBar from '@/components/BottomNavBar';
 import colors from '../colors';
@@ -23,9 +22,7 @@ import { useRouter } from 'next/navigation';
 export default function HomePage() {
   const router = useRouter();
   const CLEAN_ROOM_FEATURE_ENABLED = false;
-  const [isCheckingProfile, setIsCheckingProfile] = useState(true);
-  const [profileComplete, setProfileComplete] = useState(false);
-  useAuthRedirect();
+  const { isReady, user: authUser, userData: initialUserData } = useAuthRedirect({ redirectIfIncomplete: true, fetchUserData: true });
   const { t } = useTranslation('home');
   const [status, setStatus] = useState('Home');
   const [syncingStatus, setSyncingStatus] = useState(true);
@@ -57,82 +54,39 @@ export default function HomePage() {
   const isRTL = i18n.language?.startsWith('he');
   const dateLocale = isRTL ? 'he-IL' : 'en-US';
 
-  // Check if user profile is complete
-  const checkUserProfileComplete = (userData) => {
-    if (!userData) return false;
-    return !!(userData.fullName && userData.roomNumber);
-  };
-
-
-
   useEffect(() => {
-    const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
-      let unsubscribeUser = null;
-      if (user) {
-        const userRef = doc(db, 'users', user.uid);
+    if (!isReady || !authUser || !initialUserData) return;
 
-        // Initial fetch (optional)
-        const userSnap = await getDoc(userRef);
-        if (userSnap.exists()) {
-          const data = userSnap.data();
-          setUserData(data);
-          const isComplete = checkUserProfileComplete(data);
-          setProfileComplete(isComplete);
-          if (!isComplete) {
-            router.push('/profile-setup');
-            setLoadingUser(false);
-            setIsCheckingProfile(false);
-            setSyncingStatus(false);
-            return;
-          }
+    setUserData(initialUserData);
+    setLoadingUser(false);
 
-          // Reconcile status with reception sheet (covers cases where webhook missed)
-          if (data.roomNumber) {
-            fetchStatusFromSheet(data.roomNumber).then((sheetStatus) => {
-              const currentStatus = normalizeStatus(data.status);
-              if (sheetStatus && sheetStatus !== currentStatus) {
-                updateDoc(userRef, { status: sheetStatus }).catch(() => {});
-              }
-            }).catch(() => {}).finally(() => setSyncingStatus(false));
-          } else {
-            setSyncingStatus(false);
-          }
-        } else {
-          router.push('/profile-setup');
-          setLoadingUser(false);
-          setIsCheckingProfile(false);
-          setSyncingStatus(false);
-          return;
+    const userRef = doc(db, 'users', authUser.uid);
+
+    if (initialUserData.roomNumber) {
+      fetchStatusFromSheet(initialUserData.roomNumber).then((sheetStatus) => {
+        const currentStatus = normalizeStatus(initialUserData.status);
+        if (sheetStatus && sheetStatus !== currentStatus) {
+          updateDoc(userRef, { status: sheetStatus }).catch(() => {});
         }
+      }).catch(() => {}).finally(() => setSyncingStatus(false));
+    } else {
+      setSyncingStatus(false);
+    }
 
-        // Live updates for user data (progress bar updates in real-time)
-        unsubscribeUser = onSnapshot(
-          userRef,
-          (snap) => {
-            if (snap.exists()) {
-              setUserData(snap.data());
-            }
-          },
-          (error) => {
-            // Handle permission errors gracefully and keep page functional
-            console.error('User onSnapshot error:', error);
-          }
-        );
-      } else {
-        return;
+    const unsubscribeUser = onSnapshot(
+      userRef,
+      (snap) => {
+        if (snap.exists()) {
+          setUserData(snap.data());
+        }
+      },
+      (error) => {
+        console.error('User onSnapshot error:', error);
       }
-      setLoadingUser(false);
-      setIsCheckingProfile(false);
+    );
 
-      // Cleanup previous user listener when auth changes
-      return () => {
-        if (unsubscribeUser) unsubscribeUser();
-      };
-    });
-    return () => {
-      if (typeof unsubscribeAuth === 'function') unsubscribeAuth();
-    };
-  }, [router]);
+    return () => unsubscribeUser();
+  }, [isReady, authUser, initialUserData]);
 
   const fetchEvents = async () => {
     setLoadingEvents(true);
@@ -146,8 +100,7 @@ export default function HomePage() {
   };
 
   useEffect(() => {
-    // Only fetch data if profile is complete
-    if (!profileComplete) return;
+    if (!isReady) return;
 
     const fetchSurveys = async () => {
       setLoadingSurveys(true);
@@ -172,7 +125,7 @@ export default function HomePage() {
     fetchEvents();
     fetchSurveys();
     fetchMessages();
-  }, [profileComplete]);
+  }, [isReady]);
 
   useEffect(() => {
     if (userData?.status) {
@@ -315,41 +268,10 @@ export default function HomePage() {
     border: `1px solid ${colors.gold}`,
   };
 
-  // Show loading state while checking profile
-  if (isCheckingProfile) {
+  if (!isReady) {
     return (
       <main className="min-h-screen bg-gradient-to-br from-blue-200/60 to-green-100/60 font-body flex items-center justify-center">
         <HouseLoader />
-      </main>
-    );
-  }
-
-  // Show profile incomplete message
-  if (!profileComplete) {
-    return (
-      <main className="min-h-screen bg-gradient-to-br from-blue-200/60 to-green-100/60 font-body flex items-center justify-center px-4">
-        <div className="text-center max-w-md">
-          <div className="text-2xl font-bold text-red-600 mb-4">⚠️ Profile Incomplete</div>
-          <div className="text-muted mb-6">
-            Your profile needs to be completed before you can use the app. 
-            Please set up your profile with your name and room number.
-          </div>
-          <button
-            onClick={() => router.push('/profile-setup')}
-            style={{
-              background: colors.primaryGreen,
-              color: colors.white,
-              padding: '12px 24px',
-              borderRadius: '999px',
-              border: 'none',
-              fontSize: '16px',
-              fontWeight: 600,
-              cursor: 'pointer'
-            }}
-          >
-            Complete Profile Setup
-          </button>
-        </div>
       </main>
     );
   }

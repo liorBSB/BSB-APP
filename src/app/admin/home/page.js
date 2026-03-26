@@ -13,7 +13,7 @@ import colors from '../../colors';
 import CollapsibleSection from '@/components/home/CollapsibleSection';
 import ListItem from '@/components/home/ListItem';
 import AdminBottomNavBar from '@/components/AdminBottomNavBar';
-import { onAuthStateChanged } from 'firebase/auth';
+import useAuthRedirect from '@/hooks/useAuthRedirect';
 import EditFieldModal from '@/components/EditFieldModal';
 import PencilIcon from '@/components/PencilIcon';
 import AddItemModal from '@/components/AddItemModal';
@@ -45,7 +45,7 @@ export default function AdminHomePage() {
     dueDate: '',
     startDate: '',
   });
-  const [isCheckingProfile, setIsCheckingProfile] = useState(true);
+  const { isReady, userData: hookAdminData } = useAuthRedirect({ requireRole: 'admin', fetchUserData: true, redirectIfIncomplete: true });
   const [adminData, setAdminData] = useState(null);
   
   // Dashboard data states
@@ -162,53 +162,14 @@ export default function AdminHomePage() {
     }
   };
 
-  // Check if admin profile is complete
-  const checkAdminProfileComplete = (userData) => {
-    if (!userData) return false;
-    return !!(userData.firstName && userData.lastName && userData.jobTitle);
-  };
-
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (!user) {
-        router.push('/');
-        return;
-      }
-      
-      // Sync scheduler starts automatically from simpleSyncService.js
-      
-      // Check admin profile completeness
-      const userRef = doc(db, 'users', user.uid);
-      const userDoc = await getDoc(userRef);
-      
-      if (!userDoc.exists()) {
-        router.push('/');
-        return;
-      }
+    if (!isReady || !hookAdminData) return;
+    setAdminData(hookAdminData);
+    fetchData();
+    fetchDashboardData();
+  }, [isReady, hookAdminData]);
 
-      const data = userDoc.data();
-
-      if (data.userType !== 'admin') {
-        router.push('/');
-        return;
-      }
-
-      setAdminData(data);
-
-      if (!checkAdminProfileComplete(data)) {
-        router.push('/admin/profile-setup');
-        return;
-      }
-      
-      await fetchData();
-      await fetchDashboardData();
-      setIsCheckingProfile(false);
-    });
-    return () => unsubscribe();
-  }, [router]);
-
-  // Show loading state while checking profile
-  if (isCheckingProfile) {
+  if (!isReady || !adminData) {
     return (
       <main className="min-h-screen bg-gradient-to-br from-blue-200/60 to-green-100/60 font-body flex items-center justify-center">
         <HouseLoader size={80} text={t('loading')} />

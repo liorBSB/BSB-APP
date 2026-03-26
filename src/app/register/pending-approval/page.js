@@ -2,9 +2,9 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
-import { onAuthStateChanged } from 'firebase/auth';
 import { auth, db } from '../../../lib/firebase';
 import { doc, onSnapshot } from 'firebase/firestore';
+import { useAuth } from '@/components/AuthProvider';
 
 import colors from '../../colors';
 import { fullyDeleteCurrentUser } from '@/lib/accountDeletionClient';
@@ -13,6 +13,7 @@ import HouseLoader from '@/components/HouseLoader';
 export default function PendingApprovalPage() {
   const router = useRouter();
   const { t } = useTranslation('register');
+  const { user, isLoading: authLoading } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showStartOverModal, setShowStartOverModal] = useState(false);
@@ -20,54 +21,49 @@ export default function PendingApprovalPage() {
   const [isStartingOver, setIsStartingOver] = useState(false);
 
   useEffect(() => {
-    let unsubSnapshot = null;
+    if (authLoading) return;
 
-    const unsubAuth = onAuthStateChanged(auth, (user) => {
-      if (!user) {
-        router.replace('/');
-        return;
-      }
+    if (!user) {
+      router.replace('/');
+      return;
+    }
 
-      const userRef = doc(db, 'users', user.uid);
-      unsubSnapshot = onSnapshot(userRef, (userDoc) => {
-        try {
-          if (!userDoc.exists()) {
-            setError(t('pending_approval.error_no_doc'));
-            setLoading(false);
-            return;
-          }
-
-          const userData = userDoc.data();
-
-          if (userData?.userType === 'admin') {
-            router.push('/admin/home');
-            return;
-          }
-
-          if (userData?.userType !== 'pending_approval') {
-            setError(t('pending_approval.error_invalid_status'));
-            setLoading(false);
-            return;
-          }
-
+    const userRef = doc(db, 'users', user.uid);
+    const unsubSnapshot = onSnapshot(userRef, (userDoc) => {
+      try {
+        if (!userDoc.exists()) {
+          setError(t('pending_approval.error_no_doc'));
           setLoading(false);
-        } catch (error) {
-          console.error('Error checking user status:', error);
-          setError(t('pending_approval.error_check_status'));
-          setLoading(false);
+          return;
         }
-      }, (error) => {
-        console.error('Error setting up user listener:', error);
-        setError(t('pending_approval.error_monitor'));
+
+        const userData = userDoc.data();
+
+        if (userData?.userType === 'admin') {
+          router.push('/admin/home');
+          return;
+        }
+
+        if (userData?.userType !== 'pending_approval') {
+          setError(t('pending_approval.error_invalid_status'));
+          setLoading(false);
+          return;
+        }
+
         setLoading(false);
-      });
+      } catch (error) {
+        console.error('Error checking user status:', error);
+        setError(t('pending_approval.error_check_status'));
+        setLoading(false);
+      }
+    }, (error) => {
+      console.error('Error setting up user listener:', error);
+      setError(t('pending_approval.error_monitor'));
+      setLoading(false);
     });
 
-    return () => {
-      unsubAuth();
-      if (unsubSnapshot) unsubSnapshot();
-    };
-  }, [router]);
+    return () => unsubSnapshot();
+  }, [authLoading, user, router, t]);
 
   const handleSignOut = async () => {
     try {

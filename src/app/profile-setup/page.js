@@ -1,7 +1,7 @@
 'use client';
 import '@/i18n';
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { auth, db } from '../../lib/firebase';
 import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { useTranslation } from 'react-i18next';
@@ -14,16 +14,15 @@ import { resetSoldierAccount } from '@/lib/database';
 import { resetUserToPreSelection } from '@/lib/database';
 import { fetchStatusFromSheet } from '@/lib/receptionSync';
 import { authedFetch } from '@/lib/authFetch';
-import { getStableAuthUser } from '@/lib/authState';
 import useAuthRedirect from '@/hooks/useAuthRedirect';
 import colors from '../colors';
 
-export default function ProfileSetup() {
+function ProfileSetupInner() {
   const router = useRouter();
-  const isReady = useAuthRedirect();
+  const searchParams = useSearchParams();
+  const nextParam = searchParams.get('next');
+  const { isReady } = useAuthRedirect();
   const { t, i18n } = useTranslation('profilesetup');
-  const shouldSendDebugLog =
-    typeof window !== 'undefined' && window.location.hostname === 'localhost';
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [roomNumber, setRoomNumber] = useState('');
@@ -113,12 +112,8 @@ export default function ProfileSetup() {
     setError('');
     setClaimedDocId(null);
 
-    const currentUser = auth.currentUser || await getStableAuthUser(auth);
+    const currentUser = auth.currentUser;
     const uid = currentUser?.uid;
-
-    // #region agent log
-    if (shouldSendDebugLog) fetch('http://127.0.0.1:7376/ingest/622e0f72-8f44-4150-84ee-ce7476cc5432',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'295cab'},body:JSON.stringify({sessionId:'295cab',runId:'run1',hypothesisId:'H5',location:'src/app/profile-setup/page.js:handleSave.authCheck',message:'profile save auth check',data:{hasUser:!!currentUser,uid:uid||null,hasSelectedSoldier:!!selectedSoldier},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
 
     if (!uid) {
       setError(t('no_auth_error'));
@@ -192,7 +187,10 @@ export default function ProfileSetup() {
 
       await setDoc(doc(db, 'users', uid), userData, { merge: true });
 
-      router.push('/home');
+      const safeNext = nextParam && nextParam.startsWith('/') && !nextParam.startsWith('//') && !nextParam.startsWith('/admin/')
+        ? nextParam
+        : '/home';
+      router.push(safeNext);
     } catch (err) {
       console.error('Profile setup error:', err);
       setError(t('save_failed'));
@@ -541,5 +539,13 @@ export default function ProfileSetup() {
         </div>
       )}
     </main>
+  );
+}
+
+export default function ProfileSetup() {
+  return (
+    <Suspense fallback={null}>
+      <ProfileSetupInner />
+    </Suspense>
   );
 }

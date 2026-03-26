@@ -11,14 +11,17 @@ export function isStorageAvailable(storage) {
   }
 }
 
-export function shouldAvoidRedirectForAuth({
+export function isUnsupportedBrowser({
   userAgent = '',
   hasWorkingStorage = true,
 } = {}) {
-  const isInAppBrowser = /FBAN|FBAV|Instagram|Line|MicroMessenger|wv/i.test(userAgent);
+  const isInAppBrowser = /FBAN|FBAV|Instagram|Line|MicroMessenger|WhatsApp|wv/i.test(userAgent);
 
   return isInAppBrowser || !hasWorkingStorage;
 }
+
+// Keep old name as alias so existing tests still pass during transition
+export const shouldAvoidRedirectForAuth = isUnsupportedBrowser;
 
 export function mapAuthErrorCodeToKey(errorCode) {
   if (

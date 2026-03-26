@@ -35,6 +35,15 @@ describe('authSignInFlow', () => {
     expect(shouldAvoidRedirect).toBe(true);
   });
 
+  it('detects WhatsApp in-app browser as unsupported auth context', () => {
+    const shouldAvoidRedirect = shouldAvoidRedirectForAuth({
+      userAgent: 'Mozilla/5.0 iPhone WhatsApp/24.4.78 Mobile',
+      hasWorkingStorage: true,
+    });
+
+    expect(shouldAvoidRedirect).toBe(true);
+  });
+
   it('avoids redirect when storage is unavailable', () => {
     const shouldAvoidRedirect = shouldAvoidRedirectForAuth({
       userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/125.0',

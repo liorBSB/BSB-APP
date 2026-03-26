@@ -9,7 +9,7 @@ import colors from '../colors';
 import { StyledDateInput } from '@/components/StyledDateInput';
 import { auth, db, storage } from '@/lib/firebase';
 import { addDoc, collection, doc, getDoc, serverTimestamp } from 'firebase/firestore';
-import { onAuthStateChanged } from 'firebase/auth';
+import useAuthRedirect from '@/hooks/useAuthRedirect';
 import { ref as storageRef, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { authedFetch } from '@/lib/authFetch';
 import { compressImage } from '@/components/PhotoUpload';
@@ -22,22 +22,8 @@ function ReportPageContent() {
   const router = useRouter();
   const dateLocale = i18n.language?.startsWith('he') ? 'he-IL' : 'en-US';
 
-  // --- User data (for feedback email) ---
-  const [userData, setUserData] = useState(null);
-  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (!user) {
-        router.push('/');
-        return;
-      }
-      const snap = await getDoc(doc(db, 'users', user.uid));
-      if (snap.exists()) setUserData(snap.data());
-      setIsCheckingAuth(false);
-    });
-    return () => unsubscribe();
-  }, [router]);
+  const { isReady, userData } = useAuthRedirect({ fetchUserData: true });
+  const isCheckingAuth = !isReady;
 
   // --- Website feedback state ---
   const [feedbackSubject, setFeedbackSubject] = useState('');

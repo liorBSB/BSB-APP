@@ -18,15 +18,5 @@
   "no_account_found": "No account found",
   "no_account_message": "We couldn't find your account. Would you like to create one now?",
   "complete_registration": "Register",
-  "cancel": "Cancel",
-  "email": "Email Address",
-  "password": "Password",
-  "password_placeholder": "Enter your password",
-  "remember": "Remember me",
-  "forgot": "Forgot password?",
-  "login": "Login",
-  "no_account": "Don't have an account?",
-  "register": "Register here",
-  "crew_login": "Crew / Admin Login",
-  "error": "Incorrect email or password"
+  "cancel": "Cancel"
 }
