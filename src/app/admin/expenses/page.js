@@ -47,11 +47,12 @@ const getUserName = async (uid) => {
 };
 
 const CATEGORIES = ["Food","Equipment","Maintenance","Transport","Utilities","Other"];
-const REIMBURSEMENT_METHODS = ["Credit Card","Bank Transfer","Cash","Other"];
+const REIMBURSEMENT_METHODS = ["Credit Card","Bank Transfer","Cash","Bit","Other"];
 const REIMBURSEMENT_SLUG = {
   "Credit Card": "credit_card",
   "Bank Transfer": "bank_transfer",
   "Cash": "cash",
+  "Bit": "bit",
   "Other": "other",
 };
 

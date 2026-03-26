@@ -68,6 +68,9 @@ export default function AdminHomePage() {
   const adminDisplayName = adminData?.fullName || [adminData?.firstName, adminData?.lastName].filter(Boolean).join(' ');
 
   useEffect(() => {
+    const enableAdminSheetsSync = process.env.NEXT_PUBLIC_ENABLE_ADMIN_SHEETS_SYNC === 'true';
+    const shouldRunScheduler = process.env.NODE_ENV === 'production' || enableAdminSheetsSync;
+    if (!shouldRunScheduler) return;
     simpleScheduler.start();
     return () => simpleScheduler.stop();
   }, []);

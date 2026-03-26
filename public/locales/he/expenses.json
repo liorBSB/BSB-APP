@@ -35,6 +35,7 @@
     "credit_card": "כרטיס אשראי",
     "bank_transfer": "העברה בנקאית",
     "cash": "מזומן",
+    "bit": "ביט",
     "other": "אחר"
   },
   "form": {
