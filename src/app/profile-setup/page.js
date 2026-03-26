@@ -22,6 +22,8 @@ export default function ProfileSetup() {
   const router = useRouter();
   const isReady = useAuthRedirect();
   const { t, i18n } = useTranslation('profilesetup');
+  const shouldSendDebugLog =
+    typeof window !== 'undefined' && window.location.hostname === 'localhost';
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [roomNumber, setRoomNumber] = useState('');
@@ -115,7 +117,7 @@ export default function ProfileSetup() {
     const uid = currentUser?.uid;
 
     // #region agent log
-    fetch('http://127.0.0.1:7376/ingest/622e0f72-8f44-4150-84ee-ce7476cc5432',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'295cab'},body:JSON.stringify({sessionId:'295cab',runId:'run1',hypothesisId:'H5',location:'src/app/profile-setup/page.js:handleSave.authCheck',message:'profile save auth check',data:{hasUser:!!currentUser,uid:uid||null,hasSelectedSoldier:!!selectedSoldier},timestamp:Date.now()})}).catch(()=>{});
+    if (shouldSendDebugLog) fetch('http://127.0.0.1:7376/ingest/622e0f72-8f44-4150-84ee-ce7476cc5432',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'295cab'},body:JSON.stringify({sessionId:'295cab',runId:'run1',hypothesisId:'H5',location:'src/app/profile-setup/page.js:handleSave.authCheck',message:'profile save auth check',data:{hasUser:!!currentUser,uid:uid||null,hasSelectedSoldier:!!selectedSoldier},timestamp:Date.now()})}).catch(()=>{});
     // #endregion
 
     if (!uid) {
