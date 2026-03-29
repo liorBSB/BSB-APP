@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {
   addDoc,
@@ -66,7 +66,7 @@ function waitForNextPaint() {
 export default function AdminExpensesPage() {
   const { t } = useTranslation('expenses');
   const router = useRouter();
-  const isRTL = i18n.language === 'he';
+  const isRTL = i18n.language === 'he' || (typeof i18n.language === 'string' && i18n.language.startsWith('he'));
 
   const labelCategory = (c) => (c ? t(`categories.${c}`) : '');
   const labelMethod = (m) => {
@@ -134,6 +134,8 @@ export default function AdminExpensesPage() {
   const [showPaymentMethodOptions, setShowPaymentMethodOptions] = useState(false);
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [reportItems, setReportItems] = useState([]);
+  const [reportExcludedIds, setReportExcludedIds] = useState([]);
+  const [reportExcludedPanelOpen, setReportExcludedPanelOpen] = useState(false);
   const [reportLoading, setReportLoading] = useState(false);
   const [reportFilters, setReportFilters] = useState({
     dateRange: "",
@@ -156,6 +158,15 @@ export default function AdminExpensesPage() {
 
   // Preview search state (separate from sort filters)
   const [previewSearch, setPreviewSearch] = useState('');
+
+  const includedReportItems = useMemo(
+    () => reportItems.filter((e) => !reportExcludedIds.includes(e.id)),
+    [reportItems, reportExcludedIds]
+  );
+  const excludedReportItems = useMemo(
+    () => reportItems.filter((e) => reportExcludedIds.includes(e.id)),
+    [reportItems, reportExcludedIds]
+  );
 
   // Save confirmation popup state
   const [savedExpenseSummary, setSavedExpenseSummary] = useState(null);
@@ -242,6 +253,8 @@ export default function AdminExpensesPage() {
     setShowPaymentMethodOptions(false);
     setShowSearchResults(false);
     setReportItems([]);
+    setReportExcludedIds([]);
+    setReportExcludedPanelOpen(false);
     setReportFilters({
       dateRange: '',
       category: '',
@@ -714,6 +727,8 @@ export default function AdminExpensesPage() {
       });
       
       setReportItems(expenses);
+      setReportExcludedIds([]);
+      setReportExcludedPanelOpen(false);
       setShowSearchResults(true);
     } catch (error) {
       console.error("Error fetching report data:", error);
@@ -746,7 +761,7 @@ export default function AdminExpensesPage() {
   };
 
   const exportToPDF = async () => {
-    if (reportItems.length === 0) return;
+    if (includedReportItems.length === 0) return;
     if (isGeneratingPDF) return;
 
     setIsGeneratingPDF(true);
@@ -754,7 +769,7 @@ export default function AdminExpensesPage() {
     await waitForNextPaint();
 
     try {
-      await generateExpensesPDF(reportItems, {
+      await generateExpensesPDF(includedReportItems, {
         dateRange: reportFilters.dateRange === 'custom' ? 'custom' : reportFilters.dateRange,
         customFrom: reportFilters.customFrom,
         customTo: reportFilters.customTo,
@@ -773,13 +788,13 @@ export default function AdminExpensesPage() {
   };
 
   const exportToExcel = () => {
-    if (reportItems.length === 0) return;
+    if (includedReportItems.length === 0) return;
     
     // Create CSV content (Excel can open CSV files)
     const headers = ['title', 'category', 'amount', 'date', 'notes', 'payment method', 'created by', 'photo'];
     const csvContent = [
       headers.join(','),
-      ...reportItems.map(expense => [
+      ...includedReportItems.map(expense => [
         `"${(expense.title || '').replace(/"/g, '""')}"`,
         `"${(expense.category || '').replace(/"/g, '""')}"`,
         expense.amount || 0,
@@ -808,9 +823,14 @@ export default function AdminExpensesPage() {
     Transport: '🚗', Utilities: '💡', Other: '📦',
   };
 
-  const renderExpenseCard = (expense) => (
-    <div key={expense.id} className="bg-white rounded-xl shadow-sm border overflow-hidden transition-colors duration-200" style={{ borderColor: colors.gray400 }}>
-      <div className="flex" style={{ flexDirection: isRTL ? 'row-reverse' : 'row' }}>
+  const renderExpenseCard = (expense, { reportCurationMode = false } = {}) => (
+    <div
+      key={expense.id}
+      className="bg-white rounded-xl shadow-sm border overflow-hidden transition-colors duration-200"
+      style={{ borderColor: colors.gray400 }}
+      dir={isRTL ? 'rtl' : 'ltr'}
+    >
+      <div className="flex flex-row">
         {/* Photo / Category icon side */}
         <div
           className="flex-shrink-0 flex items-center justify-center cursor-pointer relative"
@@ -821,7 +841,7 @@ export default function AdminExpensesPage() {
             <>
               <img src={expense.photos?.[0]?.url || expense.photoUrl} alt={t('card.receipt_alt')} className="w-full h-full object-cover" style={{ minHeight: 90 }} />
               {expense.photos?.length > 1 && (
-                <span className="absolute bottom-1 right-1 text-[10px] font-bold text-white px-1.5 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(0,0,0,0.6)' }}>
+                <span className="absolute bottom-1 end-1 text-[10px] font-bold text-white px-1.5 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(0,0,0,0.6)' }}>
                   +{expense.photos.length - 1}
                 </span>
               )}
@@ -832,13 +852,13 @@ export default function AdminExpensesPage() {
         </div>
 
         {/* Info side */}
-        <div className="flex-1 p-3 flex flex-col gap-1 min-w-0" style={{ textAlign: isRTL ? 'right' : 'left' }}>
-          <div className="flex items-start justify-between gap-2" style={{ flexDirection: isRTL ? 'row-reverse' : 'row' }}>
+        <div className="flex-1 p-3 flex flex-col gap-1 min-w-0 text-start">
+          <div className="flex flex-row items-start justify-between gap-2">
             <h5 className="text-base font-bold truncate" style={{ color: colors.text }}>{expense.title}</h5>
             <span className="text-lg font-extrabold flex-shrink-0" style={{ color: colors.primaryGreen }}>{amountFormatted(expense.amount)}</span>
           </div>
 
-          <div className="flex items-center gap-2 flex-wrap" style={{ flexDirection: isRTL ? 'row-reverse' : 'row' }}>
+          <div className="flex flex-row items-center gap-2 flex-wrap">
             <span className="text-xs font-semibold px-2 py-0.5 rounded-full text-white" style={{ background: colors.primaryGreen }}>{labelCategory(expense.category)}</span>
             <span className="text-xs font-medium" style={{ color: colors.muted }}>💳 {labelMethod(expense.reimbursementMethod)}</span>
           </div>
@@ -848,7 +868,17 @@ export default function AdminExpensesPage() {
           </p>
 
           {/* Actions row */}
-          <div className="flex items-center gap-2 mt-1" style={{ flexDirection: isRTL ? 'row-reverse' : 'row' }}>
+          <div className="flex flex-row items-center gap-2 mt-1 flex-wrap">
+            {reportCurationMode && (
+              <button
+                type="button"
+                onClick={() => setReportExcludedIds((prev) => (prev.includes(expense.id) ? prev : [...prev, expense.id]))}
+                className="px-3 py-1.5 border-2 font-bold text-xs rounded-lg transition-colors duration-200 active:scale-95 touch-manipulation"
+                style={{ borderColor: colors.gold, color: colors.gold }}
+              >
+                {t('report.exclude_from_report')}
+              </button>
+            )}
             <button
               onClick={() => handleEditExpense(expense)}
               className="px-3 py-1.5 border-2 font-bold text-xs rounded-lg transition-colors duration-200 active:scale-95 touch-manipulation"
@@ -869,7 +899,7 @@ export default function AdminExpensesPage() {
 
       {expense.notes && (
         <div className="px-3 pb-3">
-          <p className="text-xs p-2 rounded" style={{ color: colors.muted, background: colors.surface, textAlign: isRTL ? 'right' : 'left' }}>{expense.notes}</p>
+          <p className="text-xs p-2 rounded text-start" style={{ color: colors.muted, background: colors.surface }}>{expense.notes}</p>
         </div>
       )}
     </div>
@@ -1193,12 +1223,49 @@ export default function AdminExpensesPage() {
             })()}
             
             {/* Search Results Dashboard */}
-            {showSearchResults && reportItems.length > 0 && (
+            {showSearchResults && reportItems.length > 0 && includedReportItems.length === 0 && (
+              <div className="flex-1 overflow-y-auto min-h-0">
+                <button
+                  onClick={() => {
+                    setShowSearchResults(false);
+                    setReportExcludedIds([]);
+                    setReportExcludedPanelOpen(false);
+                    setReportFilters({
+                      dateRange: '',
+                      category: '',
+                      paymentMethod: '',
+                      titleQuery: '',
+                      customFrom: '',
+                      customTo: ''
+                    });
+                  }}
+                  className="mb-3 w-10 h-10 flex items-center justify-center rounded-full border-2 transition-colors duration-200 active:scale-95 touch-manipulation"
+                  style={{ borderColor: colors.primaryGreen, color: colors.primaryGreen }}
+                  title={t('report.back_title')}
+                >
+                  <span className="text-xl font-bold" style={{ transform: isRTL ? 'scaleX(-1)' : 'none', display: 'inline-block' }}>←</span>
+                </button>
+                <div className="text-center py-6 px-3 rounded-lg space-y-4" style={{ background: colors.background }}>
+                  <p className="text-base font-medium" style={{ color: colors.text }}>{t('report.all_excluded_hint')}</p>
+                  <button
+                    type="button"
+                    onClick={() => { setReportExcludedIds([]); setReportExcludedPanelOpen(false); }}
+                    className="px-6 py-3 rounded-xl font-semibold text-white"
+                    style={{ background: colors.primaryGreen }}
+                  >
+                    {t('report.restore_all_excluded')}
+                  </button>
+                </div>
+              </div>
+            )}
+            {showSearchResults && reportItems.length > 0 && includedReportItems.length > 0 && (
               <div className="flex-1 overflow-y-auto min-h-0">
                 {/* Back to search button */}
                 <button
                   onClick={() => {
                     setShowSearchResults(false);
+                    setReportExcludedIds([]);
+                    setReportExcludedPanelOpen(false);
                     setReportFilters({
                       dateRange: '',
                       category: '',
@@ -1215,18 +1282,61 @@ export default function AdminExpensesPage() {
                   <span className="text-xl font-bold" style={{ transform: isRTL ? 'scaleX(-1)' : 'none', display: 'inline-block' }}>←</span>
                 </button>
 
+                {reportExcludedIds.length > 0 && (
+                  <div className="mb-4 p-3 rounded-xl border-2 space-y-2" style={{ borderColor: colors.gold, background: colors.background }} dir={isRTL ? 'rtl' : 'ltr'}>
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                      <span className="text-sm font-semibold" style={{ color: colors.text }}>{t('report.excluded_count', { count: reportExcludedIds.length })}</span>
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setReportExcludedPanelOpen((o) => !o)}
+                          className="px-3 py-1.5 rounded-lg border-2 text-xs font-bold"
+                          style={{ borderColor: colors.gold, color: colors.gold }}
+                        >
+                          {reportExcludedPanelOpen ? t('report.hide_excluded_list') : t('report.show_excluded_list')}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => { setReportExcludedIds([]); setReportExcludedPanelOpen(false); }}
+                          className="px-3 py-1.5 rounded-lg text-xs font-bold text-white"
+                          style={{ background: colors.primaryGreen }}
+                        >
+                          {t('report.restore_all_excluded')}
+                        </button>
+                      </div>
+                    </div>
+                    {reportExcludedPanelOpen && (
+                      <ul className="space-y-2 pt-2 border-t" style={{ borderColor: colors.gray400 }}>
+                        {excludedReportItems.map((ex) => (
+                          <li key={ex.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-sm">
+                            <span className="font-medium min-w-0 truncate" style={{ color: colors.text }}>{ex.title || '—'}</span>
+                            <button
+                              type="button"
+                              onClick={() => setReportExcludedIds((prev) => prev.filter((id) => id !== ex.id))}
+                              className="px-3 py-1 rounded-lg border-2 text-xs font-bold flex-shrink-0"
+                              style={{ borderColor: colors.primaryGreen, color: colors.primaryGreen }}
+                            >
+                              {t('report.include_again')}
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                )}
+
                 {/* Summary Stats - Fixed */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 flex-shrink-0">
                   <div className="p-4 rounded-lg text-center" style={{ background: colors.background }}>
-                    <div className="text-2xl font-bold" style={{ color: colors.primaryGreen }}>{reportItems.length}</div>
+                    <div className="text-2xl font-bold" style={{ color: colors.primaryGreen }}>{includedReportItems.length}</div>
                     <div className="text-sm" style={{ color: colors.muted }}>{t('report.total_count')}</div>
                   </div>
                   <div className="p-4 rounded-lg text-center" style={{ background: colors.background }}>
-                    <div className="text-2xl font-bold" style={{ color: colors.gold }}>{amountFormatted(getTotalAmount(reportItems))}</div>
+                    <div className="text-2xl font-bold" style={{ color: colors.gold }}>{amountFormatted(getTotalAmount(includedReportItems))}</div>
                     <div className="text-sm" style={{ color: colors.muted }}>{t('report.total_amount')}</div>
                   </div>
                   <div className="p-4 rounded-lg text-center" style={{ background: colors.background }}>
-                    <div className="text-2xl font-bold" style={{ color: colors.primaryGreen }}>{Object.keys(getPaymentMethodBreakdown(reportItems)).length}</div>
+                    <div className="text-2xl font-bold" style={{ color: colors.primaryGreen }}>{Object.keys(getPaymentMethodBreakdown(includedReportItems)).length}</div>
                     <div className="text-sm" style={{ color: colors.muted }}>{t('report.payment_methods_count')}</div>
                   </div>
                 </div>
@@ -1240,7 +1350,7 @@ export default function AdminExpensesPage() {
                       borderColor: isGeneratingPDF ? colors.gold : colors.primaryGreen, 
                       color: isGeneratingPDF ? colors.gold : colors.primaryGreen 
                     }}
-                    disabled={isGeneratingPDF}
+                    disabled={isGeneratingPDF || includedReportItems.length === 0}
                     onMouseEnter={(e) => {
                       e.target.style.background = colors.primaryGreen;
                       e.target.style.color = 'white';
@@ -1261,8 +1371,9 @@ export default function AdminExpensesPage() {
                   </button>
                   <button 
                     onClick={exportToExcel}
-                    className="px-4 sm:px-6 py-3 border-2 font-bold text-base sm:text-lg rounded-lg transition-colors duration-200"
+                    className="px-4 sm:px-6 py-3 border-2 font-bold text-base sm:text-lg rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                     style={{ borderColor: colors.gold, color: colors.gold }}
+                    disabled={includedReportItems.length === 0}
                     onMouseEnter={(e) => {
                       e.target.style.background = colors.gold;
                       e.target.style.color = 'white';
@@ -1280,7 +1391,7 @@ export default function AdminExpensesPage() {
                 <div className="mb-6">
                   <h4 className="text-lg font-semibold mb-3" style={{ color: colors.text }}>{t('report.category_breakdown')}</h4>
                   <div className="space-y-2">
-                    {Object.entries(getCategoryBreakdown(reportItems))
+                    {Object.entries(getCategoryBreakdown(includedReportItems))
                       .sort(([,a], [,b]) => b - a)
                       .map(([category, amount]) => (
                         <div key={category} className="flex justify-between items-center p-3 rounded-lg" style={{ background: colors.background }}>
@@ -1295,7 +1406,7 @@ export default function AdminExpensesPage() {
                 <div className="mb-6">
                   <h4 className="text-lg font-semibold mb-3" style={{ color: colors.text }}>{t('report.payment_breakdown')}</h4>
                   <div className="space-y-2">
-                    {Object.entries(getPaymentMethodBreakdown(reportItems))
+                    {Object.entries(getPaymentMethodBreakdown(includedReportItems))
                       .sort(([,a], [,b]) => b - a)
                       .map(([method, amount]) => (
                         <div key={method} className="flex justify-between items-center p-3 rounded-lg" style={{ background: colors.background }}>
@@ -1310,7 +1421,7 @@ export default function AdminExpensesPage() {
                 <div>
                   <h4 className="text-lg font-semibold mb-3" style={{ color: colors.text }}>{t('report.details')}</h4>
                   <div className="space-y-3">
-                    {reportItems.map(expense => renderExpenseCard(expense))}
+                    {includedReportItems.map((expense) => renderExpenseCard(expense, { reportCurationMode: true }))}
                   </div>
                 </div>
               </div>
@@ -1582,7 +1693,7 @@ export default function AdminExpensesPage() {
       {/* Photo Viewer Modal */}
       {photoViewerOpen && selectedPhoto && (
         <div className="fixed inset-0 z-[140] bg-black/80 flex items-center justify-center p-2 sm:p-4">
-          <div className="bg-white rounded-2xl w-full h-full sm:h-auto sm:max-w-4xl sm:max-h-[90vh] flex flex-col">
+          <div className="bg-white rounded-2xl w-full h-full sm:h-auto sm:max-w-4xl sm:max-h-[90vh] flex flex-col" dir={isRTL ? 'rtl' : 'ltr'}>
             <div className="flex items-center justify-between p-3 sm:p-4 border-b">
               <h3 className="text-lg sm:text-xl font-bold text-gray-800">
                 {t('photo_viewer.title', { title: selectedPhoto.title })}
@@ -1599,7 +1710,7 @@ export default function AdminExpensesPage() {
               {selectedPhoto.photos.length > 1 && selectedPhoto.index > 0 && (
                 <button
                   onClick={() => setSelectedPhoto(prev => ({ ...prev, index: prev.index - 1 }))}
-                  className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/30 text-white flex items-center justify-center text-xl hover:bg-black/50 z-10"
+                  className={`absolute top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/30 text-white flex items-center justify-center text-xl hover:bg-black/50 z-10 ${isRTL ? 'right-2 sm:right-4' : 'left-2 sm:left-4'}`}
                 >
                   ‹
                 </button>
@@ -1612,7 +1723,7 @@ export default function AdminExpensesPage() {
               {selectedPhoto.photos.length > 1 && selectedPhoto.index < selectedPhoto.photos.length - 1 && (
                 <button
                   onClick={() => setSelectedPhoto(prev => ({ ...prev, index: prev.index + 1 }))}
-                  className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/30 text-white flex items-center justify-center text-xl hover:bg-black/50 z-10"
+                  className={`absolute top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/30 text-white flex items-center justify-center text-xl hover:bg-black/50 z-10 ${isRTL ? 'left-2 sm:left-4' : 'right-2 sm:right-4'}`}
                 >
                   ›
                 </button>

@@ -150,7 +150,14 @@
     "title_query_placeholder": "Type expense name",
     "clear": "Clear",
     "searching": "Searching...",
-    "search_btn": "Search Expenses"
+    "search_btn": "Search Expenses",
+    "exclude_from_report": "Exclude from report",
+    "restore_all_excluded": "Restore all",
+    "include_again": "Include again",
+    "excluded_count": "{{count}} excluded from this report",
+    "all_excluded_hint": "All matching expenses are excluded from this report. Restore them to see totals and export, or go back to run a new search.",
+    "show_excluded_list": "Show excluded",
+    "hide_excluded_list": "Hide excluded"
   },
   "card": {
     "edit": "Edit",

@@ -150,7 +150,14 @@
     "title_query_placeholder": "הקלידו שם הוצאה",
     "clear": "נקה",
     "searching": "מחפשים...",
-    "search_btn": "חפש הוצאות"
+    "search_btn": "חפש הוצאות",
+    "exclude_from_report": "הסרה מהדוח",
+    "restore_all_excluded": "שחזור הכל",
+    "include_again": "הכלל שוב",
+    "excluded_count": "{{count}} הוצאות הוסרו מהדוח",
+    "all_excluded_hint": "כל ההוצאות שהתאימו לחיפוש הוסרו מהדוח. שחזרו אותן כדי לראות סיכומים ולייצא, או חזרו כדי להריץ חיפוש חדש.",
+    "show_excluded_list": "הצג מוסרות",
+    "hide_excluded_list": "הסתר מוסרות"
   },
   "card": {
     "edit": "עריכה",

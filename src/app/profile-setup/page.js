@@ -205,11 +205,14 @@ export default function ProfileSetup() {
     }
   };
 
-  if (isLoading) {
+  if (isVerifying || isLoading) {
     return (
-      <main className="relative min-h-screen flex items-center justify-center font-body bg-gradient-to-br from-blue-200/60 to-green-100/60">
+      <main className="relative min-h-screen flex flex-col items-center justify-center font-body bg-gradient-to-br from-blue-200/60 to-green-100/60">
         <LanguageSwitcher variant="corner" />
         <HouseLoader size={100} />
+        <p style={{ marginTop: '1.5rem', color: colors.text, fontWeight: 600, fontSize: '1.1rem' }}>
+          {isVerifying ? t('verifying') : t('loading')}
+        </p>
       </main>
     );
   }
@@ -316,9 +319,9 @@ export default function ProfileSetup() {
               <div style={{
                 marginTop: '1.25rem',
                 padding: '1.25rem',
-                backgroundColor: '#F0F9FF',
+                backgroundColor: colors.surface,
                 borderRadius: '16px',
-                border: '2px solid #93C5FD',
+                border: `2px solid ${colors.primaryGreen}`,
               }}>
                 <label
                   style={{ display: 'block', color: colors.text, fontWeight: 600, marginBottom: 10, fontSize: '0.95rem', textAlign: 'center' }}
@@ -337,7 +340,7 @@ export default function ProfileSetup() {
                   style={{
                     width: '100%',
                     padding: '0.75rem 1rem',
-                    border: `2px solid ${verifyError ? colors.red : '#d1d5db'}`,
+                    border: `2px solid ${verifyError ? colors.red : colors.gray400}`,
                     borderRadius: '0.75rem',
                     fontSize: '1.1rem',
                     textAlign: 'center',
@@ -347,10 +350,10 @@ export default function ProfileSetup() {
                     fontWeight: 600,
                   }}
                   onFocus={(e) => {
-                    if (!verifyError) e.target.style.borderColor = '#3B82F6';
+                    if (!verifyError) e.target.style.borderColor = colors.primaryGreen;
                   }}
                   onBlur={(e) => {
-                    if (!verifyError) e.target.style.borderColor = '#d1d5db';
+                    if (!verifyError) e.target.style.borderColor = colors.gray400;
                   }}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
@@ -367,23 +370,23 @@ export default function ProfileSetup() {
                 <button
                   type="button"
                   onClick={handleVerify}
-                  disabled={isVerifying || !personalNumberInput.trim()}
+                  disabled={!personalNumberInput.trim()}
                   style={{
                     width: '100%',
                     marginTop: '0.75rem',
                     padding: '0.7rem',
-                    borderRadius: '0.75rem',
-                    fontWeight: 600,
+                    borderRadius: 999,
+                    fontWeight: 700,
                     fontSize: '1rem',
                     border: 'none',
-                    background: isVerifying || !personalNumberInput.trim() ? colors.gray400 : '#3B82F6',
-                    color: colors.white,
-                    cursor: isVerifying || !personalNumberInput.trim() ? 'not-allowed' : 'pointer',
-                    opacity: isVerifying || !personalNumberInput.trim() ? 0.6 : 1,
+                    background: !personalNumberInput.trim() ? colors.gray400 : colors.gold,
+                    color: colors.black,
+                    cursor: !personalNumberInput.trim() ? 'not-allowed' : 'pointer',
+                    opacity: !personalNumberInput.trim() ? 0.6 : 1,
                     transition: 'all 0.2s ease',
                   }}
                 >
-                  {isVerifying ? t('verifying') : t('verify_button')}
+                  {t('verify_button')}
                 </button>
               </div>
             )}
