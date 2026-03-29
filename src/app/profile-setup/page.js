@@ -1,7 +1,7 @@
 'use client';
 import '@/i18n';
-import { useState, Suspense } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { auth, db } from '../../lib/firebase';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { useTranslation } from 'react-i18next';
@@ -16,10 +16,8 @@ import { authedFetch } from '@/lib/authFetch';
 import useAuthRedirect from '@/hooks/useAuthRedirect';
 import colors from '../colors';
 
-function ProfileSetupInner() {
+export default function ProfileSetup() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const nextParam = searchParams.get('next');
   const { isReady } = useAuthRedirect();
   const { t, i18n } = useTranslation('profilesetup');
   const [firstName, setFirstName] = useState('');
@@ -185,10 +183,7 @@ function ProfileSetupInner() {
 
       await setDoc(doc(db, 'users', uid), userData, { merge: true });
 
-      const safeNext = nextParam && nextParam.startsWith('/') && !nextParam.startsWith('//') && !nextParam.startsWith('/admin/')
-        ? nextParam
-        : '/home';
-      router.push(safeNext);
+      router.push('/home');
     } catch (err) {
       console.error('Profile setup error:', err);
       setError(t('save_failed'));
@@ -498,13 +493,5 @@ function ProfileSetupInner() {
       </div>
 
     </main>
-  );
-}
-
-export default function ProfileSetup() {
-  return (
-    <Suspense fallback={null}>
-      <ProfileSetupInner />
-    </Suspense>
   );
 }
