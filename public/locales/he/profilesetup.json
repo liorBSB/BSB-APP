@@ -34,5 +34,12 @@
   "reclaim_submit": "אימות ושחזור",
   "reclaim_cancel": "ביטול",
   "reclaim_failed": "המספר האישי לא תואם. פנה/י לצוות לעזרה.",
-  "clear_selection": "ניקוי בחירה"
+  "clear_selection": "ניקוי בחירה",
+  "verify_identity_prompt": "הכנס/י את המספר האישי שלך לאימות זהות",
+  "verify_button": "אימות",
+  "verify_success": "הזהות אומתה",
+  "verify_failed": "המספר האישי לא תואם. נסה/י שוב או פנה/י לצוות.",
+  "verifying": "מאמת...",
+  "verify_service_error": "שירות האימות לא זמין. נסה/י שוב מאוחר יותר.",
+  "verify_rate_limit": "יותר מדי ניסיונות. המתן/י רגע ונסה/י שוב."
 }

@@ -3,14 +3,13 @@ import '@/i18n';
 import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { auth, db } from '../../lib/firebase';
-import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { useTranslation } from 'react-i18next';
 
 import SoldierNameSearch from '@/components/SoldierNameSearch';
 import HouseLoader from '@/components/HouseLoader';
 import { mapSoldierData } from '@/lib/soldierDataService';
-import { FIELD_MAP, PRIMARY_KEY_APP } from '@/lib/sheetFieldMap';
-import { resetSoldierAccount } from '@/lib/database';
+import { FIELD_MAP } from '@/lib/sheetFieldMap';
 import { resetUserToPreSelection } from '@/lib/database';
 import { fetchStatusFromSheet } from '@/lib/receptionSync';
 import { authedFetch } from '@/lib/authFetch';
@@ -29,12 +28,11 @@ function ProfileSetupInner() {
   const [error, setError] = useState('');
   const [selectedSoldier, setSelectedSoldier] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [showReclaimModal, setShowReclaimModal] = useState(false);
-  const [verifyPersonalNumber, setVerifyPersonalNumber] = useState('');
-  const [claimedDocId, setClaimedDocId] = useState(null);
-  const [reclaimError, setReclaimError] = useState('');
-  const [isReclaiming, setIsReclaiming] = useState(false);
   const [isStartingOver, setIsStartingOver] = useState(false);
+  const [verified, setVerified] = useState(false);
+  const [personalNumberInput, setPersonalNumberInput] = useState('');
+  const [verifyError, setVerifyError] = useState('');
+  const [isVerifying, setIsVerifying] = useState(false);
 
 
   // Handle soldier selection from Google Sheets
@@ -45,64 +43,59 @@ function ProfileSetupInner() {
       setFirstName(mappedData.firstName || '');
       setLastName(mappedData.lastName || '');
       setRoomNumber(mappedData.roomNumber || '');
-      setError('');
-      setClaimedDocId(null);
-      setShowReclaimModal(false);
-      setVerifyPersonalNumber('');
-      setReclaimError('');
     } else {
       setSelectedSoldier(null);
       setFirstName('');
       setLastName('');
       setRoomNumber('');
-      setError('');
-      setClaimedDocId(null);
-      setShowReclaimModal(false);
-      setVerifyPersonalNumber('');
-      setReclaimError('');
     }
+    setError('');
+    setVerified(false);
+    setPersonalNumberInput('');
+    setVerifyError('');
   };
 
 
-  const handleReclaim = async () => {
-    if (!claimedDocId || !verifyPersonalNumber.trim()) return;
+  const handleVerify = async () => {
+    if (!selectedSoldier || !personalNumberInput.trim()) return;
 
-    setIsReclaiming(true);
-    setReclaimError('');
+    setIsVerifying(true);
+    setVerifyError('');
 
     try {
-      const existingDoc = await getDoc(doc(db, 'users', claimedDocId));
-      if (!existingDoc.exists()) {
-        setReclaimError(t('reclaim_failed'));
-        setIsReclaiming(false);
+      const res = await authedFetch('/api/soldiers/verify-identity', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          idNumber: String(selectedSoldier.idNumber ?? '').trim(),
+          personalNumber: personalNumberInput.trim(),
+        }),
+      });
+
+      if (res.status === 429) {
+        setVerifyError(t('verify_rate_limit'));
+        setIsVerifying(false);
         return;
       }
 
-      const existingData = existingDoc.data();
-      if (
-        !existingData.personalNumber ||
-        String(existingData.personalNumber).trim() !== verifyPersonalNumber.trim()
-      ) {
-        setReclaimError(t('reclaim_failed'));
-        setIsReclaiming(false);
+      const data = await res.json();
+      if (!res.ok) {
+        setVerifyError(t('verify_service_error'));
+        setIsVerifying(false);
         return;
       }
 
-      await resetSoldierAccount(claimedDocId);
-
-      setShowReclaimModal(false);
-      setVerifyPersonalNumber('');
-      setClaimedDocId(null);
-      setError('');
-      setReclaimError('');
-
-      const fakeEvent = { preventDefault: () => {} };
-      handleSave(fakeEvent);
+      if (data.verified) {
+        setVerified(true);
+        setVerifyError('');
+      } else {
+        setVerifyError(t('verify_failed'));
+      }
     } catch (err) {
-      console.error('Reclaim error:', err);
-      setReclaimError(t('reclaim_failed'));
+      console.error('Verification error:', err);
+      setVerifyError(t('verify_service_error'));
     } finally {
-      setIsReclaiming(false);
+      setIsVerifying(false);
     }
   };
 
@@ -110,7 +103,6 @@ function ProfileSetupInner() {
     e.preventDefault();
     setIsLoading(true);
     setError('');
-    setClaimedDocId(null);
 
     const currentUser = auth.currentUser;
     const uid = currentUser?.uid;
@@ -122,9 +114,14 @@ function ProfileSetupInner() {
       return;
     }
 
-    // Validate required fields
     if (!selectedSoldier) {
       setError(t('select_name_error'));
+      setIsLoading(false);
+      return;
+    }
+
+    if (!verified) {
+      setError(t('verify_identity_prompt'));
       setIsLoading(false);
       return;
     }
@@ -314,6 +311,98 @@ function ProfileSetupInner() {
                 </div>
               </div>
             )}
+
+            {selectedSoldier && !verified && (
+              <div style={{
+                marginTop: '1.25rem',
+                padding: '1.25rem',
+                backgroundColor: '#F0F9FF',
+                borderRadius: '16px',
+                border: '2px solid #93C5FD',
+              }}>
+                <label
+                  style={{ display: 'block', color: colors.text, fontWeight: 600, marginBottom: 10, fontSize: '0.95rem', textAlign: 'center' }}
+                  dir={isRTL ? 'rtl' : 'ltr'}
+                >
+                  {t('verify_identity_prompt')}
+                </label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  value={personalNumberInput}
+                  onChange={(e) => setPersonalNumberInput(e.target.value.replace(/\D/g, ''))}
+                  placeholder={t('personal_number_placeholder')}
+                  dir="ltr"
+                  style={{
+                    width: '100%',
+                    padding: '0.75rem 1rem',
+                    border: `2px solid ${verifyError ? colors.red : '#d1d5db'}`,
+                    borderRadius: '0.75rem',
+                    fontSize: '1.1rem',
+                    textAlign: 'center',
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                    letterSpacing: '0.1em',
+                    fontWeight: 600,
+                  }}
+                  onFocus={(e) => {
+                    if (!verifyError) e.target.style.borderColor = '#3B82F6';
+                  }}
+                  onBlur={(e) => {
+                    if (!verifyError) e.target.style.borderColor = '#d1d5db';
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleVerify();
+                    }
+                  }}
+                />
+                {verifyError && (
+                  <p style={{ color: colors.red, fontSize: '0.85rem', textAlign: 'center', marginTop: '0.5rem', marginBottom: 0 }}>
+                    {verifyError}
+                  </p>
+                )}
+                <button
+                  type="button"
+                  onClick={handleVerify}
+                  disabled={isVerifying || !personalNumberInput.trim()}
+                  style={{
+                    width: '100%',
+                    marginTop: '0.75rem',
+                    padding: '0.7rem',
+                    borderRadius: '0.75rem',
+                    fontWeight: 600,
+                    fontSize: '1rem',
+                    border: 'none',
+                    background: isVerifying || !personalNumberInput.trim() ? colors.gray400 : '#3B82F6',
+                    color: colors.white,
+                    cursor: isVerifying || !personalNumberInput.trim() ? 'not-allowed' : 'pointer',
+                    opacity: isVerifying || !personalNumberInput.trim() ? 0.6 : 1,
+                    transition: 'all 0.2s ease',
+                  }}
+                >
+                  {isVerifying ? t('verifying') : t('verify_button')}
+                </button>
+              </div>
+            )}
+
+            {verified && (
+              <div style={{
+                marginTop: '1.25rem',
+                padding: '0.75rem 1rem',
+                backgroundColor: '#F0FDF4',
+                borderRadius: '12px',
+                border: `2px solid ${colors.primaryGreen}`,
+                textAlign: 'center',
+                color: colors.primaryGreen,
+                fontWeight: 600,
+                fontSize: '0.95rem',
+              }}>
+                ✓ {t('verify_success')}
+              </div>
+            )}
           </div>
           
           {error && (
@@ -329,60 +418,35 @@ function ProfileSetupInner() {
               }}>
                 {error}
               </div>
-              {claimedDocId && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowReclaimModal(true);
-                    setReclaimError('');
-                    setVerifyPersonalNumber('');
-                  }}
-                  style={{
-                    display: 'block',
-                    width: '100%',
-                    marginTop: '0.75rem',
-                    background: 'none',
-                    border: 'none',
-                    color: '#2563eb',
-                    fontSize: '0.9rem',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    textDecoration: 'underline',
-                    textAlign: 'center'
-                  }}
-                >
-                  {t('lost_access_link')}
-                </button>
-              )}
             </div>
           )}
           
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <button 
               type="submit" 
-              disabled={isLoading || !selectedSoldier}
+              disabled={isLoading || !selectedSoldier || !verified}
               style={{ 
                 width: '100%', 
-                background: isLoading || !selectedSoldier ? colors.gray400 : colors.gold, 
+                background: isLoading || !selectedSoldier || !verified ? colors.gray400 : colors.gold, 
                 color: colors.black, 
                 fontWeight: 700, 
                 fontSize: '1.35rem', 
                 border: 'none', 
                 borderRadius: 999, 
                 padding: '1rem 0', 
-                cursor: isLoading || !selectedSoldier ? 'not-allowed' : 'pointer',
-                opacity: isLoading || !selectedSoldier ? 0.6 : 1,
+                cursor: isLoading || !selectedSoldier || !verified ? 'not-allowed' : 'pointer',
+                opacity: isLoading || !selectedSoldier || !verified ? 0.6 : 1,
                 transition: 'all 0.2s ease',
-                boxShadow: isLoading || !selectedSoldier ? 'none' : '0 2px 8px rgba(0,0,0,0.1)'
+                boxShadow: isLoading || !selectedSoldier || !verified ? 'none' : '0 2px 8px rgba(0,0,0,0.1)'
               }}
               onMouseEnter={(e) => {
-                if (!isLoading && selectedSoldier) {
+                if (!isLoading && selectedSoldier && verified) {
                   e.target.style.transform = 'translateY(-1px)';
                   e.target.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
                 }
               }}
               onMouseLeave={(e) => {
-                if (!isLoading && selectedSoldier) {
+                if (!isLoading && selectedSoldier && verified) {
                   e.target.style.transform = 'translateY(0)';
                   e.target.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)';
                 }
@@ -432,112 +496,6 @@ function ProfileSetupInner() {
         </form>
       </div>
 
-      {showReclaimModal && (
-        <div style={{
-          position: 'fixed',
-          inset: 0,
-          backgroundColor: 'rgba(0,0,0,0.5)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 50,
-          padding: '1rem'
-        }}>
-          <div style={{
-            backgroundColor: 'white',
-            borderRadius: '1.5rem',
-            maxWidth: '24rem',
-            width: '100%',
-            overflow: 'hidden'
-          }}>
-            <div style={{ padding: '1.25rem 1.5rem', background: '#2563eb', color: 'white' }}>
-              <h3 style={{ fontSize: '1.15rem', fontWeight: 700, textAlign: 'center', margin: 0 }}>
-                {t('reclaim_title')}
-              </h3>
-            </div>
-
-            <div style={{ padding: '1.5rem' }}>
-              <p style={{ color: '#4b5563', fontSize: '0.9rem', textAlign: 'center', marginBottom: '1.25rem' }}>
-                {t('reclaim_description')}
-              </p>
-
-              <input
-                type="text"
-                value={verifyPersonalNumber}
-                onChange={(e) => setVerifyPersonalNumber(e.target.value)}
-                placeholder={t('personal_number_placeholder')}
-                dir="ltr"
-                style={{
-                  width: '100%',
-                  padding: '0.75rem 1rem',
-                  border: `2px solid ${reclaimError ? colors.red : '#d1d5db'}`,
-                  borderRadius: '0.75rem',
-                  fontSize: '1rem',
-                  textAlign: 'center',
-                  outline: 'none',
-                  boxSizing: 'border-box',
-                  marginBottom: '0.75rem'
-                }}
-                onFocus={(e) => {
-                  if (!reclaimError) e.target.style.borderColor = '#2563eb';
-                }}
-                onBlur={(e) => {
-                  if (!reclaimError) e.target.style.borderColor = '#d1d5db';
-                }}
-              />
-
-              {reclaimError && (
-                <p style={{ color: colors.red, fontSize: '0.85rem', textAlign: 'center', marginBottom: '0.75rem' }}>
-                  {reclaimError}
-                </p>
-              )}
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.5rem' }}>
-                <button
-                  onClick={handleReclaim}
-                  disabled={isReclaiming || !verifyPersonalNumber.trim()}
-                  style={{
-                    width: '100%',
-                    padding: '0.75rem',
-                    borderRadius: '0.75rem',
-                    fontWeight: 600,
-                    fontSize: '1rem',
-                    border: 'none',
-                    background: isReclaiming || !verifyPersonalNumber.trim() ? '#9ca3af' : '#2563eb',
-                    color: 'white',
-                    cursor: isReclaiming || !verifyPersonalNumber.trim() ? 'not-allowed' : 'pointer',
-                    opacity: isReclaiming || !verifyPersonalNumber.trim() ? 0.6 : 1,
-                    transition: 'all 0.2s ease'
-                  }}
-                >
-                  {isReclaiming ? t('loading') : t('reclaim_submit')}
-                </button>
-                <button
-                  onClick={() => {
-                    setShowReclaimModal(false);
-                    setVerifyPersonalNumber('');
-                    setReclaimError('');
-                  }}
-                  style={{
-                    width: '100%',
-                    padding: '0.75rem',
-                    borderRadius: '0.75rem',
-                    fontWeight: 600,
-                    fontSize: '0.95rem',
-                    border: `2px solid ${colors.primaryGreen}`,
-                    background: 'transparent',
-                    color: colors.primaryGreen,
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease'
-                  }}
-                >
-                  {t('reclaim_cancel')}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </main>
   );
 }

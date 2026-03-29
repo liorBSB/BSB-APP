@@ -37,5 +37,12 @@
   "reclaim_submit": "Verify & Reclaim",
   "reclaim_cancel": "Cancel",
   "reclaim_failed": "Personal number does not match. Contact staff for help.",
-  "clear_selection": "Clear selected resident"
+  "clear_selection": "Clear selected resident",
+  "verify_identity_prompt": "Enter your military personal number to verify your identity",
+  "verify_button": "Verify",
+  "verify_success": "Identity verified",
+  "verify_failed": "Personal number does not match. Please try again or contact staff.",
+  "verifying": "Verifying...",
+  "verify_service_error": "Verification service is unavailable. Please try again later.",
+  "verify_rate_limit": "Too many attempts. Please wait a moment and try again."
 }
