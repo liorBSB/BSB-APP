@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/serverAuth';
-import { searchSoldiersInSheets } from '@/lib/serverSheetsBridge';
+import { searchSoldiersInSheets, fetchAllSoldiersFromSheets } from '@/lib/serverSheetsBridge';
 import { sheetRowToApp, FIELD_MAP } from '@/lib/sheetFieldMap';
 import { takeRateLimit, applyRateLimitHeaders, resolveRateLimitClientId } from '@/lib/rateLimit';
 import {
@@ -55,7 +55,17 @@ export async function POST(request) {
       return applyRateLimitHeaders(NextResponse.json({ soldiers: [] }), limiterResult);
     }
 
-    const matches = await searchSoldiersInSheets(normalized, { requestId });
+    let matches = await searchSoldiersInSheets(normalized, { requestId });
+
+    if (matches.length === 0 && /^\d+$/.test(normalized)) {
+      const allSoldiers = await fetchAllSoldiersFromSheets({ requestId });
+      matches = allSoldiers.filter((row) => {
+        const appData = sheetRowToApp(row);
+        const id = String(appData.idNumber || '').trim();
+        return id.includes(normalized);
+      });
+    }
+
     logSyncStep({
       requestId,
       route: 'soldiers-search',

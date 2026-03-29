@@ -9,6 +9,7 @@ import { createBaseUserDoc } from '@/lib/database';
 import { useAuth } from '@/components/AuthProvider';
 import colors from '../colors';
 import HouseLoader from '@/components/HouseLoader';
+import LanguageSwitcher from '@/components/LanguageSwitcher';
 
 function getSafeNext(next, userType) {
   if (!next || !next.startsWith('/') || next.startsWith('//')) return null;
@@ -100,7 +101,8 @@ function RedirectPageInner() {
 
   if (missingUser) {
     return (
-      <main className="min-h-screen flex items-center justify-center font-body px-4" style={{ background: colors.white }}>
+      <main className="relative min-h-screen flex items-center justify-center font-body px-4" style={{ background: colors.white }}>
+        <LanguageSwitcher variant="corner" />
         <div className="w-full max-w-md mx-auto">
           <div className="text-center mb-8">
             <div className="w-20 h-20 mx-auto rounded-full flex items-center justify-center mb-6" style={{ background: colors.primaryGreen }}>
@@ -153,7 +155,8 @@ function RedirectPageInner() {
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center font-body" style={{ background: colors.white }}>
+    <main className="relative min-h-screen flex items-center justify-center font-body" style={{ background: colors.white }}>
+      <LanguageSwitcher variant="corner" />
       <HouseLoader size={80} text={t('checking_account')} />
     </main>
   );

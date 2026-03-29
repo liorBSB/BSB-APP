@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next';
 
 import SoldierNameSearch from '@/components/SoldierNameSearch';
 import HouseLoader from '@/components/HouseLoader';
+import LanguageSwitcher from '@/components/LanguageSwitcher';
 import { mapSoldierData } from '@/lib/soldierDataService';
 import { FIELD_MAP } from '@/lib/sheetFieldMap';
 import { resetUserToPreSelection } from '@/lib/database';
@@ -206,14 +207,16 @@ export default function ProfileSetup() {
 
   if (isLoading) {
     return (
-      <main className="min-h-screen flex items-center justify-center font-body bg-gradient-to-br from-blue-200/60 to-green-100/60">
+      <main className="relative min-h-screen flex items-center justify-center font-body bg-gradient-to-br from-blue-200/60 to-green-100/60">
+        <LanguageSwitcher variant="corner" />
         <HouseLoader size={100} />
       </main>
     );
   }
 
   if (!isReady) return (
-    <main className="min-h-screen flex items-center justify-center font-body bg-gradient-to-br from-blue-200/60 to-green-100/60">
+    <main className="relative min-h-screen flex items-center justify-center font-body bg-gradient-to-br from-blue-200/60 to-green-100/60">
+      <LanguageSwitcher variant="corner" />
       <HouseLoader size={100} />
     </main>
   );
@@ -221,7 +224,8 @@ export default function ProfileSetup() {
   const isRTL = i18n.language?.startsWith('he');
 
   return (
-    <main className="min-h-screen flex items-center justify-center font-body px-4 pb-8 bg-gradient-to-br from-blue-200/60 to-green-100/60">
+    <main className="relative min-h-screen flex items-center justify-center font-body px-4 pb-8 bg-gradient-to-br from-blue-200/60 to-green-100/60">
+      <LanguageSwitcher variant="corner" />
       <div
         className="w-full max-w-md mx-auto 
           bg-white rounded-2xl shadow-lg p-6 phone-lg:p-8"

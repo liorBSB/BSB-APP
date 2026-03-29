@@ -1,5 +1,4 @@
 'use client';
-import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import '@/i18n';
 import { useTranslation } from 'react-i18next';
@@ -11,8 +10,8 @@ import { Suspense } from 'react';
 
 import useAuthRedirect from '@/hooks/useAuthRedirect';
 import colors from '../../colors';
-import { setLangCookie } from '@/lib/langCookie';
 import HouseLoader from '@/components/HouseLoader';
+import LanguageSwitcher from '@/components/LanguageSwitcher';
 
 function SelectionPageInner() {
   const router = useRouter();
@@ -21,17 +20,6 @@ function SelectionPageInner() {
   const { t, i18n } = useTranslation('register');
   const isRTL = i18n.language?.startsWith('he');
   const { isReady } = useAuthRedirect();
-  const [langPicked, setLangPicked] = useState(false);
-
-  const pickLanguage = (lang) => {
-    setLangPicked(true);
-    if (lang !== i18n.language) {
-      i18n.changeLanguage(lang);
-      if (typeof window !== 'undefined') localStorage.setItem('lang', lang);
-      setLangCookie(lang);
-      document.documentElement.dir = lang === 'he' ? 'rtl' : 'ltr';
-    }
-  };
 
   const appendNext = (base) => {
     if (!nextParam) return base;
@@ -111,54 +99,21 @@ function SelectionPageInner() {
 
   if (!isReady) {
     return (
-      <main className="min-h-screen flex items-center justify-center font-body" style={{ background: colors.white }}>
+      <main className="min-h-screen flex items-center justify-center font-body relative" style={{ background: colors.white }}>
+        <LanguageSwitcher variant="corner" />
         <HouseLoader size={80} text={t('loading')} />
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center font-body px-4 phone-lg:px-0" style={{ background: colors.white }}>
+    <main className="min-h-screen flex items-center justify-center font-body px-4 phone-lg:px-0 relative" style={{ background: colors.white }}>
+      <LanguageSwitcher variant="corner" />
       <div
         className="w-full max-w-xs phone-md:max-w-sm phone-lg:max-w-md mx-auto
           bg-white rounded-[2.5rem] shadow-lg p-[2.25rem_1.25rem]
           phone-lg:p-[3.5rem_2.2rem]"
       >
-        {/* Language picker */}
-        <div className="mb-10">
-          <div
-            className="flex items-center justify-center rounded-full p-2 mx-auto shadow-inner"
-            style={{ backgroundColor: colors.surface, width: 'fit-content', direction: 'ltr' }}
-          >
-            <button
-              onClick={() => pickLanguage('he')}
-              className="flex items-center justify-center w-20 h-16 rounded-full transition-all duration-200"
-              style={{
-                backgroundColor: langPicked && i18n.language === 'he' ? colors.gold : 'transparent',
-                boxShadow: langPicked && i18n.language === 'he' ? '0 2px 6px rgba(0,0,0,0.15)' : 'none',
-              }}
-            >
-              <span className={`text-4xl leading-none transition-all duration-200 ${langPicked && i18n.language === 'he' ? '' : !langPicked ? 'opacity-60' : 'grayscale opacity-40'}`}>🇮🇱</span>
-            </button>
-            <button
-              onClick={() => pickLanguage('en')}
-              className="flex items-center justify-center w-20 h-16 rounded-full transition-all duration-200"
-              style={{
-                backgroundColor: langPicked && i18n.language === 'en' ? colors.gold : 'transparent',
-                boxShadow: langPicked && i18n.language === 'en' ? '0 2px 6px rgba(0,0,0,0.15)' : 'none',
-              }}
-            >
-              <span className={`text-4xl leading-none transition-all duration-200 ${langPicked && i18n.language === 'en' ? '' : !langPicked ? 'opacity-60' : 'grayscale opacity-40'}`}>🇺🇸</span>
-            </button>
-          </div>
-          <p className="text-center text-base font-medium mt-3" style={{ color: colors.muted }}>
-            {t('selection.choose_language')}
-          </p>
-          <p className="text-center text-sm mt-1" style={{ color: colors.gray400 }}>
-            {t('selection.change_later')}
-          </p>
-        </div>
-
         <h2
           style={{ fontWeight: 700, fontSize: '2.5rem', textAlign: 'center', marginBottom: '2.8rem' }}
           dir={isRTL ? 'rtl' : 'ltr'}

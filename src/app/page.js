@@ -8,6 +8,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { signInWithPopup, signInWithRedirect } from 'firebase/auth';
 import { auth, googleProvider } from '../lib/firebase';
 import HouseLoader from '@/components/HouseLoader';
+import LanguageSwitcher from '@/components/LanguageSwitcher';
 import { useAuth } from '@/components/AuthProvider';
 import {
   isStorageAvailable,
@@ -87,6 +88,10 @@ function AuthPageInner() {
           bg-white rounded-[2.5rem] shadow-lg p-[2.25rem_1.25rem]
           phone-lg:p-[3.5rem_2.2rem]"
       >
+        <div className="mb-8">
+          <LanguageSwitcher />
+        </div>
+
         <div style={{ textAlign: 'center', marginBottom: '4rem' }}>
           <img
             src="/House_Logo.jpg"

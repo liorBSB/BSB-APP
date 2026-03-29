@@ -56,6 +56,13 @@ const REIMBURSEMENT_SLUG = {
   "Other": "other",
 };
 
+/** Lets React commit the PDF loading overlay so it paints before heavy work. */
+function waitForNextPaint() {
+  return new Promise((resolve) => {
+    requestAnimationFrame(() => requestAnimationFrame(resolve));
+  });
+}
+
 export default function AdminExpensesPage() {
   const { t } = useTranslation('expenses');
   const router = useRouter();
@@ -163,7 +170,8 @@ export default function AdminExpensesPage() {
     allRefundsOpen ||
     pastRefundsOpen ||
     approveModalOpen ||
-    reportFilterModalOpen;
+    reportFilterModalOpen ||
+    isGeneratingPDF;
 
   // Prevent background scrolling when modals are open
   useEffect(() => {
@@ -743,6 +751,7 @@ export default function AdminExpensesPage() {
 
     setIsGeneratingPDF(true);
     setPdfProgressText(t('pdf_generating'));
+    await waitForNextPaint();
 
     try {
       await generateExpensesPDF(reportItems, {
@@ -2220,6 +2229,7 @@ export default function AdminExpensesPage() {
 
                   setIsGeneratingPDF(true);
                   setPdfProgressText(t('pdf_generating'));
+                  await waitForNextPaint();
 
                   try {
                     let filteredRequests = [...refundRequests];
@@ -2282,7 +2292,13 @@ export default function AdminExpensesPage() {
       )}
 
       {isGeneratingPDF && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+        <div
+          className="fixed inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+          style={{ zIndex: 200 }}
+          role="status"
+          aria-live="polite"
+          aria-busy="true"
+        >
           <div className="bg-white rounded-2xl p-8 shadow-xl flex flex-col items-center gap-2 min-w-[220px]">
             <HouseLoader size={70} text={pdfProgressText || t('pdf_generating')} />
           </div>

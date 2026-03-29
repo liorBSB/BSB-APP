@@ -154,12 +154,18 @@ export const createBaseUserDoc = async (user) => {
   if (!user?.uid) return;
 
   const userRef = doc(db, COLLECTIONS.USERS, user.uid);
-  await setDoc(userRef, {
+  const snap = await getDoc(userRef);
+  const payload = {
     uid: user.uid,
     email: user.email || '',
-    fullName: user.displayName || '',
-    createdAt: Timestamp.now()
-  }, { merge: true });
+    fullName: user.displayName || ''
+  };
+  // Only set createdAt on first write. Owner updates are forbidden from touching
+  // createdAt (firestore.rules); setDoc+merge on an existing doc is an update.
+  if (!snap.exists()) {
+    payload.createdAt = Timestamp.now();
+  }
+  await setDoc(userRef, payload, { merge: true });
 };
 
 /**
