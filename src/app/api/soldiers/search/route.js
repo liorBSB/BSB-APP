@@ -12,11 +12,14 @@ import {
 
 const ALLOWED_SEARCH_FIELDS = FIELD_MAP.map((field) => field.app);
 
+const HIDDEN_FROM_SEARCH = new Set(['personalNumber']);
+
 function toSafeSearchResult(row) {
   const appData = sheetRowToApp(row);
   const idValue = String(appData.idNumber || '').trim();
   const safeData = {};
   for (const fieldName of ALLOWED_SEARCH_FIELDS) {
+    if (HIDDEN_FROM_SEARCH.has(fieldName)) continue;
     if (Object.prototype.hasOwnProperty.call(appData, fieldName)) {
       safeData[fieldName] = appData[fieldName];
     }

@@ -63,8 +63,14 @@ async function registerFonts(doc) {
 function font() { return fontReady ? FONT : FALLBACK; }
 
 // ---------------------------------------------------------------------------
-// RTL helper — if text contains any Hebrew, reverse the entire string.
-// The PDF viewer's RTL detection will reverse it back to correct display.
+// RTL helpers
+//
+// prepareText     — full string reversal for doc.text() calls.  The reader
+//                   scans the whole line R→L so everything reverses back.
+//
+// prepareCellText — word-by-word reversal for autotable cells.  Autotable
+//                   wraps text LTR, so we only flip each Hebrew word's
+//                   characters and keep word order intact.
 // ---------------------------------------------------------------------------
 
 const HEBREW_RE = /[\u0590-\u05FF]/;
@@ -73,6 +79,25 @@ function prepareText(text) {
   if (!text || typeof text !== 'string') return text || '';
   if (!HEBREW_RE.test(text)) return text;
   return [...text].reverse().join('');
+}
+
+function prepareCellText(text) {
+  if (!text || typeof text !== 'string') return text || '';
+  if (!HEBREW_RE.test(text)) return text;
+  return text
+    .split(' ')
+    .map(word => HEBREW_RE.test(word) ? [...word].reverse().join('') : word)
+    .join(' ');
+}
+
+function isRTL() { return i18n.language === 'he'; }
+
+function reverseColumnStyles(styles, colCount) {
+  const reversed = {};
+  for (const [key, value] of Object.entries(styles)) {
+    reversed[colCount - 1 - parseInt(key)] = value;
+  }
+  return reversed;
 }
 
 // ---------------------------------------------------------------------------
@@ -105,6 +130,18 @@ async function loadImageAsBase64(photoUrl, timeoutMs = 10000) {
 }
 
 // ---------------------------------------------------------------------------
+// Date formatting — always dd/mm/yy
+// ---------------------------------------------------------------------------
+
+function fmtDate(d) {
+  if (!d) return '-';
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const year = String(d.getFullYear()).slice(-2);
+  return `${day}/${month}/${year}`;
+}
+
+// ---------------------------------------------------------------------------
 // Layout helpers
 // ---------------------------------------------------------------------------
 
@@ -120,11 +157,11 @@ function addHeader(doc, title, dateInfo) {
   doc.setFont(font(), 'bold');
   doc.text(prepareText(title), PAGE_WIDTH / 2, 22, { align: 'center' });
 
-  const genText = `${t('pdf_generated_on', 'Generated on')}: ${new Date().toLocaleDateString('he-IL')}`;
+  const genText = `${t('pdf_generated_on', 'Generated on')}: ${fmtDate(new Date())}`;
   doc.setFontSize(11);
   doc.setFont(font(), 'normal');
   doc.setTextColor(100);
-  doc.text(genText, PAGE_WIDTH / 2, 30, { align: 'center' });
+  doc.text(prepareText(genText), PAGE_WIDTH / 2, 30, { align: 'center' });
 
   let y = 33;
   if (dateInfo) {
@@ -139,15 +176,19 @@ function addHeader(doc, title, dateInfo) {
 function addSummaryLines(doc, lines, startY) {
   let y = startY + 8;
   const summaryLabel = t('pdf_summary', 'Summary');
+  const rtl = isRTL();
+  const x = rtl ? PAGE_WIDTH - MARGIN : MARGIN;
+  const align = rtl ? { align: 'right' } : {};
+
   doc.setFontSize(14);
   doc.setFont(font(), 'bold');
-  doc.text(prepareText(summaryLabel), MARGIN, y);
+  doc.text(prepareText(summaryLabel), x, y, align);
   y += 7;
 
   doc.setFontSize(11);
   doc.setFont(font(), 'normal');
   for (const line of lines) {
-    doc.text(prepareText(line), MARGIN, y);
+    doc.text(prepareText(line), x, y, align);
     y += 6;
   }
   return y;
@@ -176,24 +217,21 @@ async function addPhotoGallery(doc, items, getAllPhotoUrls, galleryTitle, onProg
   const totalText = `${t('pdf_total_photos', 'Total Photos')}: ${entries.length}`;
   doc.setFontSize(11);
   doc.setFont(font(), 'normal');
-  doc.text(totalText, PAGE_WIDTH / 2, 30, { align: 'center' });
+  doc.text(prepareText(totalText), PAGE_WIDTH / 2, 30, { align: 'center' });
 
-  const photoW = 80;
-  const photoH = 60;
+  const photoW = 120;
+  const photoH = 90;
   const labelH = 8;
-  const gap = 12;
-  const cols = 2;
-  let col = 0;
+  const gap = 10;
   let y = 42;
 
   for (let i = 0; i < entries.length; i++) {
     const { url, originalIndex } = entries[i];
-    const x = MARGIN + col * (photoW + gap);
+    const x = (PAGE_WIDTH - photoW) / 2;
 
     if (y + labelH + photoH > 280) {
       doc.addPage();
       y = 20;
-      col = 0;
     }
 
     doc.setFontSize(10);
@@ -213,11 +251,7 @@ async function addPhotoGallery(doc, items, getAllPhotoUrls, galleryTitle, onProg
 
     if (onProgress) onProgress(i + 1, entries.length);
 
-    col++;
-    if (col >= cols) {
-      col = 0;
-      y += photoH + labelH + gap;
-    }
+    y += photoH + labelH + gap;
   }
 }
 
@@ -301,9 +335,8 @@ function triggerPdfDownload(doc, fileName) {
 function formatDateRange(dateRange, customFrom, customTo) {
   if (!dateRange || dateRange === 'all') return null;
 
-  const locale = 'he-IL';
   if (dateRange === 'custom' && customFrom && customTo) {
-    return `${t('pdf_from', 'From')}: ${new Date(customFrom).toLocaleDateString(locale)}  ${t('pdf_to', 'To')}: ${new Date(customTo).toLocaleDateString(locale)}`;
+    return `${t('pdf_from', 'From')}: ${fmtDate(new Date(customFrom))}  ${t('pdf_to', 'To')}: ${fmtDate(new Date(customTo))}`;
   }
 
   const DAY = 86400000;
@@ -317,7 +350,7 @@ function formatDateRange(dateRange, customFrom, customTo) {
     case 'lastYear':                        start = new Date(now.getTime() - 365 * DAY); break;
     default:          return null;
   }
-  return `${t('pdf_from', 'From')}: ${start.toLocaleDateString(locale)}  ${t('pdf_to', 'To')}: ${now.toLocaleDateString(locale)}`;
+  return `${t('pdf_from', 'From')}: ${fmtDate(start)}  ${t('pdf_to', 'To')}: ${fmtDate(now)}`;
 }
 
 export function getDateRangeLabel(dateRange) {
@@ -349,8 +382,7 @@ export async function generateExpensesPDF(items, options = {}) {
       .filter(Boolean)
       .sort((a, b) => a - b);
     if (dates.length > 0) {
-      const locale = 'he-IL';
-      dateInfo = `${t('pdf_from', 'From')}: ${dates[0].toLocaleDateString(locale)}  ${t('pdf_to', 'To')}: ${dates[dates.length - 1].toLocaleDateString(locale)}`;
+      dateInfo = `${t('pdf_from', 'From')}: ${fmtDate(dates[0])}  ${t('pdf_to', 'To')}: ${fmtDate(dates[dates.length - 1])}`;
     }
   }
   let y = addHeader(doc, t('pdf_expenses_title', 'Expenses Report'), dateInfo);
@@ -358,12 +390,12 @@ export async function generateExpensesPDF(items, options = {}) {
   const totalAmount = items.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
   y = addSummaryLines(doc, [
     `${t('pdf_total_items', 'Total Expenses')}: ${items.length}`,
-    `${t('pdf_total_amount', 'Total Amount')}: ILS ${totalAmount.toFixed(2)}`,
+    `${t('pdf_total_amount', 'Total Amount')}: ${totalAmount.toFixed(2)} ₪`,
   ], y);
 
   //  #   Title  Category Amount Date  Notes  Payment  CreatedBy  Photo
   //  8   26     22       18     20    18     24       20         24    = 180
-  const headers = [
+  let headers = [
     t('pdf_col_row', '#'),
     t('pdf_col_title', 'Title'),
     t('pdf_col_category', 'Category'),
@@ -373,26 +405,46 @@ export async function generateExpensesPDF(items, options = {}) {
     t('pdf_col_payment', 'Payment'),
     t('pdf_col_created_by', 'Created By'),
     t('pdf_col_photo', 'Photo'),
-  ];
+  ].map(prepareCellText);
 
   const getPhotoUrl = (item) => item.photos?.[0]?.url || item.photoUrl || null;
   const getAllPhotoUrls = (item) => {
     if (item.photos?.length > 0) return item.photos.map(p => p.url);
     return item.photoUrl ? [item.photoUrl] : [];
   };
-  const photoColIdx = 8;
+
+  let colStyles = {
+    0: { cellWidth: 8, halign: 'center' },
+    1: { cellWidth: 26 },
+    2: { cellWidth: 22 },
+    3: { cellWidth: 22, halign: 'right' },
+    4: { cellWidth: 20, halign: 'center' },
+    5: { cellWidth: 16 },
+    6: { cellWidth: 22 },
+    7: { cellWidth: 20 },
+    8: { cellWidth: 24, halign: 'center' },
+  };
 
   const body = items.map((expense, i) => [
     (i + 1).toString(),
-    prepareText(expense.title) || '-',
-    prepareText(expense.category) || '-',
+    prepareCellText(expense.title) || '-',
+    prepareCellText(expense.category) || '-',
     `${(parseFloat(expense.amount) || 0).toFixed(0)} ILS`,
-    expense.expenseDate?.toDate?.()?.toLocaleDateString?.() || '-',
-    prepareText(expense.notes) || '-',
-    prepareText(expense.reimbursementMethod) || '-',
-    prepareText(expense.createdByName) || '-',
-    getPhotoUrl(expense) ? t('pdf_link_download', 'Download') : '-',
+    fmtDate(expense.expenseDate?.toDate?.()),
+    prepareCellText(expense.notes) || '-',
+    prepareCellText(expense.reimbursementMethod) || '-',
+    prepareCellText(expense.createdByName) || '-',
+    getPhotoUrl(expense) ? prepareCellText(t('pdf_link_download', 'Download')) : '-',
   ]);
+
+  const rtl = isRTL();
+  let photoColIdx = 8;
+  if (rtl) {
+    headers = headers.reverse();
+    body.forEach(row => row.reverse());
+    colStyles = reverseColumnStyles(colStyles, 9);
+    photoColIdx = 0;
+  }
 
   const hooks = createTableHooks(items, photoColIdx, getPhotoUrl);
 
@@ -409,18 +461,8 @@ export async function generateExpensesPDF(items, options = {}) {
       halign: 'center',
       font: font(),
     },
-    bodyStyles: { fontSize: 10, halign: 'left', font: font() },
-    columnStyles: {
-      0: { cellWidth: 8, halign: 'center' },
-      1: { cellWidth: 26 },
-      2: { cellWidth: 22 },
-      3: { cellWidth: 18, halign: 'right' },
-      4: { cellWidth: 20, halign: 'center' },
-      5: { cellWidth: 18 },
-      6: { cellWidth: 24 },
-      7: { cellWidth: 20 },
-      8: { cellWidth: 24, halign: 'center' },
-    },
+    bodyStyles: { fontSize: 10, halign: rtl ? 'right' : 'left', font: font() },
+    columnStyles: colStyles,
     margin: { top: 20, right: MARGIN, bottom: 20, left: MARGIN },
     styles: { lineWidth: 0.3, lineColor: [200, 200, 200] },
     didParseCell: hooks.didParseCell,
@@ -461,12 +503,12 @@ export async function generateRefundsPDF(items, options = {}) {
     `${t('pdf_approved', 'Approved')}: ${approved}`,
     `${t('pdf_denied', 'Denied')}: ${denied}`,
     `${t('pdf_pending', 'Pending')}: ${pending}`,
-    `${t('pdf_total_amount', 'Total Amount')}: ILS ${totalAmt.toFixed(2)}`,
+    `${t('pdf_total_amount', 'Total Amount')}: ${totalAmt.toFixed(2)} ₪`,
   ], y);
 
   //  #   Title  Amount  Method  Name   Room  Date   Status  Receipt
   //  8   24     18      20      28     12    22     18      30       = 180
-  const headers = [
+  let headers = [
     t('pdf_col_row', '#'),
     t('pdf_col_title', 'Title'),
     t('pdf_col_amount', 'Amount'),
@@ -476,7 +518,7 @@ export async function generateRefundsPDF(items, options = {}) {
     t('pdf_col_date', 'Date'),
     t('pdf_col_status', 'Status'),
     t('pdf_col_receipt', 'Receipt'),
-  ];
+  ].map(prepareCellText);
 
   const getPhotoUrl = (item) => item.photos?.[0]?.url || item.photoUrl || item.receiptPhotoUrl || null;
   const getAllPhotoUrls = (item) => {
@@ -485,7 +527,6 @@ export async function generateRefundsPDF(items, options = {}) {
     if (item.receiptPhotoUrl) return [item.receiptPhotoUrl];
     return [];
   };
-  const photoColIdx = 8;
 
   const statusLabel = (s) => {
     if (s === 'approved') return t('pdf_approved', 'Approved');
@@ -494,24 +535,43 @@ export async function generateRefundsPDF(items, options = {}) {
     return s || '-';
   };
 
+  let colStyles = {
+    0: { cellWidth: 8, halign: 'center' },
+    1: { cellWidth: 24 },
+    2: { cellWidth: 18, halign: 'right' },
+    3: { cellWidth: 20 },
+    4: { cellWidth: 28 },
+    5: { cellWidth: 12, halign: 'center' },
+    6: { cellWidth: 22, halign: 'center' },
+    7: { cellWidth: 18, halign: 'center' },
+    8: { cellWidth: 30, halign: 'center' },
+  };
+
   const body = items.map((req, i) => {
     const room = req.ownerRoomNumber ? req.ownerRoomNumber.replace(/[^0-9]/g, '') : '-';
-    const date = req.expenseDate?.toDate?.()?.toLocaleDateString?.()
-              || req.createdAt?.toDate?.()?.toLocaleDateString?.()
-              || '-';
+    const date = fmtDate(req.expenseDate?.toDate?.() || req.createdAt?.toDate?.());
 
     return [
       (i + 1).toString(),
-      prepareText(req.title) || '-',
+      prepareCellText(req.title) || '-',
       `${parseFloat(req.amount) || 0} ILS`,
-      prepareText(req.repaymentMethod || req.reimbursementMethod) || '-',
-      prepareText(req.ownerName) || '-',
+      prepareCellText(req.repaymentMethod || req.reimbursementMethod) || '-',
+      prepareCellText(req.ownerName) || '-',
       room,
       date,
-      statusLabel(req.status),
-      getPhotoUrl(req) ? t('pdf_link_download', 'Download') : '-',
+      prepareCellText(statusLabel(req.status)),
+      getPhotoUrl(req) ? prepareCellText(t('pdf_link_download', 'Download')) : '-',
     ];
   });
+
+  const rtl = isRTL();
+  let photoColIdx = 8;
+  if (rtl) {
+    headers = headers.reverse();
+    body.forEach(row => row.reverse());
+    colStyles = reverseColumnStyles(colStyles, 9);
+    photoColIdx = 0;
+  }
 
   const hooks = createTableHooks(items, photoColIdx, getPhotoUrl);
 
@@ -528,18 +588,8 @@ export async function generateRefundsPDF(items, options = {}) {
       halign: 'center',
       font: font(),
     },
-    bodyStyles: { fontSize: 10, halign: 'left', font: font() },
-    columnStyles: {
-      0: { cellWidth: 8, halign: 'center' },
-      1: { cellWidth: 24 },
-      2: { cellWidth: 18, halign: 'right' },
-      3: { cellWidth: 20 },
-      4: { cellWidth: 28 },
-      5: { cellWidth: 12, halign: 'center' },
-      6: { cellWidth: 22, halign: 'center' },
-      7: { cellWidth: 18, halign: 'center' },
-      8: { cellWidth: 30, halign: 'center' },
-    },
+    bodyStyles: { fontSize: 10, halign: rtl ? 'right' : 'left', font: font() },
+    columnStyles: colStyles,
     margin: { top: 20, right: MARGIN, bottom: 20, left: MARGIN },
     styles: { lineWidth: 0.3, lineColor: [200, 200, 200] },
     didParseCell: hooks.didParseCell,

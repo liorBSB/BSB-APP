@@ -1572,7 +1572,7 @@ export default function AdminExpensesPage() {
 
       {/* Photo Viewer Modal */}
       {photoViewerOpen && selectedPhoto && (
-        <div className="fixed inset-0 z-[80] bg-black/80 flex items-center justify-center p-2 sm:p-4">
+        <div className="fixed inset-0 z-[140] bg-black/80 flex items-center justify-center p-2 sm:p-4">
           <div className="bg-white rounded-2xl w-full h-full sm:h-auto sm:max-w-4xl sm:max-h-[90vh] flex flex-col">
             <div className="flex items-center justify-between p-3 sm:p-4 border-b">
               <h3 className="text-lg sm:text-xl font-bold text-gray-800">
