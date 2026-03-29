@@ -68,6 +68,7 @@ function ProfileSetupInner() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           idNumber: String(selectedSoldier.idNumber ?? '').trim(),
+          fullName: String(selectedSoldier.fullName ?? '').trim(),
           personalNumber: personalNumberInput.trim(),
         }),
       });

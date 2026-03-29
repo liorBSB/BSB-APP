@@ -27,8 +27,8 @@ export async function POST(request) {
       return applyRateLimitHeaders(limited, limiterResult);
     }
 
-    const { idNumber, personalNumber } = await request.json();
-    if (!idNumber || !personalNumber) {
+    const { idNumber, personalNumber, fullName } = await request.json();
+    if (!personalNumber || !idNumber) {
       return applyRateLimitHeaders(
         NextResponse.json({ error: 'Missing required fields' }, { status: 400 }),
         limiterResult
@@ -36,13 +36,19 @@ export async function POST(request) {
     }
 
     const normalizedId = String(idNumber).trim();
-    const matches = await searchSoldiersInSheets(normalizedId, {
+
+    // Search by name first (the sheets search is optimised for name/text lookup).
+    // Fall back to searching by ID if no name was provided.
+    const searchTerm = fullName ? String(fullName).trim() : normalizedId;
+    const matches = await searchSoldiersInSheets(searchTerm, {
       requestId: `verify-${authResult.uid}`,
     });
 
+    // Always match by idNumber to handle duplicate names.
     const target = matches.find((row) => {
       const appData = sheetRowToApp(row);
-      return String(appData.idNumber ?? '').trim() === normalizedId;
+      const rowId = String(appData.idNumber ?? '').trim();
+      return rowId === normalizedId;
     });
 
     if (!target) {
