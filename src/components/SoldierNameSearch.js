@@ -215,8 +215,6 @@ export default function SoldierNameSearch({
                   {room && (
                     <div className="text-sm text-gray-500 mt-1 text-start">
                       חדר: {room}
-                      {(soldier['בניין'] || soldier.building) && `, בניין: ${soldier['בניין'] || soldier.building}`}
-                      {(soldier['קומה'] || soldier.floor) && `, קומה: ${soldier['קומה'] || soldier.floor}`}
                     </div>
                   )}
                 </div>
